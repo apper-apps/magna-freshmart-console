@@ -230,54 +230,50 @@ const priceChange = getPriceChange();
                 </span>
               </div>
 )}
-          </div>
+</div>
 
-          {/* Financial Metrics */}
-          {(product.profitMargin || product.minSellingPrice || product.purchasePrice) && (
-            <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-6 space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
-                <ApperIcon name="TrendingUp" size={20} className="text-green-600" />
-                <span>Financial Metrics</span>
-              </h3>
+          {/* Product Benefits & Quality */}
+          <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
+              <ApperIcon name="Star" size={20} className="text-green-600" />
+              <span>Why Choose This Product</span>
+            </h3>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Product Benefits */}
+              <div className="bg-white rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <ApperIcon name="Leaf" size={16} className="text-green-600" />
+                  <Badge variant="success">Farm Fresh</Badge>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Sourced directly from local farms, ensuring maximum freshness and nutritional value
+                </p>
+              </div>
               
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {product.profitMargin && (
-                  <div className="bg-white rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold">
-                      <Badge 
-                        variant={
-                          parseFloat(product.profitMargin) > 25 ? "success" : 
-                          parseFloat(product.profitMargin) > 15 ? "warning" : "danger"
-                        }
-                        size="large"
-                      >
-                        {product.profitMargin}%
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-2">Profit Margin</p>
-                  </div>
-                )}
-                
-                {product.minSellingPrice && (
-                  <div className="bg-white rounded-lg p-4 text-center">
-                    <div className="text-xl font-bold text-blue-600">
-                      Rs. {parseFloat(product.minSellingPrice).toLocaleString()}
-                    </div>
-                    <p className="text-sm text-gray-600 mt-2">Min. Selling Price</p>
-                  </div>
-                )}
-                
-                {product.purchasePrice && (
-                  <div className="bg-white rounded-lg p-4 text-center">
-                    <div className="text-xl font-bold text-gray-700">
-                      Rs. {parseFloat(product.purchasePrice).toLocaleString()}
-                    </div>
-                    <p className="text-sm text-gray-600 mt-2">Purchase Cost</p>
-                  </div>
-                )}
+              {/* Usage Suggestions */}
+              <div className="bg-white rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <ApperIcon name="ChefHat" size={16} className="text-blue-600" />
+                  <Badge variant="primary">Perfect for Biryani</Badge>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Ideal texture and aroma for traditional dishes, curries, and festive cooking
+                </p>
+              </div>
+              
+              {/* Quality Badge */}
+              <div className="bg-white rounded-lg p-4">
+                <div className="flex items-center space-x-2 mb-2">
+                  <ApperIcon name="Award" size={16} className="text-purple-600" />
+                  <Badge variant="warning">Premium Quality</Badge>
+                </div>
+                <p className="text-sm text-gray-600">
+                  Carefully selected and quality tested to meet the highest standards
+                </p>
               </div>
             </div>
-          )}
+          </div>
 
           {/* Stock Status */}
           <div className="flex items-center space-x-2">
