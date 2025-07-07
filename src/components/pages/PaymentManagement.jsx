@@ -452,7 +452,7 @@ const [filterMethod, setFilterMethod] = useState('all');
     }
   };
 
-  const handleVerificationAction = async (orderId, action, notes = '') => {
+const handleVerificationAction = async (orderId, action, notes = '') => {
     if (action === 'reject') {
       // Open rejection reason modal
       const verification = pendingVerifications.find(v => v.orderId === orderId);
@@ -467,6 +467,7 @@ const [filterMethod, setFilterMethod] = useState('all');
       
       if (action === 'approve') {
         toast.success('Payment approved successfully');
+        toast.info('Order status updated: Order Placed → Confirmed');
       } else {
         toast.success('Payment rejected and user has been notified');
         // In a real implementation, this would trigger an email/SMS to the user

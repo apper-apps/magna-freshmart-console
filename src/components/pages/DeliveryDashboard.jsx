@@ -54,10 +54,31 @@ const DeliveryDashboard = () => {
     }
   };
 
-  const handleStatusUpdate = async (orderId, status) => {
+const handleStatusUpdate = async (orderId, status) => {
     try {
       const actualDelivery = status === 'delivered' ? new Date().toISOString() : null;
       await orderService.updateDeliveryStatus(orderId, status, actualDelivery);
+      
+      // Update order status to align with delivery status
+      let orderStatus = null;
+      switch (status) {
+        case 'picked_up':
+          orderStatus = 'packed';
+          break;
+        case 'out_for_delivery':
+          orderStatus = 'shipped';
+          break;
+        case 'delivered':
+          orderStatus = 'delivered';
+          break;
+        default:
+          // For assigned and pending_assignment, maintain current order status
+          break;
+      }
+      
+      if (orderStatus) {
+        await orderService.updateOrderStatus(orderId, orderStatus);
+      }
       
       if (status === 'delivered') {
         const order = orders.find(o => o.id === orderId);

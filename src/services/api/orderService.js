@@ -111,13 +111,25 @@ this.orders.splice(index, 1);
     };
     return await this.update(orderId, updatedOrder);
   }
-  async updateDeliveryStatus(orderId, deliveryStatus, actualDelivery = null) {
+async updateDeliveryStatus(orderId, deliveryStatus, actualDelivery = null) {
     await this.delay();
     const order = await this.getById(orderId);
     const updatedOrder = {
       ...order,
       deliveryStatus,
-      ...(actualDelivery && { actualDelivery })
+      ...(actualDelivery && { actualDelivery }),
+      updatedAt: new Date().toISOString()
+    };
+    return await this.update(orderId, updatedOrder);
+  }
+
+  async updateOrderStatus(orderId, orderStatus) {
+    await this.delay();
+    const order = await this.getById(orderId);
+    const updatedOrder = {
+      ...order,
+      status: orderStatus,
+      updatedAt: new Date().toISOString()
     };
     return await this.update(orderId, updatedOrder);
   }
@@ -266,7 +278,7 @@ customerName: order?.deliveryAddress?.name || 'Unknown',
 }));
   }
 
-  async updateVerificationStatus(orderId, status, notes = '') {
+async updateVerificationStatus(orderId, status, notes = '') {
     await this.delay();
     const orderIndex = this.orders.findIndex(o => o.id === parseInt(orderId));
     
@@ -287,14 +299,23 @@ customerName: order?.deliveryAddress?.name || 'Unknown',
       verifiedAt: new Date().toISOString(),
       verifiedBy: 'admin',
       paymentStatus: status === 'verified' ? 'completed' : 'verification_failed',
-      status: status === 'verified' ? 'confirmed' : 'payment_verification_failed',
       updatedAt: new Date().toISOString()
     };
 
-    // If verified, move order to confirmed status for processing
+    // Update order status based on verification result - aligned with delivery tracking
     if (status === 'verified') {
-      updatedOrder.status = 'confirmed';
+      // When payment is verified by admin, set to pending first, then confirmed
+      updatedOrder.status = 'pending'; // Order Placed
       updatedOrder.paymentVerifiedAt = new Date().toISOString();
+      
+      // Immediately update to confirmed status
+      setTimeout(async () => {
+        try {
+          await this.updateOrderStatus(orderId, 'confirmed');
+        } catch (error) {
+          console.error('Failed to update order to confirmed:', error);
+        }
+      }, 100);
     } else {
       updatedOrder.status = 'payment_rejected';
       updatedOrder.paymentRejectedAt = new Date().toISOString();
