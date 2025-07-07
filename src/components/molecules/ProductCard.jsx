@@ -98,13 +98,13 @@ return (
             </span>
           </div>
           
-          {product.previousPrice && product.previousPrice !== product.price && (
+{product.previousPrice && product.previousPrice !== product.price && (
             <span className="text-sm text-gray-500 line-through">
               Rs. {product.previousPrice.toLocaleString()}
             </span>
           )}
-)}
         </div>
+        
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center space-x-1 text-sm text-gray-600">
             <ApperIcon name="Package" size={16} />

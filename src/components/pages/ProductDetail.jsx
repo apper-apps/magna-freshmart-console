@@ -225,12 +225,12 @@ const priceChange = getPriceChange();
                 <span className="text-lg text-gray-500 line-through">
                   Rs. {product.previousPrice.toLocaleString()}
                 </span>
-                <span className={`text-sm font-medium ${priceChange > 0 ? 'text-red-600' : 'text-green-600'}`}>
+<span className={`text-sm font-medium ${priceChange > 0 ? 'text-red-600' : 'text-green-600'}`}>
                   {priceChange > 0 ? 'Price increased' : 'Price decreased'}
                 </span>
               </div>
-)}
-</div>
+            )}
+          </div>
 
           {/* Product Benefits & Quality */}
           <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-6 space-y-4">
