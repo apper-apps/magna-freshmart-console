@@ -1008,9 +1008,8 @@ const [filterMethod, setFilterMethod] = useState('all');
 </div>
                     </div>
 
-                    {verification.paymentProof && (
+{verification.paymentProof && (
                       <div className="mb-4">
-                        <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center justify-between mb-2">
                           <p className="text-sm font-medium text-gray-700">Payment Proof:</p>
                           <div className="flex flex-wrap gap-2">
@@ -1218,10 +1217,9 @@ disabled={processingVerification}
               </Button>
             </div>
           </div>
-        </div>
+</div>
       )}
     </div>
-</div>
   );
 };
 
