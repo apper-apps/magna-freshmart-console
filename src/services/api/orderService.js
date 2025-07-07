@@ -61,10 +61,15 @@ if (orderData.paymentMethod === 'wallet') {
       newOrder.status = 'payment_pending';
     }
     
-    // Handle payment proof submissions
-    if (orderData.paymentProof && orderData.paymentMethod === 'bank') {
+// Handle payment proof submissions
+    if (orderData.paymentProof && (orderData.paymentMethod === 'bank' || orderData.paymentMethod === 'jazzcash' || orderData.paymentMethod === 'easypaisa')) {
       newOrder.verificationStatus = 'pending';
       newOrder.paymentProofSubmittedAt = new Date().toISOString();
+      // Store the complete payment proof data including base64 image
+      newOrder.paymentProof = {
+        ...orderData.paymentProof,
+        storedAt: new Date().toISOString()
+      };
     }
     
     this.orders.push(newOrder);
@@ -253,17 +258,15 @@ async getPendingVerifications() {
         Id: order?.id,
         orderId: order?.id,
         transactionId: order?.transactionId || `TXN${order?.id}${Date.now().toString().slice(-4)}`,
-        amount: order?.total || order?.totalAmount || 0,
-        paymentMethod: order?.paymentMethod || 'unknown',
-        customerName: order?.deliveryAddress?.name || 'Unknown',
-        paymentProof: `/api/uploads/${order?.paymentProof?.fileName || order?.paymentProofFileName || 'default.jpg'}`, // Simulate proof URL
+customerName: order?.deliveryAddress?.name || 'Unknown',
+        paymentProof: order?.paymentProof?.dataUrl || `/api/uploads/${order?.paymentProof?.fileName || order?.paymentProofFileName || 'default.jpg'}`,
         paymentProofFileName: order?.paymentProof?.fileName || order?.paymentProofFileName || 'unknown',
         submittedAt: order?.paymentProof?.uploadedAt || order?.paymentProofSubmittedAt || order?.createdAt,
         verificationStatus: order?.verificationStatus || 'pending'
-      }));
+}));
   }
 
-async updateVerificationStatus(orderId, status, notes = '') {
+  async updateVerificationStatus(orderId, status, notes = '') {
     await this.delay();
     const orderIndex = this.orders.findIndex(o => o.id === parseInt(orderId));
     

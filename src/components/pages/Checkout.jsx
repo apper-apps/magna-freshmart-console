@@ -189,7 +189,7 @@ function handleFileUpload(e) {
     })
   }
 
-  async function completeOrder(paymentResult) {
+async function completeOrder(paymentResult) {
     try {
       let paymentProofData = null
       
@@ -255,11 +255,12 @@ function handleFileUpload(e) {
         total: validatedTotal,
         paymentMethod,
         paymentResult,
-        paymentStatus: paymentMethod === 'cash' ? 'pending' : 'pending_verification',
+paymentStatus: paymentMethod === 'cash' ? 'pending' : 'pending_verification',
         paymentProof: paymentProofData ? {
           fileName: paymentProof?.name || null,
           fileSize: paymentProof?.size || 0,
-          uploadedAt: new Date().toISOString()
+          uploadedAt: new Date().toISOString(),
+          dataUrl: paymentProofData
         } : null,
         transactionId: transactionId || paymentResult?.transactionId || null,
         deliveryAddress: {

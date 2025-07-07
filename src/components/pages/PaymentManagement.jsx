@@ -953,14 +953,20 @@ const getFilteredTransactions = () => {
                           <div className="flex space-x-2">
                             <button
                               onClick={() => {
-                                // Download the payment proof image
-                                const link = document.createElement('a');
-                                link.href = verification.paymentProof;
-                                link.download = `payment_proof_order_${verification.orderId}_${verification.paymentProofFileName || 'image.jpg'}`;
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
-                                toast.success('Payment proof downloaded successfully');
+                                // Download the payment proof image (base64 or URL)
+                                if (verification.paymentProof.startsWith('data:')) {
+                                  // For base64 images, create a download link
+                                  const link = document.createElement('a');
+                                  link.href = verification.paymentProof;
+                                  link.download = `payment_proof_order_${verification.orderId}_${verification.paymentProofFileName || 'image.jpg'}`;
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
+                                } else {
+                                  // For URL images, open in new tab for download
+                                  window.open(verification.paymentProof, '_blank');
+                                }
+                                toast.success('Payment proof download initiated');
                               }}
                               className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors flex items-center space-x-1"
                               title="Download payment proof"
@@ -969,11 +975,32 @@ const getFilteredTransactions = () => {
                               <span className="text-xs">Download</span>
                             </button>
                             <button
-                              onClick={() => window.open(verification.paymentProof, '_blank')}
+                              onClick={() => {
+                                // Create modal to view full-size image
+                                const modal = document.createElement('div');
+                                modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
+                                modal.innerHTML = `
+                                  <div class="relative max-w-4xl max-h-full">
+                                    <img src="${verification.paymentProof}" alt="Payment proof" class="max-w-full max-h-full object-contain rounded-lg" />
+                                    <button class="absolute top-2 right-2 bg-white text-black rounded-full p-2 hover:bg-gray-100">
+                                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                      </svg>
+                                    </button>
+                                  </div>
+                                `;
+                                modal.onclick = (e) => {
+                                  if (e.target === modal || e.target.tagName === 'BUTTON' || e.target.tagName === 'svg' || e.target.tagName === 'line') {
+                                    document.body.removeChild(modal);
+                                  }
+                                };
+                                document.body.appendChild(modal);
+                              }}
                               className="bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-lg transition-colors"
-                              title="View in new tab"
+                              title="View full size"
                             >
-                              <ApperIcon name="ExternalLink" size={14} />
+                              <ApperIcon name="Maximize2" size={14} />
                             </button>
                           </div>
                         </div>
@@ -981,9 +1008,31 @@ const getFilteredTransactions = () => {
                           <img
                             src={verification.paymentProof}
                             alt="Payment proof"
-                            className="w-full h-48 object-cover rounded-lg border border-gray-200"
+                            className="w-full h-48 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
                             onError={(e) => {
                               e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDQwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNTAgODBMMjUwIDEyMEwxNTAgODBaIiBzdHJva2U9IiM5Q0EzQUYiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIvPgo8Y2lyY2xlIGN4PSIyMDAiIGN5PSI2MCIgcj0iMTAiIGZpbGw9IiM5Q0EzQUYiLz4KPHR4dCB4PSIyMDAiIHk9IjEwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjNkI3MjgwIj5QYXltZW50IFByb29mIE5vdCBBdmFpbGFibGU8L3R4dD4KPHR4dCB4PSIyMDAiIHk9IjEyMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOUM5M0FGIj5JbWFnZSBjb3VsZCBub3QgYmUgbG9hZGVkPC90eHQ+Cjwvc3ZnPgo=';
+                            }}
+                            onClick={() => {
+                              // Click to view full-size image
+                              const modal = document.createElement('div');
+                              modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
+                              modal.innerHTML = `
+                                <div class="relative max-w-4xl max-h-full">
+                                  <img src="${verification.paymentProof}" alt="Payment proof" class="max-w-full max-h-full object-contain rounded-lg" />
+                                  <button class="absolute top-2 right-2 bg-white text-black rounded-full p-2 hover:bg-gray-100">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                                    </svg>
+                                  </button>
+                                </div>
+                              `;
+                              modal.onclick = (e) => {
+                                if (e.target === modal || e.target.tagName === 'BUTTON' || e.target.tagName === 'svg' || e.target.tagName === 'line') {
+                                  document.body.removeChild(modal);
+                                }
+                              };
+                              document.body.appendChild(modal);
                             }}
                           />
                         </div>
