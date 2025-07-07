@@ -348,8 +348,8 @@ const [stats, setStats] = useState({
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filterMethod, setFilterMethod] = useState('all');
-const [selectedTransactionId, setSelectedTransactionId] = useState(null);
+const [filterMethod, setFilterMethod] = useState('all');
+  const [selectedTransactionId, setSelectedTransactionId] = useState(null);
   const [refundAmount, setRefundAmount] = useState('');
   const [refundReason, setRefundReason] = useState('');
   const [processingRefund, setProcessingRefund] = useState(false);
@@ -358,8 +358,6 @@ const [selectedTransactionId, setSelectedTransactionId] = useState(null);
   const [showRejectionModal, setShowRejectionModal] = useState(false);
   const [selectedVerification, setSelectedVerification] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
-
-const [rejectionReason, setRejectionReason] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [pendingVerifications, setPendingVerifications] = useState([]);
   const [processingVerification, setProcessingVerification] = useState(false);
@@ -447,22 +445,21 @@ const [rejectionReason, setRejectionReason] = useState('');
       setRefundReason('');
       setSelectedTransactionId(null);
       loadPaymentData();
-    } catch (error) {
+} catch (error) {
       toast.error(error.message || 'Failed to process refund');
     } finally {
-} finally {
       setProcessingRefund(false);
     }
   };
 
   const handleVerificationAction = async (orderId, action, notes = '') => {
+    if (action === 'reject') {
       // Open rejection reason modal
       const verification = pendingVerifications.find(v => v.orderId === orderId);
       setSelectedVerification(verification);
       setShowRejectionModal(true);
       return;
     }
-
     setProcessingVerification(true);
     try {
       const status = action === 'approve' ? 'verified' : 'rejected';
@@ -522,12 +519,10 @@ const [rejectionReason, setRejectionReason] = useState('');
       link.click();
       document.body.removeChild(link);
     } else {
-      // For URL images
+// For URL images
       window.open(imageUrl, '_blank');
     }
     toast.success('Payment proof download initiated');
-  };
-toast.success('Payment proof download initiated');
   };
 
   const handleWalletAction = async (action, amount) => {
@@ -555,9 +550,6 @@ toast.success('Payment proof download initiated');
       toast.error(error.message || 'Wallet operation failed');
     }
   };
-}
-  };
-
   const getFilteredTransactions = () => {
     return transactions.filter(transaction => {
       const matchesSearch = transaction.transactionId.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1080,10 +1072,10 @@ disabled={processingVerification}
                         <ApperIcon name="X" size={16} className="mr-2" />
                         Reject Payment
                       </Button>
-                    </div>
+</div>
                   </div>
                 ))}
-</div>
+              </div>
             )}
           </div>
         )}
