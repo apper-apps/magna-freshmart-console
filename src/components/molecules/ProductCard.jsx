@@ -103,30 +103,8 @@ return (
               Rs. {product.previousPrice.toLocaleString()}
             </span>
           )}
+)}
         </div>
-
-        {/* Financial Metrics Row */}
-        {(product.profitMargin || product.minSellingPrice) && (
-          <div className="flex items-center justify-between text-xs">
-            {product.profitMargin && (
-              <Badge 
-                variant={
-                  parseFloat(product.profitMargin) > 25 ? "success" : 
-                  parseFloat(product.profitMargin) > 15 ? "warning" : "danger"
-                }
-                size="small"
-              >
-                {product.profitMargin}% profit
-              </Badge>
-            )}
-            {product.minSellingPrice && (
-              <span className="text-gray-500">
-                Min: Rs. {parseFloat(product.minSellingPrice).toLocaleString()}
-              </span>
-            )}
-          </div>
-        )}
-
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center space-x-1 text-sm text-gray-600">
             <ApperIcon name="Package" size={16} />

@@ -7,17 +7,34 @@ class ProductService {
     this.products = [...productsData];
   }
 
-  async getAll() {
+async getAll(userRole = 'customer') {
     await this.delay();
-    return [...this.products];
+    const products = [...this.products];
+    
+    // Filter financial data for non-admin users
+    if (userRole !== 'admin') {
+      return products.map(product => {
+        const { purchasePrice, minSellingPrice, profitMargin, ...filteredProduct } = product;
+        return filteredProduct;
+      });
+    }
+    
+    return products;
   }
 
-  async getById(id) {
+async getById(id, userRole = 'customer') {
     await this.delay();
     const product = this.products.find(p => p.id === id);
     if (!product) {
       throw new Error('Product not found');
     }
+    
+    // Filter financial data for non-admin users
+    if (userRole !== 'admin') {
+      const { purchasePrice, minSellingPrice, profitMargin, ...filteredProduct } = product;
+      return filteredProduct;
+    }
+    
     return { ...product };
   }
 
