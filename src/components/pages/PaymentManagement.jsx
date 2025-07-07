@@ -946,21 +946,46 @@ const getFilteredTransactions = () => {
                       </div>
                     </div>
 
-                    {verification.paymentProof && (
+{verification.paymentProof && (
                       <div className="mb-4">
-                        <p className="text-sm font-medium text-gray-700 mb-2">Payment Proof:</p>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-sm font-medium text-gray-700">Payment Proof:</p>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => {
+                                // Download the payment proof image
+                                const link = document.createElement('a');
+                                link.href = verification.paymentProof;
+                                link.download = `payment_proof_order_${verification.orderId}_${verification.paymentProofFileName || 'image.jpg'}`;
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                                toast.success('Payment proof downloaded successfully');
+                              }}
+                              className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors flex items-center space-x-1"
+                              title="Download payment proof"
+                            >
+                              <ApperIcon name="Download" size={14} />
+                              <span className="text-xs">Download</span>
+                            </button>
+                            <button
+                              onClick={() => window.open(verification.paymentProof, '_blank')}
+                              className="bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-lg transition-colors"
+                              title="View in new tab"
+                            >
+                              <ApperIcon name="ExternalLink" size={14} />
+                            </button>
+                          </div>
+                        </div>
                         <div className="relative">
                           <img
                             src={verification.paymentProof}
                             alt="Payment proof"
                             className="w-full h-48 object-cover rounded-lg border border-gray-200"
+                            onError={(e) => {
+                              e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDQwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNTAgODBMMjUwIDEyMEwxNTAgODBaIiBzdHJva2U9IiM5Q0EzQUYiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIvPgo8Y2lyY2xlIGN4PSIyMDAiIGN5PSI2MCIgcj0iMTAiIGZpbGw9IiM5Q0EzQUYiLz4KPHR4dCB4PSIyMDAiIHk9IjEwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjNkI3MjgwIj5QYXltZW50IFByb29mIE5vdCBBdmFpbGFibGU8L3R4dD4KPHR4dCB4PSIyMDAiIHk9IjEyMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOUM5M0FGIj5JbWFnZSBjb3VsZCBub3QgYmUgbG9hZGVkPC90eHQ+Cjwvc3ZnPgo=';
+                            }}
                           />
-                          <button
-                            onClick={() => window.open(verification.paymentProof, '_blank')}
-                            className="absolute top-2 right-2 bg-white/80 hover:bg-white p-2 rounded-lg transition-colors"
-                          >
-                            <ApperIcon name="ExternalLink" size={16} />
-                          </button>
                         </div>
                       </div>
                     )}

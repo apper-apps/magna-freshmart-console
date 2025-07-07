@@ -92,9 +92,9 @@ const Orders = () => {
                     </p>
                   )}
                 </div>
+</div>
               </div>
-              </div>
-<div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-4">
                   <OrderStatusBadge status={order.status} />
                   {(order.paymentMethod === 'jazzcash' || order.paymentMethod === 'easypaisa' || order.paymentMethod === 'bank') && (
                     <div className="flex items-center space-x-1">
@@ -118,7 +118,7 @@ const Orders = () => {
                       )}
                     </div>
                   )}
-<div className="text-right">
+                  <div className="text-right">
                   <p className="text-xl font-bold gradient-text">
                     Rs. {(() => {
                       // Calculate subtotal if order total is missing or zero
@@ -138,6 +138,85 @@ const Orders = () => {
                 </div>
               </div>
               </div>
+
+            {/* Payment Proof Display */}
+            {order.paymentProof && (order.paymentMethod === 'jazzcash' || order.paymentMethod === 'easypaisa' || order.paymentMethod === 'bank') && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <ApperIcon name="FileImage" size={16} className="text-blue-600" />
+                      <h4 className="text-sm font-medium text-blue-900">Payment Proof Uploaded</h4>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-blue-700">File Name:</span>
+                          <span className="font-medium text-blue-900">
+                            {order.paymentProof.fileName || 'payment_proof.jpg'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-blue-700">Upload Date:</span>
+                          <span className="font-medium text-blue-900">
+                            {format(new Date(order.paymentProof.uploadedAt || order.createdAt), 'MMM dd, yyyy')}
+                          </span>
+                        </div>
+                        {order.paymentProof.fileSize && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-blue-700">File Size:</span>
+                            <span className="font-medium text-blue-900">
+                              {(order.paymentProof.fileSize / 1024 / 1024).toFixed(2)} MB
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="flex justify-center">
+                        <div className="relative group">
+                          <img
+                            src="/api/placeholder/150/100"
+                            alt="Payment proof"
+                            className="w-32 h-20 object-cover rounded-lg border border-blue-200 cursor-pointer transition-transform group-hover:scale-105"
+                            onError={(e) => {
+                              e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDE1MCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxNTAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik02MCA0MEw5MCA3MEw2MCA0MFoiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+CjxjaXJjbGUgY3g9IjcwIiBjeT0iMzAiIHI9IjUiIGZpbGw9IiM5Q0EzQUYiLz4KPHRleHQgeD0iNzUiIHk9IjUwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiM2QjcyODAiPlBheW1lbnQgUHJvb2Y8L3RleHQ+Cjwvc3ZnPgo=';
+                            }}
+                            onClick={() => {
+                              // If the image has a data URL (base64), show it in a modal
+                              if (order.paymentProof.dataUrl) {
+                                const modal = document.createElement('div');
+                                modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
+                                modal.innerHTML = `
+                                  <div class="relative max-w-4xl max-h-full">
+                                    <img src="${order.paymentProof.dataUrl}" alt="Payment proof" class="max-w-full max-h-full object-contain rounded-lg" />
+                                    <button class="absolute top-2 right-2 bg-white text-black rounded-full p-2 hover:bg-gray-100">
+                                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                      </svg>
+                                    </button>
+                                  </div>
+                                `;
+                                modal.onclick = (e) => {
+                                  if (e.target === modal || e.target.tagName === 'BUTTON' || e.target.tagName === 'svg' || e.target.tagName === 'line') {
+                                    document.body.removeChild(modal);
+                                  }
+                                };
+                                document.body.appendChild(modal);
+                              }
+                            }}
+                          />
+                          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 flex items-center justify-center rounded-lg transition-all">
+                            <ApperIcon name="Eye" size={16} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Order Items Preview */}
             <div className="bg-gray-50 rounded-lg p-4 mb-4">
