@@ -337,7 +337,7 @@ const PaymentManagement = () => {
   const [transactions, setTransactions] = useState([]);
   const [walletTransactions, setWalletTransactions] = useState([]);
   const [paymentMethods, setPaymentMethods] = useState([]);
-  const [stats, setStats] = useState({
+const [stats, setStats] = useState({
     totalTransactions: 0,
     successfulTransactions: 0,
     failedTransactions: 0,
@@ -462,21 +462,22 @@ const PaymentManagement = () => {
     }
   };
 
-  const handleWalletAction = async (action, amount) => {
+const handleWalletAction = async (action, amount) => {
     try {
       let result;
+      const safeAmount = amount ?? 0;
       switch (action) {
         case 'deposit':
-          result = await paymentService.depositToWallet(amount);
-          toast.success(`Deposited Rs. ${amount.toLocaleString()} to wallet`);
+          result = await paymentService.depositToWallet(safeAmount);
+          toast.success(`Deposited Rs. ${safeAmount.toLocaleString()} to wallet`);
           break;
         case 'withdraw':
-          result = await paymentService.withdrawFromWallet(amount);
-          toast.success(`Withdrew Rs. ${amount.toLocaleString()} from wallet`);
+          result = await paymentService.withdrawFromWallet(safeAmount);
+          toast.success(`Withdrew Rs. ${safeAmount.toLocaleString()} from wallet`);
           break;
         case 'transfer':
-          result = await paymentService.transferFromWallet(amount);
-          toast.success(`Transferred Rs. ${amount.toLocaleString()} from wallet`);
+          result = await paymentService.transferFromWallet(safeAmount);
+          toast.success(`Transferred Rs. ${safeAmount.toLocaleString()} from wallet`);
           break;
         default:
           break;
@@ -525,10 +526,10 @@ const getFilteredTransactions = () => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <div className="card p-6 bg-gradient-to-r from-green-500 to-emerald-500 text-white">
-          <div className="flex items-center justify-between">
+<div className="flex items-center justify-between">
             <div>
               <p className="text-green-100 text-sm font-medium">Total Revenue</p>
-              <p className="text-3xl font-bold">Rs. {stats.totalRevenue.toLocaleString()}</p>
+              <p className="text-3xl font-bold">Rs. {(stats?.totalRevenue ?? 0).toLocaleString()}</p>
             </div>
             <div className="bg-white/20 p-3 rounded-lg">
               <ApperIcon name="DollarSign" size={24} />
@@ -549,10 +550,10 @@ const getFilteredTransactions = () => {
         </div>
 
 <div className="card p-6 bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-          <div className="flex items-center justify-between">
+<div className="flex items-center justify-between">
             <div>
               <p className="text-purple-100 text-sm font-medium">Wallet Balance</p>
-              <p className="text-3xl font-bold">Rs. {stats.walletBalance.toLocaleString()}</p>
+              <p className="text-3xl font-bold">Rs. {(stats?.walletBalance ?? 0).toLocaleString()}</p>
             </div>
             <div className="bg-white/20 p-3 rounded-lg">
               <ApperIcon name="Wallet" size={24} />
@@ -707,10 +708,10 @@ const getFilteredTransactions = () => {
                 </thead>
                 <tbody>
                   {getFilteredTransactions().map((transaction) => (
-                    <tr key={transaction.Id} className="border-b border-gray-100 hover:bg-gray-50">
+<tr key={transaction.Id} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-3 px-4 font-mono text-sm">{transaction.transactionId}</td>
                       <td className="py-3 px-4">#{transaction.orderId}</td>
-                      <td className="py-3 px-4 font-medium">Rs. {transaction.amount.toLocaleString()}</td>
+                      <td className="py-3 px-4 font-medium">Rs. {(transaction?.amount ?? 0).toLocaleString()}</td>
                       <td className="py-3 px-4 capitalize">{transaction.paymentMethod}</td>
                       <td className="py-3 px-4">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -736,12 +737,12 @@ const getFilteredTransactions = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="card p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Wallet Management</h3>
-              <div className="space-y-4">
+<div className="space-y-4">
                 <div className="p-4 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-lg">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-teal-100 text-sm">Current Balance</p>
-                      <p className="text-2xl font-bold">Rs. {stats.walletBalance.toLocaleString()}</p>
+                      <p className="text-2xl font-bold">Rs. {(stats?.walletBalance ?? 0).toLocaleString()}</p>
                     </div>
                     <ApperIcon name="Wallet" size={32} />
                   </div>
@@ -792,11 +793,11 @@ const getFilteredTransactions = () => {
                         </p>
                       </div>
                     </div>
-                    <p className={`font-medium ${
+<p className={`font-medium ${
                       transaction.type === 'deposit' ? 'text-green-600' : 
                       transaction.type === 'withdraw' ? 'text-red-600' : 'text-blue-600'
                     }`}>
-                      {transaction.type === 'deposit' ? '+' : '-'}Rs. {transaction.amount.toLocaleString()}
+                      {transaction.type === 'deposit' ? '+' : '-'}Rs. {(transaction?.amount ?? 0).toLocaleString()}
                     </p>
                   </div>
                 ))}
@@ -932,9 +933,9 @@ const getFilteredTransactions = () => {
                     </div>
 
                     <div className="space-y-3 mb-4">
-                      <div className="flex justify-between">
+<div className="flex justify-between">
                         <span className="text-sm text-gray-600">Amount:</span>
-                        <span className="font-medium">Rs. {verification.amount.toLocaleString()}</span>
+                        <span className="font-medium">Rs. {(verification?.amount ?? 0).toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600">Payment Method:</span>
