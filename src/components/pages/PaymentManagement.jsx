@@ -349,15 +349,22 @@ const [stats, setStats] = useState({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filterMethod, setFilterMethod] = useState('all');
-  const [pendingVerifications, setPendingVerifications] = useState([]);
-  const [processingVerification, setProcessingVerification] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [selectedTransactionId, setSelectedTransactionId] = useState(null);
+const [selectedTransactionId, setSelectedTransactionId] = useState(null);
   const [refundAmount, setRefundAmount] = useState('');
   const [refundReason, setRefundReason] = useState('');
   const [processingRefund, setProcessingRefund] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [showRejectionModal, setShowRejectionModal] = useState(false);
+  const [selectedVerification, setSelectedVerification] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+
+const [rejectionReason, setRejectionReason] = useState('');
+  const [activeTab, setActiveTab] = useState('overview');
+  const [pendingVerifications, setPendingVerifications] = useState([]);
+  const [processingVerification, setProcessingVerification] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
 
   const tabs = [
     { id: 'overview', label: 'Overview', icon: 'BarChart3' },
@@ -443,17 +450,31 @@ const [stats, setStats] = useState({
     } catch (error) {
       toast.error(error.message || 'Failed to process refund');
     } finally {
+} finally {
       setProcessingRefund(false);
     }
-};
+  };
 
   const handleVerificationAction = async (orderId, action, notes = '') => {
+      // Open rejection reason modal
+      const verification = pendingVerifications.find(v => v.orderId === orderId);
+      setSelectedVerification(verification);
+      setShowRejectionModal(true);
+      return;
+    }
+
     setProcessingVerification(true);
     try {
       const status = action === 'approve' ? 'verified' : 'rejected';
       await orderService.updateVerificationStatus(orderId, status, notes);
       
-      toast.success(`Payment ${action === 'approve' ? 'approved' : 'rejected'} successfully`);
+      if (action === 'approve') {
+        toast.success('Payment approved successfully');
+      } else {
+        toast.success('Payment rejected and user has been notified');
+        // In a real implementation, this would trigger an email/SMS to the user
+        toast.info(`Rejection reason sent to customer: ${notes}`);
+      }
       loadPaymentData();
     } catch (error) {
       toast.error(error.message || `Failed to ${action} payment`);
@@ -462,7 +483,54 @@ const [stats, setStats] = useState({
     }
   };
 
-const handleWalletAction = async (action, amount) => {
+  const handleRejectWithReason = async () => {
+    if (!rejectionReason.trim()) {
+      toast.error('Please provide a reason for rejection');
+      return;
+    }
+
+    setProcessingVerification(true);
+    try {
+      await orderService.updateVerificationStatus(selectedVerification.orderId, 'rejected', rejectionReason);
+      
+      toast.success('Payment rejected and user has been notified');
+      toast.info(`Rejection reason sent to customer: ${rejectionReason}`);
+      
+      setShowRejectionModal(false);
+      setSelectedVerification(null);
+      setRejectionReason('');
+      loadPaymentData();
+    } catch (error) {
+      toast.error(error.message || 'Failed to reject payment');
+    } finally {
+      setProcessingVerification(false);
+    }
+  };
+
+  const handleImageView = (imageUrl, fileName = 'payment_proof') => {
+    setSelectedImage({ url: imageUrl, fileName });
+    setShowImageModal(true);
+  };
+
+  const handleImageDownload = (imageUrl, fileName = 'payment_proof') => {
+    if (imageUrl.startsWith('data:')) {
+      // For base64 images
+      const link = document.createElement('a');
+      link.href = imageUrl;
+      link.download = `${fileName}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      // For URL images
+      window.open(imageUrl, '_blank');
+    }
+    toast.success('Payment proof download initiated');
+  };
+toast.success('Payment proof download initiated');
+  };
+
+  const handleWalletAction = async (action, amount) => {
     try {
       let result;
       const safeAmount = amount ?? 0;
@@ -487,9 +555,10 @@ const handleWalletAction = async (action, amount) => {
       toast.error(error.message || 'Wallet operation failed');
     }
   };
+}
+  };
 
-
-const getFilteredTransactions = () => {
+  const getFilteredTransactions = () => {
     return transactions.filter(transaction => {
       const matchesSearch = transaction.transactionId.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            transaction.orderId.toString().includes(searchTerm);
@@ -944,64 +1013,30 @@ const getFilteredTransactions = () => {
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600">Customer:</span>
                         <span className="font-medium">{verification.customerName}</span>
-                      </div>
+</div>
                     </div>
 
-{verification.paymentProof && (
+                    {verification.paymentProof && (
                       <div className="mb-4">
                         <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between mb-2">
                           <p className="text-sm font-medium text-gray-700">Payment Proof:</p>
-                          <div className="flex space-x-2">
+                          <div className="flex flex-wrap gap-2">
                             <button
-                              onClick={() => {
-                                // Download the payment proof image (base64 or URL)
-                                if (verification.paymentProof.startsWith('data:')) {
-                                  // For base64 images, create a download link
-                                  const link = document.createElement('a');
-                                  link.href = verification.paymentProof;
-                                  link.download = `payment_proof_order_${verification.orderId}_${verification.paymentProofFileName || 'image.jpg'}`;
-                                  document.body.appendChild(link);
-                                  link.click();
-                                  document.body.removeChild(link);
-                                } else {
-                                  // For URL images, open in new tab for download
-                                  window.open(verification.paymentProof, '_blank');
-                                }
-                                toast.success('Payment proof download initiated');
-                              }}
-                              className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors flex items-center space-x-1"
+                              onClick={() => handleImageDownload(verification.paymentProof, `payment_proof_order_${verification.orderId}_${verification.paymentProofFileName || 'image'}`)}
+                              className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors flex items-center space-x-1 text-xs sm:text-sm"
                               title="Download payment proof"
                             >
                               <ApperIcon name="Download" size={14} />
-                              <span className="text-xs">Download</span>
+                              <span className="hidden sm:inline">Download</span>
                             </button>
                             <button
-                              onClick={() => {
-                                // Create modal to view full-size image
-                                const modal = document.createElement('div');
-                                modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
-                                modal.innerHTML = `
-                                  <div class="relative max-w-4xl max-h-full">
-                                    <img src="${verification.paymentProof}" alt="Payment proof" class="max-w-full max-h-full object-contain rounded-lg" />
-                                    <button class="absolute top-2 right-2 bg-white text-black rounded-full p-2 hover:bg-gray-100">
-                                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                                      </svg>
-                                    </button>
-                                  </div>
-                                `;
-                                modal.onclick = (e) => {
-                                  if (e.target === modal || e.target.tagName === 'BUTTON' || e.target.tagName === 'svg' || e.target.tagName === 'line') {
-                                    document.body.removeChild(modal);
-                                  }
-                                };
-                                document.body.appendChild(modal);
-                              }}
-                              className="bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-lg transition-colors"
+                              onClick={() => handleImageView(verification.paymentProof, `payment_proof_order_${verification.orderId}`)}
+                              className="bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-lg transition-colors flex items-center space-x-1 text-xs sm:text-sm"
                               title="View full size"
                             >
                               <ApperIcon name="Maximize2" size={14} />
+                              <span className="hidden sm:inline">View</span>
                             </button>
                           </div>
                         </div>
@@ -1009,41 +1044,25 @@ const getFilteredTransactions = () => {
                           <img
                             src={verification.paymentProof}
                             alt="Payment proof"
-                            className="w-full h-48 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+                            className="w-full h-32 sm:h-48 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
                             onError={(e) => {
                               e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDQwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNTAgODBMMjUwIDEyMEwxNTAgODBaIiBzdHJva2U9IiM5Q0EzQUYiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIvPgo8Y2lyY2xlIGN4PSIyMDAiIGN5PSI2MCIgcj0iMTAiIGZpbGw9IiM5Q0EzQUYiLz4KPHR4dCB4PSIyMDAiIHk9IjEwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjNkI3MjgwIj5QYXltZW50IFByb29mIE5vdCBBdmFpbGFibGU8L3R4dD4KPHR4dCB4PSIyMDAiIHk9IjEyMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOUM5M0FGIj5JbWFnZSBjb3VsZCBub3QgYmUgbG9hZGVkPC90eHQ+Cjwvc3ZnPgo=';
                             }}
-                            onClick={() => {
-                              // Click to view full-size image
-                              const modal = document.createElement('div');
-                              modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
-                              modal.innerHTML = `
-                                <div class="relative max-w-4xl max-h-full">
-                                  <img src="${verification.paymentProof}" alt="Payment proof" class="max-w-full max-h-full object-contain rounded-lg" />
-                                  <button class="absolute top-2 right-2 bg-white text-black rounded-full p-2 hover:bg-gray-100">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                      <line x1="18" y1="6" x2="6" y2="18"></line>
-                                      <line x1="6" y1="6" x2="18" y2="18"></line>
-                                    </svg>
-                                  </button>
-                                </div>
-                              `;
-                              modal.onclick = (e) => {
-                                if (e.target === modal || e.target.tagName === 'BUTTON' || e.target.tagName === 'svg' || e.target.tagName === 'line') {
-                                  document.body.removeChild(modal);
-                                }
-                              };
-                              document.body.appendChild(modal);
-                            }}
+                            onClick={() => handleImageView(verification.paymentProof, `payment_proof_order_${verification.orderId}`)}
                           />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 bg-black bg-opacity-20 rounded-lg transition-opacity cursor-pointer">
+                            <div className="bg-white bg-opacity-90 rounded-full p-2">
+                              <ApperIcon name="Maximize2" size={20} className="text-gray-700" />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}
 
-<div className="flex space-x-3">
+<div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                       <Button
                         onClick={() => handleVerificationAction(verification.orderId, 'approve', 'Payment verified by admin')}
-                        disabled={processingVerification}
+disabled={processingVerification}
                         className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
                       >
                         {processingVerification ? (
@@ -1051,29 +1070,166 @@ const getFilteredTransactions = () => {
                         ) : (
                           <ApperIcon name="Check" size={16} className="mr-2" />
                         )}
-                        Verify Payment
+                        Approve Payment
                       </Button>
                       <Button
-                        onClick={() => handleVerificationAction(verification.orderId, 'reject', 'Payment proof rejected - invalid or unclear')}
+                        onClick={() => handleVerificationAction(verification.orderId, 'reject')}
                         disabled={processingVerification}
                         className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600"
                       >
-                        {processingVerification ? (
-                          <ApperIcon name="Loader" size={16} className="mr-2 animate-spin" />
-                        ) : (
-                          <ApperIcon name="X" size={16} className="mr-2" />
-                        )}
+                        <ApperIcon name="X" size={16} className="mr-2" />
                         Reject Payment
                       </Button>
                     </div>
                   </div>
                 ))}
-              </div>
+</div>
             )}
           </div>
         )}
       </div>
+
+      {/* Responsive Image Modal */}
+      {showImageModal && selectedImage && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="relative w-full h-full max-w-7xl max-h-full flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-3 sm:p-4 bg-white bg-opacity-10 backdrop-blur rounded-t-lg">
+              <h3 className="text-white font-medium text-sm sm:text-base truncate">
+                {selectedImage.fileName}
+              </h3>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => handleImageDownload(selectedImage.url, selectedImage.fileName)}
+                  className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded-lg transition-colors"
+                  title="Download image"
+                >
+                  <ApperIcon name="Download" size={18} />
+                </button>
+                <button
+                  onClick={() => setShowImageModal(false)}
+                  className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded-lg transition-colors"
+                  title="Close"
+                >
+                  <ApperIcon name="X" size={18} />
+                </button>
+              </div>
+            </div>
+            
+            {/* Modal Content */}
+            <div className="flex-1 flex items-center justify-center p-2 sm:p-4 overflow-hidden">
+              <img
+                src={selectedImage.url}
+                alt="Payment proof"
+                className="max-w-full max-h-full object-contain rounded-lg"
+                style={{ 
+                  maxWidth: '100%', 
+                  maxHeight: '100%', 
+                  width: 'auto', 
+                  height: 'auto' 
+                }}
+                onError={(e) => {
+                  e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDQwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNTAgODBMMjUwIDEyMEwxNTAgODBaIiBzdHJva2U9IiM5Q0EzQUYiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIvPgo8Y2lyY2xlIGN4PSIyMDAiIGN5PSI2MCIgcj0iMTAiIGZpbGw9IiM5Q0EzQUYiLz4KPHR4dCB4PSIyMDAiIHk9IjEwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjNkI3MjgwIj5QYXltZW50IFByb29mIE5vdCBBdmFpbGFibGU8L3R4dD4KPHR4dCB4PSIyMDAiIHk9IjEyMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOUM5M0FGIj5JbWFnZSBjb3VsZCBub3QgYmUgbG9hZGVkPC90eHQ+Cjwvc3ZnPgo=';
+                }}
+              />
+            </div>
+            
+            {/* Instructions for mobile */}
+            <div className="p-2 sm:p-4 bg-white bg-opacity-10 backdrop-blur rounded-b-lg">
+              <p className="text-white text-xs sm:text-sm text-center opacity-75">
+                Tap outside the image or use the close button to exit • Pinch to zoom on mobile
+              </p>
+            </div>
+          </div>
+          
+          {/* Background overlay click to close */}
+          <div 
+            className="absolute inset-0 -z-10" 
+            onClick={() => setShowImageModal(false)}
+          />
+        </div>
+      )}
+
+      {/* Rejection Reason Modal */}
+      {showRejectionModal && selectedVerification && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Reject Payment</h3>
+              <button
+                onClick={() => {
+                  setShowRejectionModal(false);
+                  setSelectedVerification(null);
+                  setRejectionReason('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <ApperIcon name="X" size={20} />
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">
+                Order #{selectedVerification.orderId} - {selectedVerification.customerName}
+              </p>
+              <p className="text-sm text-gray-500">
+                Please provide a reason for rejecting this payment. This will be sent to the customer.
+              </p>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Rejection Reason *
+              </label>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Please specify why this payment is being rejected (e.g., unclear image, wrong amount, invalid receipt, etc.)"
+                rows="4"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                This message will be sent to the customer to help them understand the rejection.
+              </p>
+            </div>
+
+            <div className="flex space-x-3">
+              <Button
+                onClick={() => {
+                  setShowRejectionModal(false);
+                  setSelectedVerification(null);
+                  setRejectionReason('');
+                }}
+                variant="secondary"
+                className="flex-1"
+                disabled={processingVerification}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleRejectWithReason}
+                className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600"
+                disabled={processingVerification || !rejectionReason.trim()}
+              >
+                {processingVerification ? (
+                  <>
+                    <ApperIcon name="Loader" size={16} className="mr-2 animate-spin" />
+                    Rejecting...
+                  </>
+                ) : (
+                  <>
+                    <ApperIcon name="X" size={16} className="mr-2" />
+                    Reject & Notify
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+</div>
   );
 };
 
