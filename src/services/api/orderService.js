@@ -114,12 +114,31 @@ this.orders.splice(index, 1);
 async updateDeliveryStatus(orderId, deliveryStatus, actualDelivery = null) {
     await this.delay();
     const order = await this.getById(orderId);
+    
+    // Map delivery status to order status for user-facing display synchronization
+    const deliveryToOrderStatusMap = {
+      'pending': 'pending',
+      'assigned': 'confirmed', 
+      'picked_up': 'packed',        // Critical mapping: picked_up -> packed
+      'in_transit': 'shipped',
+      'delivered': 'delivered',
+      'failed': 'cancelled'
+    };
+    
+    // Get corresponding order status for the delivery status
+    const correspondingOrderStatus = deliveryToOrderStatusMap[deliveryStatus];
+    
     const updatedOrder = {
       ...order,
       deliveryStatus,
+      // Automatically sync order status when delivery status changes
+      ...(correspondingOrderStatus && { status: correspondingOrderStatus }),
       ...(actualDelivery && { actualDelivery }),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      // Track when delivery status was last updated for audit purposes
+      deliveryStatusUpdatedAt: new Date().toISOString()
     };
+    
     return await this.update(orderId, updatedOrder);
   }
 
