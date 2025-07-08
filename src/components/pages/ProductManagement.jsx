@@ -117,14 +117,15 @@ const [formData, setFormData] = useState({
       toast.error("Failed to load products. Please try again.");
       setProducts([]);
       setPreviewProducts([]);
+setProducts([]);
+      setPreviewProducts([]);
     } finally {
       setLoading(false);
     }
+  };
 
   // Initialize component
   useEffect(() => {
-    loadProducts();
-  }, []);
 
 // Handle form input changes with validation and profit calculations
   const handleInputChange = (e) => {
@@ -1620,19 +1621,19 @@ return (
       )}
 
       {/* Bulk Price Update Modal */}
+{/* Bulk Price Update Modal */}
       {showBulkPriceModal && (
         <BulkPriceModal
           products={products}
           categories={categories}
           onUpdate={handleBulkPriceUpdate}
           onClose={() => setShowBulkPriceModal(false)}
-/>
+        />
       )}
         </div>
       )}
     </div>
   );
-};
 
 // Bulk Price Update Modal Component
 const BulkPriceModal = ({ products, categories, onUpdate, onClose }) => {
@@ -4464,9 +4465,8 @@ const ProductFormModal = ({
               {editingProduct ? "Update Product" : "Add Product"}
             </Button>
           </div>
-        </form>
+</form>
       </div>
-</div>
     </div>
   );
 };
