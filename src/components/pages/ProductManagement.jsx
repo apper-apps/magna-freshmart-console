@@ -3374,10 +3374,9 @@ const VariationMatrixView = ({ variations, basePrice, productName, onMatrixUpdat
               total + Object.values(colorData).reduce((sum, cell) => 
                 sum + ((cell.price || basePrice) * (cell.stock || 0)), 0
               ), 0
-            ))}
+))}
           </div>
           <div className="text-sm text-gray-600">Total Value</div>
-<div className="text-sm text-gray-600">Total Value</div>
         </div>
       </div>
     </div>
@@ -4467,6 +4466,9 @@ const ProductFormModal = ({
           </div>
         </form>
       </div>
+</div>
     </div>
   );
 };
+
+export default ProductManagement;
