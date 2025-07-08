@@ -4462,12 +4462,11 @@ const ProductFormModal = ({
             >
               {editingProduct ? "Update Product" : "Add Product"}
             </Button>
-          </div>
+</div>
         </form>
       </div>
     </div>
   );
-);
 };
 
 export default ProductManagement;
