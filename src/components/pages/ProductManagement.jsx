@@ -107,11 +107,11 @@ const [formData, setFormData] = useState({
       const productsArray = Array.isArray(data) ? data : [];
       setProducts(productsArray);
       
-      // Update preview products with customer-visible products only
+// Update preview products with customer-visible products only
       const visibleProducts = productsArray.filter(p => p.isVisible !== false);
       setPreviewProducts(visibleProducts);
       
-} catch (err) {
+    } catch (err) {
       console.error("Error loading products:", err);
       setError(err.message || "Failed to load products");
       toast.error("Failed to load products. Please try again.");
@@ -2032,14 +2032,14 @@ const BulkPriceModal = ({ products, categories, onUpdate, onClose }) => {
               Update {preview.length} Products
             </Button>
           </div>
-        </form>
+</form>
       </div>
     </div>
-);
+  );
 };
 
 // Intelligent Image Upload System Component
-const ImageUploadSystem = ({ 
+const ImageUploadSystem = ({
   imageData, 
   setImageData, 
   onImageUpload, 
@@ -4465,7 +4465,7 @@ const ProductFormModal = ({
           </div>
         </form>
       </div>
-    </div>
+</div>
   );
 };
 
