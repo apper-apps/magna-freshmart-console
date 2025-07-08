@@ -119,12 +119,10 @@ async function initializeApp() {
     performanceMonitor.marks.renderStart = performance.now();
 
     // Render app with error boundary
-    root.render(
-      <React.StrictMode>
-        <FastErrorBoundary>
-          <App />
-        </FastErrorBoundary>
-      </React.StrictMode>
+root.render(
+      <FastErrorBoundary>
+        <App />
+      </FastErrorBoundary>
     );
 
     // Mark initialization complete

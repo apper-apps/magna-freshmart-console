@@ -55,15 +55,20 @@ function App() {
     const checkStatus = () => {
       if (!mounted || checkCount > 5) return; // Limit checks to prevent performance impact
       
-      const status = checkSDKStatus();
-      if (status.ready || status.initialized) {
-        setSdkReady(true);
-        setSdkError(null);
-      } else if (checkCount === 5) {
-        // After 5 attempts, just warn but don't block the app
-        console.warn('SDK not ready after initial checks - continuing without it');
+      try {
+        const status = checkSDKStatus();
+        if (status.ready || status.initialized) {
+          setSdkReady(true);
+          setSdkError(null);
+        } else if (checkCount === 5) {
+          // After 5 attempts, just warn but don't block the app
+          console.warn('SDK not ready after initial checks - continuing without it');
+        }
+        checkCount++;
+      } catch (error) {
+        console.warn('SDK check failed:', error);
+        checkCount++;
       }
-      checkCount++;
     };
 
     // Check immediately and then periodically
@@ -127,7 +132,7 @@ return (
                 </div>
               </div>
             )}
-<Suspense fallback={<Loading type="page" />}>
+            <Suspense fallback={<Loading type="page" />}>
               <Routes>
                 <Route path="/" element={<Layout />}>
                   {/* Core routes - no lazy loading */}
@@ -204,7 +209,7 @@ return (
                       <PayrollManagement />
                     </Suspense>
                   } />
-                </Route>
+</Route>
               </Routes>
             </Suspense>
             <ToastContainer
@@ -221,7 +226,7 @@ return (
               style={{ zIndex: 9999 }}
               limit={3}
             />
-</div>
+          </div>
         </BrowserRouter>
       </PersistGate>
     </Provider>
