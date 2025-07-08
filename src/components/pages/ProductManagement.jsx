@@ -2911,12 +2911,8 @@ const UnsplashImageSearch = ({
             </div>
           </div>
           
-          <div className="text-xs text-gray-600 pt-2 border-t border-gray-200">
-            <p>All images are sourced from Unsplash and comply with their license terms. While attribution is not required, it's appreciated by photographers and helps support the creative community.</p>
-          </div>
 <div className="text-xs text-gray-600 pt-2 border-t border-gray-200">
-              <p>All images are sourced from Unsplash and comply with their license terms. While attribution is not required, it's appreciated by photographers and helps support the creative community.</p>
-            </div>
+            <p>All images are sourced from Unsplash and comply with their license terms. While attribution is not required, it's appreciated by photographers and helps support the creative community.</p>
           </div>
         </div>
       </div>
