@@ -281,6 +281,7 @@ const [formData, setFormData] = useState({
   };
 
   // Form submission with comprehensive validation
+// Form submission with comprehensive validation including offer conflicts and price guards
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -306,13 +307,53 @@ const [formData, setFormData] = useState({
         return;
       }
 
-// Validate business rules
+      // Enhanced business rules validation with price guards
       const purchasePrice = parseFloat(formData.purchasePrice) || 0;
       const price = parseFloat(formData.price) || 0;
+      const discountValue = parseFloat(formData.discountValue) || 0;
       
+      // Price guard validation
       if (purchasePrice > 0 && price <= purchasePrice) {
         toast.error("Selling price must be greater than purchase price");
         return;
+      }
+
+      // Min/max price guards
+      if (price < 1) {
+        toast.error("Price cannot be less than Rs. 1");
+        return;
+      }
+
+      if (price > 100000) {
+        toast.error("Price cannot exceed Rs. 100,000");
+        return;
+      }
+
+      // Discount validation with guards
+      if (discountValue > 0) {
+        if (formData.discountType === 'Percentage' && discountValue > 90) {
+          toast.error("Percentage discount cannot exceed 90%");
+          return;
+        }
+        
+        if (formData.discountType === 'Fixed Amount' && discountValue >= price) {
+          toast.error("Fixed discount cannot be equal to or greater than the product price");
+          return;
+        }
+
+        // Calculate final price after discount
+        let finalPrice = price;
+        if (formData.discountType === 'Percentage') {
+          finalPrice = price - (price * discountValue / 100);
+        } else {
+          finalPrice = price - discountValue;
+        }
+
+        // Ensure final price doesn't go below purchase price
+        if (purchasePrice > 0 && finalPrice <= purchasePrice) {
+          toast.error("Discounted price cannot be equal to or less than purchase price");
+          return;
+        }
       }
 
       // Prepare product data with proper validation
@@ -330,6 +371,27 @@ const [formData, setFormData] = useState({
         barcode: formData.barcode || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
       };
 
+      // Validate offer conflicts before saving
+      const conflictValidation = await productService.validateOfferConflicts(
+        productData, 
+        products, 
+        editingProduct?.id
+      );
+      
+      if (!conflictValidation.isValid) {
+        toast.error(`Offer Conflict: ${conflictValidation.error}`);
+        
+        // Show detailed conflict information
+        if (conflictValidation.conflicts && conflictValidation.conflicts.length > 0) {
+          const conflictDetails = conflictValidation.conflicts.map(c => 
+            `${c.type}: ${c.details}`
+          ).join('\n');
+          toast.warning(`Conflicts detected:\n${conflictDetails}`, { autoClose: 8000 });
+        }
+        
+        return;
+      }
+
       let result;
       if (editingProduct) {
         result = await productService.update(editingProduct.id, productData);
@@ -337,7 +399,7 @@ const [formData, setFormData] = useState({
       } else {
         result = await productService.create(productData);
         toast.success("Product created successfully!");
-}
+      }
 
       // Reset form and reload products
       resetForm();
@@ -353,12 +415,12 @@ const [formData, setFormData] = useState({
       console.error("Error saving product:", err);
       toast.error(err.message || "Failed to save product");
     }
+}
   };
 
   // Handle product editing
   const handleEdit = (product) => {
     if (!product) return;
-    
     setEditingProduct(product);
 setFormData({
       name: product.name || "",
@@ -1619,9 +1681,9 @@ setFormData({
       )}
 
       {/* Bulk Price Update Modal */}
-{/* Bulk Price Update Modal */}
+{/* Enhanced Bulk Actions Modal */}
       {showBulkPriceModal && (
-        <BulkPriceModal
+        <EnhancedBulkActionsModal
           products={products}
           categories={categories}
           onUpdate={handleBulkPriceUpdate}
@@ -1634,19 +1696,31 @@ setFormData({
   );
 };
 
-// Bulk Price Update Modal Component
-const BulkPriceModal = ({ products, categories, onUpdate, onClose }) => {
+// Enhanced Bulk Actions Modal with Category Discounts and Validation
+const EnhancedBulkActionsModal = ({ products, categories, onUpdate, onClose }) => {
+  const [activeTab, setActiveTab] = useState('pricing'); // pricing, discounts, validation
   const [updateData, setUpdateData] = useState({
     strategy: 'percentage',
+strategy: 'percentage',
     value: '',
     minPrice: '',
     maxPrice: '',
     category: 'all',
     applyToLowStock: false,
-    stockThreshold: 10
+    stockThreshold: 10,
+    // Enhanced discount options
+    discountType: 'percentage',
+    discountValue: '',
+    discountStartDate: '',
+    discountEndDate: '',
+    categoryDiscount: false,
+    overrideExisting: false,
+    conflictResolution: 'skip' // skip, override, merge
   });
   const [preview, setPreview] = useState([]);
   const [showPreview, setShowPreview] = useState(false);
+  const [validationResults, setValidationResults] = useState([]);
+  const [conflictAnalysis, setConflictAnalysis] = useState(null);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -1655,6 +1729,53 @@ const BulkPriceModal = ({ products, categories, onUpdate, onClose }) => {
       [name]: type === 'checkbox' ? checked : value
     }));
     setShowPreview(false);
+    setValidationResults([]);
+  };
+
+  // Enhanced validation with conflict detection
+  const runValidation = async () => {
+    try {
+      if (!Array.isArray(products) || products.length === 0) {
+        toast.error('No products available for validation');
+        return;
+      }
+
+      let filteredProducts = [...products];
+      
+      // Filter by category
+      if (updateData.category !== 'all') {
+        filteredProducts = filteredProducts.filter(p => p && p.category === updateData.category);
+      }
+
+      const validationPromises = filteredProducts.map(async (product) => {
+        const conflicts = await productService.validateOfferConflicts(product, products, product.id);
+        return {
+          productId: product.id,
+          productName: product.name,
+          isValid: conflicts.isValid,
+          conflicts: conflicts.conflicts || [],
+          warnings: conflicts.warnings || []
+        };
+      });
+
+      const results = await Promise.all(validationPromises);
+      setValidationResults(results);
+
+      const conflictCount = results.filter(r => !r.isValid).length;
+      const warningCount = results.reduce((sum, r) => sum + r.warnings.length, 0);
+
+      setConflictAnalysis({
+        totalProducts: filteredProducts.length,
+        conflictCount,
+        warningCount,
+        cleanProducts: filteredProducts.length - conflictCount
+      });
+
+      toast.success(`Validation complete: ${conflictCount} conflicts, ${warningCount} warnings found`);
+    } catch (error) {
+      console.error('Error running validation:', error);
+      toast.error('Failed to run validation');
+    }
   };
 
   const generatePreview = () => {
@@ -1687,31 +1808,49 @@ const BulkPriceModal = ({ products, categories, onUpdate, onClose }) => {
           return {
             ...product,
             newPrice: product?.price || 0,
-            priceChange: 0
+            priceChange: 0,
+            hasConflicts: false
           };
         }
 
         let newPrice = product.price;
+        let hasDiscount = false;
         
-        switch (updateData.strategy) {
-          case 'percentage':
-            const percentage = parseFloat(updateData.value) || 0;
-            newPrice = product.price * (1 + percentage / 100);
-            break;
-          case 'fixed':
-            const fixedAmount = parseFloat(updateData.value) || 0;
-            newPrice = product.price + fixedAmount;
-            break;
-          case 'range':
-            const minPrice = parseFloat(updateData.minPrice) || 0;
-            const maxPrice = parseFloat(updateData.maxPrice) || product.price;
-            newPrice = Math.min(Math.max(product.price, minPrice), maxPrice);
-            break;
-          default:
-            newPrice = product.price;
+        // Handle pricing strategy
+        if (activeTab === 'pricing') {
+          switch (updateData.strategy) {
+            case 'percentage':
+              const percentage = parseFloat(updateData.value) || 0;
+              newPrice = product.price * (1 + percentage / 100);
+              break;
+            case 'fixed':
+              const fixedAmount = parseFloat(updateData.value) || 0;
+              newPrice = product.price + fixedAmount;
+              break;
+            case 'range':
+              const minPrice = parseFloat(updateData.minPrice) || 0;
+              const maxPrice = parseFloat(updateData.maxPrice) || product.price;
+              newPrice = Math.min(Math.max(product.price, minPrice), maxPrice);
+              break;
+            default:
+              newPrice = product.price;
+          }
         }
 
-        // Apply min/max constraints if specified
+        // Handle category-wide discounts
+        if (activeTab === 'discounts' && updateData.categoryDiscount) {
+          const discountValue = parseFloat(updateData.discountValue) || 0;
+          if (discountValue > 0) {
+            if (updateData.discountType === 'percentage') {
+              newPrice = product.price * (1 - discountValue / 100);
+            } else {
+              newPrice = product.price - discountValue;
+            }
+            hasDiscount = true;
+          }
+        }
+
+        // Apply min/max price guards
         if (updateData.minPrice && newPrice < parseFloat(updateData.minPrice)) {
           newPrice = parseFloat(updateData.minPrice);
         }
@@ -1719,13 +1858,19 @@ const BulkPriceModal = ({ products, categories, onUpdate, onClose }) => {
           newPrice = parseFloat(updateData.maxPrice);
         }
 
-        // Ensure price is never negative
-        newPrice = Math.max(0, newPrice);
+        // Ensure price is never negative or below Rs. 1
+        newPrice = Math.max(1, newPrice);
+
+        // Check for conflicts with existing offers
+        const hasConflicts = product.discountValue > 0 && hasDiscount && !updateData.overrideExisting;
 
         return {
           ...product,
           newPrice: Math.round(newPrice * 100) / 100,
-          priceChange: Math.round((newPrice - product.price) * 100) / 100
+          priceChange: Math.round((newPrice - product.price) * 100) / 100,
+          hasDiscount,
+          hasConflicts,
+          conflictType: hasConflicts ? 'existing_discount' : null
         };
       });
 
@@ -1741,8 +1886,13 @@ const BulkPriceModal = ({ products, categories, onUpdate, onClose }) => {
     e.preventDefault();
     
     try {
-      if (!updateData.value && updateData.strategy !== 'range') {
+      if (activeTab === 'pricing' && !updateData.value && updateData.strategy !== 'range') {
         toast.error('Please enter a value for the price update');
+        return;
+      }
+
+      if (activeTab === 'discounts' && updateData.categoryDiscount && !updateData.discountValue) {
+        toast.error('Please enter a discount value');
         return;
       }
 
@@ -1765,22 +1915,38 @@ const BulkPriceModal = ({ products, categories, onUpdate, onClose }) => {
         return;
       }
 
-      const confirmMessage = `Are you sure you want to update prices for ${preview.length} products?`;
+      // Check for conflicts in preview
+      const conflictProducts = preview.filter(p => p.hasConflicts);
+      if (conflictProducts.length > 0 && updateData.conflictResolution === 'skip') {
+        const message = `${conflictProducts.length} products have existing discounts. Choose conflict resolution strategy.`;
+        toast.warning(message);
+        return;
+      }
+
+      const confirmMessage = `Are you sure you want to update ${preview.length} products?`;
       if (window.confirm(confirmMessage)) {
-        onUpdate(updateData);
+        // Enhanced update data with conflict resolution
+        const enhancedUpdateData = {
+          ...updateData,
+          activeTab,
+          conflictResolution: updateData.conflictResolution,
+          previewData: preview
+        };
+        onUpdate(enhancedUpdateData);
       }
     } catch (error) {
-      console.error('Error submitting bulk price update:', error);
-      toast.error('Failed to process bulk price update');
+      console.error('Error submitting bulk update:', error);
+      toast.error('Failed to process bulk update');
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+<div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-semibold text-gray-900">Bulk Price Update Tools</h2>
+            <h2 className="text-2xl font-semibold text-gray-900">Enhanced Bulk Actions & Validation</h2>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -1788,130 +1954,371 @@ const BulkPriceModal = ({ products, categories, onUpdate, onClose }) => {
               <ApperIcon name="X" size={24} />
             </button>
           </div>
+
+          {/* Tab Navigation */}
+          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mt-4">
+            {[
+              { id: 'pricing', label: 'Price Updates', icon: 'DollarSign' },
+              { id: 'discounts', label: 'Category Discounts', icon: 'Tag' },
+              { id: 'validation', label: 'Conflict Detection', icon: 'Shield' }
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 flex items-center justify-center space-x-2 py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-white text-primary shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <ApperIcon name={tab.icon} size={16} />
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Update Strategy */}
-          <div className="space-y-3">
-            <label className="block text-sm font-medium text-gray-700">
-              Update Strategy
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  name="strategy"
-                  value="percentage"
-                  checked={updateData.strategy === 'percentage'}
-                  onChange={handleInputChange}
-                  className="text-primary focus:ring-primary"
-                />
-                <label className="text-sm text-gray-700">Percentage Change</label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  name="strategy"
-                  value="fixed"
-                  checked={updateData.strategy === 'fixed'}
-                  onChange={handleInputChange}
-                  className="text-primary focus:ring-primary"
-                />
-                <label className="text-sm text-gray-700">Fixed Amount</label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <input
-                  type="radio"
-                  name="strategy"
-                  value="range"
-                  checked={updateData.strategy === 'range'}
-                  onChange={handleInputChange}
-                  className="text-primary focus:ring-primary"
-                />
-                <label className="text-sm text-gray-700">Price Range</label>
+          {/* Price Updates Tab */}
+          {activeTab === 'pricing' && (
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Update Strategy
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="flex items-center space-x-2">
+<input
+                    type="radio"
+                    name="strategy"
+                    value="percentage"
+                    checked={updateData.strategy === 'percentage'}
+                    onChange={handleInputChange}
+                    className="text-primary focus:ring-primary"
+                  />
+                  <label className="text-sm text-gray-700">Percentage Change</label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="strategy"
+                    value="fixed"
+                    checked={updateData.strategy === 'fixed'}
+                    onChange={handleInputChange}
+                    className="text-primary focus:ring-primary"
+                  />
+                  <label className="text-sm text-gray-700">Fixed Amount</label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="strategy"
+                    value="range"
+                    checked={updateData.strategy === 'range'}
+                    onChange={handleInputChange}
+                    className="text-primary focus:ring-primary"
+                  />
+                  <label className="text-sm text-gray-700">Price Range</label>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Strategy-specific inputs */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {updateData.strategy === 'percentage' && (
-              <Input
-                label="Percentage Change (%)"
-                name="value"
-                type="number"
-                step="0.1"
-                value={updateData.value}
-                onChange={handleInputChange}
-                placeholder="e.g., 10 for 10% increase, -5 for 5% decrease"
-                icon="Percent"
-              />
-            )}
-            
-            {updateData.strategy === 'fixed' && (
-              <Input
-                label="Fixed Amount (Rs.)"
-                name="value"
-                type="number"
-                step="0.01"
-                value={updateData.value}
-                onChange={handleInputChange}
-                placeholder="e.g., 50 to add Rs. 50, -25 to subtract Rs. 25"
-                icon="DollarSign"
-              />
-            )}
-
-            {updateData.strategy === 'range' && (
-              <>
-                <Input
-                  label="Minimum Price (Rs.)"
-                  name="minPrice"
-                  type="number"
-                  step="0.01"
-                  value={updateData.minPrice}
-                  onChange={handleInputChange}
-                  icon="TrendingDown"
-                />
-                <Input
-                  label="Maximum Price (Rs.)"
-                  name="maxPrice"
-                  type="number"
-                  step="0.01"
-                  value={updateData.maxPrice}
-                  onChange={handleInputChange}
-                  icon="TrendingUp"
-                />
-              </>
-            )}
-          </div>
-
-          {/* Price constraints */}
-          {updateData.strategy !== 'range' && (
+            {/* Strategy-specific inputs */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Minimum Price Limit (Rs.)"
-                name="minPrice"
-                type="number"
-                step="0.01"
-                value={updateData.minPrice}
-                onChange={handleInputChange}
-                placeholder="Optional: Set minimum price"
-                icon="TrendingDown"
-              />
-              <Input
-                label="Maximum Price Limit (Rs.)"
-                name="maxPrice"
-                type="number"
-                step="0.01"
-                value={updateData.maxPrice}
-                onChange={handleInputChange}
-                placeholder="Optional: Set maximum price"
-                icon="TrendingUp"
-              />
+              {updateData.strategy === 'percentage' && (
+                <Input
+                  label="Percentage Change (%)"
+                  name="value"
+                  type="number"
+                  step="0.1"
+                  value={updateData.value}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 10 for 10% increase, -5 for 5% decrease"
+                  icon="Percent"
+                />
+              )}
+              
+              {updateData.strategy === 'fixed' && (
+                <Input
+                  label="Fixed Amount (Rs.)"
+                  name="value"
+                  type="number"
+                  step="0.01"
+                  value={updateData.value}
+                  onChange={handleInputChange}
+                  placeholder="e.g., 50 to add Rs. 50, -25 to subtract Rs. 25"
+                  icon="DollarSign"
+                />
+              )}
+
+              {updateData.strategy === 'range' && (
+                <>
+                  <Input
+                    label="Minimum Price (Rs.)"
+                    name="minPrice"
+                    type="number"
+                    step="0.01"
+                    min="1"
+                    value={updateData.minPrice}
+                    onChange={handleInputChange}
+                    icon="TrendingDown"
+                  />
+                  <Input
+                    label="Maximum Price (Rs.)"
+                    name="maxPrice"
+                    type="number"
+                    step="0.01"
+                    max="100000"
+                    value={updateData.maxPrice}
+                    onChange={handleInputChange}
+                    icon="TrendingUp"
+                  />
+                </>
+              )}
+            </div>
+
+            {/* Price Guards */}
+            {updateData.strategy !== 'range' && (
+              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                <h4 className="font-medium text-gray-900 mb-3 flex items-center space-x-2">
+                  <ApperIcon name="Shield" size={16} />
+                  <span>Price Guards</span>
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Minimum Price Limit (Rs.)"
+                    name="minPrice"
+                    type="number"
+                    step="0.01"
+                    min="1"
+                    value={updateData.minPrice}
+                    onChange={handleInputChange}
+                    placeholder="Min: Rs. 1"
+                    icon="TrendingDown"
+                  />
+                  <Input
+                    label="Maximum Price Limit (Rs.)"
+                    name="maxPrice"
+                    type="number"
+                    step="0.01"
+                    max="100000"
+                    value={updateData.maxPrice}
+                    onChange={handleInputChange}
+                    placeholder="Max: Rs. 100,000"
+                    icon="TrendingUp"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+          )}
+
+          {/* Category Discounts Tab */}
+          {activeTab === 'discounts' && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-br from-purple-50 to-blue-50 p-6 rounded-lg border border-purple-200">
+                <div className="flex items-center space-x-2 mb-4">
+                  <ApperIcon name="Tag" size={20} className="text-purple-600" />
+                  <h4 className="font-medium text-gray-900">Category-Wide Discount Application</h4>
+                  <Badge variant="promotional" className="text-xs">Bulk Actions</Badge>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      name="categoryDiscount"
+                      checked={updateData.categoryDiscount}
+                      onChange={handleInputChange}
+                      className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                    />
+                    <label className="text-sm font-medium text-gray-700">
+                      Apply discount to entire category
+                    </label>
+                  </div>
+
+                  {updateData.categoryDiscount && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">Discount Type</label>
+                          <select
+                            name="discountType"
+                            value={updateData.discountType}
+                            onChange={handleInputChange}
+                            className="input-field"
+                          >
+                            <option value="percentage">Percentage (%)</option>
+                            <option value="fixed">Fixed Amount (Rs.)</option>
+                          </select>
+                        </div>
+                        
+                        <Input
+                          label={`Discount Value ${updateData.discountType === 'percentage' ? '(%)' : '(Rs.)'}`}
+                          name="discountValue"
+                          type="number"
+                          step={updateData.discountType === 'percentage' ? "0.1" : "0.01"}
+                          max={updateData.discountType === 'percentage' ? "90" : undefined}
+                          value={updateData.discountValue}
+                          onChange={handleInputChange}
+                          icon="Tag"
+                          placeholder="0"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Input
+                          label="Discount Start Date"
+                          name="discountStartDate"
+                          type="date"
+                          min={new Date().toISOString().split('T')[0]}
+                          value={updateData.discountStartDate}
+                          onChange={handleInputChange}
+                          icon="Calendar"
+                        />
+                        <Input
+                          label="Discount End Date"
+                          name="discountEndDate"
+                          type="date"
+                          min={updateData.discountStartDate || new Date().toISOString().split('T')[0]}
+                          value={updateData.discountEndDate}
+                          onChange={handleInputChange}
+                          icon="Calendar"
+                        />
+                      </div>
+
+                      {/* Conflict Resolution */}
+                      <div className="bg-white p-4 rounded-lg border border-gray-200">
+                        <h5 className="font-medium text-gray-900 mb-3">Conflict Resolution</h5>
+                        <div className="space-y-2">
+                          <label className="flex items-center space-x-2">
+                            <input
+                              type="radio"
+                              name="conflictResolution"
+                              value="skip"
+                              checked={updateData.conflictResolution === 'skip'}
+                              onChange={handleInputChange}
+                              className="text-primary focus:ring-primary"
+                            />
+                            <span className="text-sm text-gray-700">Skip products with existing discounts</span>
+                          </label>
+                          <label className="flex items-center space-x-2">
+                            <input
+                              type="radio"
+                              name="conflictResolution"
+                              value="override"
+                              checked={updateData.conflictResolution === 'override'}
+                              onChange={handleInputChange}
+                              className="text-primary focus:ring-primary"
+                            />
+                            <span className="text-sm text-gray-700">Override existing discounts</span>
+                          </label>
+                          <label className="flex items-center space-x-2">
+                            <input
+                              type="radio"
+                              name="conflictResolution"
+                              value="merge"
+                              checked={updateData.conflictResolution === 'merge'}
+                              onChange={handleInputChange}
+                              className="text-primary focus:ring-primary"
+                            />
+                            <span className="text-sm text-gray-700">Merge with existing discounts (highest wins)</span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Filters */}
+          {/* Validation Tab */}
+          {activeTab === 'validation' && (
+            <div className="space-y-6">
+              <div className="bg-gradient-to-br from-green-50 to-blue-50 p-6 rounded-lg border border-green-200">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-2">
+                    <ApperIcon name="Shield" size={20} className="text-green-600" />
+                    <h4 className="font-medium text-gray-900">Offer Conflict Detection</h4>
+                    <Badge variant="success" className="text-xs">Real-time</Badge>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    icon="Play"
+                    onClick={runValidation}
+                  >
+                    Run Validation
+                  </Button>
+                </div>
+
+                {conflictAnalysis && (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-600">{conflictAnalysis.totalProducts}</div>
+                      <div className="text-sm text-gray-600">Total Products</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-red-600">{conflictAnalysis.conflictCount}</div>
+                      <div className="text-sm text-gray-600">Conflicts</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-yellow-600">{conflictAnalysis.warningCount}</div>
+                      <div className="text-sm text-gray-600">Warnings</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">{conflictAnalysis.cleanProducts}</div>
+                      <div className="text-sm text-gray-600">Clean Products</div>
+                    </div>
+                  </div>
+                )}
+
+                {validationResults.length > 0 && (
+                  <div className="max-h-64 overflow-y-auto space-y-2">
+                    {validationResults.map((result, index) => (
+                      <div
+                        key={index}
+                        className={`p-3 rounded-lg border ${
+                          result.isValid
+                            ? 'bg-green-50 border-green-200'
+                            : 'bg-red-50 border-red-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-gray-900">{result.productName}</span>
+                          <Badge variant={result.isValid ? "success" : "error"} className="text-xs">
+                            {result.isValid ? 'Valid' : 'Conflicts'}
+                          </Badge>
+                        </div>
+                        {result.conflicts.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {result.conflicts.map((conflict, cIndex) => (
+                              <div key={cIndex} className="text-sm text-red-700">
+                                • {conflict.type}: {conflict.details}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {result.warnings.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {result.warnings.map((warning, wIndex) => (
+                              <div key={wIndex} className="text-sm text-yellow-700">
+                                ⚠ {warning}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Shared Filters */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
@@ -1957,17 +2364,22 @@ const BulkPriceModal = ({ products, categories, onUpdate, onClose }) => {
           </div>
 
           {/* Preview Button */}
-          <div className="flex justify-center">
-            <Button
-              type="button"
-              variant="secondary"
-              icon="Eye"
-              onClick={generatePreview}
-              disabled={!updateData.value && updateData.strategy !== 'range'}
-            >
-              Preview Changes
-            </Button>
-          </div>
+          {activeTab !== 'validation' && (
+            <div className="flex justify-center">
+              <Button
+                type="button"
+                variant="secondary"
+                icon="Eye"
+                onClick={generatePreview}
+                disabled={
+                  (activeTab === 'pricing' && !updateData.value && updateData.strategy !== 'range') ||
+                  (activeTab === 'discounts' && updateData.categoryDiscount && !updateData.discountValue)
+                }
+              >
+                Preview Changes
+              </Button>
+            </div>
+          )}
 
           {/* Preview Results */}
           {showPreview && preview.length > 0 && (

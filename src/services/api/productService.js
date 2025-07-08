@@ -281,12 +281,29 @@ let profitMargin = 0;
     }
   }
 
-  // Validate business rules for product pricing
+// Enhanced validation with price guards and business rules
   validateProfitRules(productData) {
     try {
       const purchasePrice = parseFloat(productData.purchasePrice) || 0;
       const price = parseFloat(productData.price) || 0;
+      const discountValue = parseFloat(productData.discountValue) || 0;
+      const discountType = productData.discountType || 'Fixed Amount';
       
+      // Price guard validation
+      if (price < 1) {
+        return {
+          isValid: false,
+          error: 'Price cannot be less than Rs. 1'
+        };
+      }
+
+      if (price > 100000) {
+        return {
+          isValid: false,
+          error: 'Price cannot exceed Rs. 100,000'
+        };
+      }
+
       if (purchasePrice > 0 && price <= purchasePrice) {
         return {
           isValid: false,
@@ -294,14 +311,58 @@ let profitMargin = 0;
         };
       }
 
-      // Additional validation for minimum profit margin
-      if (purchasePrice > 0) {
-        const margin = ((price - purchasePrice) / purchasePrice) * 100;
-        if (margin < 5) {
+      // Discount validation with guards
+      if (discountValue > 0) {
+        if (discountType === 'Percentage' && discountValue > 90) {
           return {
             isValid: false,
-            error: 'Profit margin should be at least 5% for sustainable business'
+            error: 'Percentage discount cannot exceed 90%'
           };
+        }
+        
+        if (discountType === 'Fixed Amount' && discountValue >= price) {
+          return {
+            isValid: false,
+            error: 'Fixed discount cannot be equal to or greater than the product price'
+          };
+        }
+
+        // Calculate final price after discount
+        let finalPrice = price;
+        if (discountType === 'Percentage') {
+          finalPrice = price - (price * discountValue / 100);
+        } else {
+          finalPrice = price - discountValue;
+        }
+
+        // Ensure final price doesn't go below purchase price
+        if (purchasePrice > 0 && finalPrice <= purchasePrice) {
+          return {
+            isValid: false,
+            error: 'Discounted price cannot be equal to or less than purchase price'
+          };
+        }
+
+        // Check for minimum profit margin after discount
+        if (purchasePrice > 0) {
+          const margin = ((finalPrice - purchasePrice) / purchasePrice) * 100;
+          if (margin < 5) {
+            return {
+              isValid: false,
+              error: 'Profit margin after discount should be at least 5% for sustainable business'
+            };
+          }
+        }
+      } else {
+        // Standard profit margin check without discount
+        if (purchasePrice > 0) {
+          const margin = ((price - purchasePrice) / purchasePrice) * 100;
+          if (margin < 5) {
+            return {
+              isValid: false,
+              error: 'Profit margin should be at least 5% for sustainable business'
+            };
+          }
         }
       }
       
@@ -945,6 +1006,267 @@ width = targetHeight * aspectRatio;
     };
     
     return styleParams[style] || styleParams['realistic'];
+  }
+
+// Validate offer conflicts and overlapping discounts
+  async validateOfferConflicts(productData, allProducts = [], excludeId = null) {
+    try {
+      await this.delay(200);
+      
+      const conflicts = [];
+      const warnings = [];
+      
+      // Basic validation
+      if (!productData) {
+        return { isValid: false, error: 'Invalid product data', conflicts, warnings };
+      }
+
+      const price = parseFloat(productData.price) || 0;
+      const discountValue = parseFloat(productData.discountValue) || 0;
+      const discountType = productData.discountType || 'Fixed Amount';
+      const category = productData.category;
+      const discountStartDate = productData.discountStartDate;
+      const discountEndDate = productData.discountEndDate;
+
+      // Check for overlapping date ranges with same category products
+      if (discountValue > 0 && discountStartDate && discountEndDate) {
+        const categoryProducts = allProducts.filter(p => 
+          p && p.category === category && 
+          p.id !== excludeId && 
+          p.discountValue > 0 &&
+          p.discountStartDate && p.discountEndDate
+        );
+
+        for (const product of categoryProducts) {
+          const existingStart = new Date(product.discountStartDate);
+          const existingEnd = new Date(product.discountEndDate);
+          const newStart = new Date(discountStartDate);
+          const newEnd = new Date(discountEndDate);
+
+          // Check for date overlap
+          if (newStart <= existingEnd && newEnd >= existingStart) {
+            conflicts.push({
+              type: 'overlapping_dates',
+              productId: product.id,
+              productName: product.name,
+              details: `Overlapping discount period with ${product.name} (${product.discountStartDate} to ${product.discountEndDate})`
+            });
+          }
+        }
+      }
+
+      // Check for excessive discount stacking
+      if (discountValue > 0) {
+        let finalPrice = price;
+        if (discountType === 'Percentage') {
+          finalPrice = price - (price * discountValue / 100);
+        } else {
+          finalPrice = price - discountValue;
+        }
+
+        // Check if final price is too low (less than 10% of original)
+        if (finalPrice < price * 0.1) {
+          warnings.push('Discount results in very low final price (less than 10% of original)');
+        }
+
+        // Check for unrealistic discount values
+        if (discountType === 'Percentage' && discountValue > 90) {
+          conflicts.push({
+            type: 'excessive_discount',
+            details: 'Percentage discount exceeds 90%'
+          });
+        }
+
+        if (discountType === 'Fixed Amount' && discountValue >= price) {
+          conflicts.push({
+            type: 'invalid_discount',
+            details: 'Fixed discount amount equals or exceeds product price'
+          });
+        }
+      }
+
+      // Check for priority conflicts in same category
+      const priority = parseInt(productData.discountPriority) || 1;
+      const samePriorityProducts = allProducts.filter(p => 
+        p && p.category === category && 
+        p.id !== excludeId && 
+        parseInt(p.discountPriority) === priority &&
+        p.discountValue > 0
+      );
+
+      if (samePriorityProducts.length > 0) {
+        warnings.push(`${samePriorityProducts.length} other products in ${category} have the same priority level`);
+      }
+
+      // Check minimum profit margin compliance
+      const purchasePrice = parseFloat(productData.purchasePrice) || 0;
+      if (purchasePrice > 0 && discountValue > 0) {
+        let finalPrice = price;
+        if (discountType === 'Percentage') {
+          finalPrice = price - (price * discountValue / 100);
+        } else {
+          finalPrice = price - discountValue;
+        }
+
+        const profitMargin = ((finalPrice - purchasePrice) / purchasePrice) * 100;
+        if (profitMargin < 5) {
+          conflicts.push({
+            type: 'low_profit_margin',
+            details: `Discounted price results in ${profitMargin.toFixed(2)}% profit margin (minimum 5% recommended)`
+          });
+        }
+      }
+
+      const isValid = conflicts.length === 0;
+
+      return {
+        isValid,
+        conflicts,
+        warnings,
+        error: isValid ? null : 'Offer conflicts detected'
+      };
+
+    } catch (error) {
+      console.error('Error validating offer conflicts:', error);
+      return {
+        isValid: false,
+        error: 'Failed to validate offer conflicts',
+        conflicts: [],
+        warnings: []
+      };
+    }
+  }
+
+  // Enhanced bulk update with category-wide discounts and conflict resolution
+  async bulkUpdatePrices(updateData) {
+    await this.delay(500);
+    
+    const validation = this.validateBulkPriceUpdate(updateData);
+    if (!validation.isValid) {
+      throw new Error(validation.error);
+    }
+
+    let filteredProducts = [...this.products];
+    
+    // Filter by category
+    if (updateData.category !== 'all') {
+      filteredProducts = filteredProducts.filter(p => p.category === updateData.category);
+    }
+    
+    // Filter by stock if enabled
+    if (updateData.applyToLowStock) {
+      filteredProducts = filteredProducts.filter(p => p.stock <= updateData.stockThreshold);
+    }
+
+    let updatedCount = 0;
+    const conflictProducts = [];
+    
+    // Process each product with conflict detection
+    for (const product of filteredProducts) {
+      const originalPrice = product.price;
+      let newPrice = originalPrice;
+      let shouldUpdate = true;
+      
+      // Handle pricing updates
+      if (updateData.activeTab === 'pricing') {
+        switch (updateData.strategy) {
+          case 'percentage':
+            const percentage = parseFloat(updateData.value) || 0;
+            newPrice = originalPrice * (1 + percentage / 100);
+            break;
+          case 'fixed':
+            const fixedAmount = parseFloat(updateData.value) || 0;
+            newPrice = originalPrice + fixedAmount;
+            break;
+          case 'range':
+            const minPrice = parseFloat(updateData.minPrice) || 0;
+            const maxPrice = parseFloat(updateData.maxPrice) || originalPrice;
+            newPrice = Math.min(Math.max(originalPrice, minPrice), maxPrice);
+            break;
+        }
+      }
+
+      // Handle category-wide discounts
+      if (updateData.activeTab === 'discounts' && updateData.categoryDiscount) {
+        const discountValue = parseFloat(updateData.discountValue) || 0;
+        
+        // Check for existing discounts
+        if (product.discountValue > 0) {
+          switch (updateData.conflictResolution) {
+            case 'skip':
+              shouldUpdate = false;
+              conflictProducts.push(product);
+              break;
+            case 'override':
+              // Override existing discount
+              break;
+            case 'merge':
+              // Keep the higher discount
+              if (updateData.discountType === 'percentage') {
+                const newDiscountAmount = originalPrice * discountValue / 100;
+                const existingDiscountAmount = product.discountType === 'Percentage' 
+                  ? originalPrice * product.discountValue / 100
+                  : product.discountValue;
+                if (newDiscountAmount <= existingDiscountAmount) {
+                  shouldUpdate = false;
+                }
+              }
+              break;
+          }
+        }
+
+        if (shouldUpdate && discountValue > 0) {
+          // Apply discount to base price
+          if (updateData.discountType === 'percentage') {
+            newPrice = originalPrice * (1 - discountValue / 100);
+          } else {
+            newPrice = originalPrice - discountValue;
+          }
+        }
+      }
+
+      // Apply min/max price guards
+      if (updateData.minPrice && newPrice < parseFloat(updateData.minPrice)) {
+        newPrice = parseFloat(updateData.minPrice);
+      }
+      if (updateData.maxPrice && newPrice > parseFloat(updateData.maxPrice)) {
+        newPrice = parseFloat(updateData.maxPrice);
+      }
+
+      // Ensure price is within acceptable range
+      newPrice = Math.max(1, Math.min(newPrice, 100000));
+
+      // Update product if price changed and should update
+      if (shouldUpdate && Math.abs(newPrice - originalPrice) > 0.01) {
+        const productIndex = this.products.findIndex(p => p.id === product.id);
+        if (productIndex !== -1) {
+          const updatedProduct = {
+            ...this.products[productIndex],
+            previousPrice: originalPrice,
+            price: Math.round(newPrice * 100) / 100
+          };
+
+          // Add discount information if applying category discount
+          if (updateData.activeTab === 'discounts' && updateData.categoryDiscount) {
+            updatedProduct.discountType = updateData.discountType;
+            updatedProduct.discountValue = parseFloat(updateData.discountValue) || 0;
+            updatedProduct.discountStartDate = updateData.discountStartDate;
+            updatedProduct.discountEndDate = updateData.discountEndDate;
+          }
+
+          this.products[productIndex] = updatedProduct;
+          updatedCount++;
+        }
+      }
+    }
+
+    return {
+      updatedCount,
+      totalFiltered: filteredProducts.length,
+      conflictCount: conflictProducts.length,
+      strategy: updateData.strategy || 'category_discount',
+      conflictProducts: conflictProducts.slice(0, 5) // Return first 5 for reference
+    };
   }
 
   // Smart cropping using TensorFlow.js simulation
