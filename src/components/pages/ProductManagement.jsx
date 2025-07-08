@@ -4447,7 +4447,7 @@ const ProductFormModal = ({
             formData={formData}
           />
 
-          <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200">
+<div className="flex justify-end space-x-4 pt-4 border-t border-gray-200">
             <Button
               type="button"
               variant="ghost"
@@ -4455,14 +4455,14 @@ const ProductFormModal = ({
             >
               Cancel
             </Button>
-<Button
+            <Button
               type="submit"
               variant="primary"
               icon="Save"
             >
               {editingProduct ? "Update Product" : "Add Product"}
             </Button>
-</div>
+          </div>
         </form>
       </div>
     </div>
