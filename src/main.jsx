@@ -13,24 +13,68 @@ const performanceMonitor = {
 // Data serialization utility to prevent DataCloneError
 const serializeForPostMessage = (data) => {
   try {
+    // Track circular references
+    const seen = new WeakSet();
+    
     // Convert non-serializable objects to serializable format
-    return JSON.parse(JSON.stringify(data, (key, value) => {
+    const serialized = JSON.parse(JSON.stringify(data, (key, value) => {
+      // Handle circular references
+      if (typeof value === 'object' && value !== null) {
+        if (seen.has(value)) {
+          return { __type: 'CircularReference', key };
+        }
+        seen.add(value);
+      }
+      
       // Handle URL objects
       if (value instanceof URL) {
-        return { __type: 'URL', href: value.href };
+        return { __type: 'URL', href: value.href, origin: value.origin };
       }
-      // Handle other non-serializable objects
-      if (typeof value === 'function') {
-        return undefined;
+      
+      // Handle Date objects
+      if (value instanceof Date) {
+        return { __type: 'Date', timestamp: value.getTime() };
       }
+      
+      // Handle RegExp objects
+      if (value instanceof RegExp) {
+        return { __type: 'RegExp', source: value.source, flags: value.flags };
+      }
+      
+      // Handle Error objects with all properties
       if (value instanceof Error) {
-        return { __type: 'Error', message: value.message, stack: value.stack };
+        return { 
+          __type: 'Error', 
+          name: value.name,
+          message: value.message, 
+          stack: value.stack,
+          cause: value.cause
+        };
       }
+      
+      // Handle functions
+      if (typeof value === 'function') {
+        return { __type: 'Function', name: value.name || 'anonymous' };
+      }
+      
+      // Handle undefined explicitly
+      if (value === undefined) {
+        return { __type: 'Undefined' };
+      }
+      
       return value;
     }));
+    
+    return serialized;
   } catch (error) {
     console.warn('Failed to serialize data for postMessage:', error);
-    return null;
+    // Return minimal safe object instead of null
+    return { 
+      __type: 'SerializationError', 
+      originalType: typeof data,
+      error: error.message,
+      timestamp: Date.now()
+    };
   }
 };
 
@@ -60,19 +104,48 @@ class BackgroundSDKLoader {
   static messageHandler = null;
   
   static async loadInBackground() {
+    // Implementation would go here
+    return false;
+  }
+  
+  static sendSafeMessage(targetWindow, message, targetOrigin = "*") {
+    if (!targetWindow || typeof targetWindow.postMessage !== 'function') {
+      console.warn('Invalid target window for postMessage');
+      return false;
+    }
+    
     try {
-      // Check if Apper SDK is available
-      if (typeof window !== 'undefined' && !window.Apper) {
-        console.log('Apper SDK not detected - continuing without it');
+      // Always serialize the message to prevent DataCloneError
+      const serializedMessage = serializeForPostMessage(message);
+      
+      if (serializedMessage) {
+        targetWindow.postMessage(serializedMessage, targetOrigin);
+        return true;
+      } else {
+        console.warn('Message serialization returned null, attempting fallback');
+        // Fallback: try sending a minimal message
+        targetWindow.postMessage({
+          __type: 'FallbackMessage',
+          originalMessageType: typeof message,
+          timestamp: Date.now(),
+          error: 'Original message could not be serialized'
+        }, targetOrigin);
         return false;
       }
-      
-      // Set up message handler for SDK communication
-      this.setupMessageHandler();
-      
-      return true;
     } catch (error) {
-      console.warn('SDK loading failed:', error);
+      console.error('Failed to send message:', error);
+      
+      // Last resort: try sending error notification
+      try {
+        targetWindow.postMessage({
+          __type: 'MessageError',
+          error: error.message,
+          timestamp: Date.now()
+        }, targetOrigin);
+      } catch (fallbackError) {
+        console.error('Even fallback message failed:', fallbackError);
+      }
+      
       return false;
     }
   }
@@ -100,16 +173,6 @@ class BackgroundSDKLoader {
     }
   }
   
-  static sendSafeMessage(targetWindow, message, targetOrigin = '*') {
-    try {
-      const serializedMessage = serializeForPostMessage(message);
-      if (serializedMessage && targetWindow && targetWindow.postMessage) {
-        targetWindow.postMessage(serializedMessage, targetOrigin);
-      }
-    } catch (error) {
-      console.warn('Failed to send safe message:', error);
-    }
-  }
   static async initializeWhenReady() {
     try {
       if (window.apperSDK?.isInitialized) {
