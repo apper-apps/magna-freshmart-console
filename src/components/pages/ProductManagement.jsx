@@ -4464,10 +4464,10 @@ variant="primary"
             </Button>
           </div>
         </form>
+</form>
       </div>
-</div>
+    </div>
   );
 };
 
-export default ProductManagement;
 export default ProductManagement;
