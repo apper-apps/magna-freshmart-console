@@ -1,5 +1,19 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { notificationService } from "@/services/api/notificationService";
 
+// Async thunk for fetching notification counts
+export const fetchNotificationCounts = createAsyncThunk(
+  'notifications/fetchCounts',
+  async (_, { rejectWithValue }) => {
+    try {
+      const counts = await notificationService.getCounts();
+      return counts;
+    } catch (error) {
+      console.error('Failed to fetch notification counts:', error);
+      return rejectWithValue(error.message || 'Failed to fetch notification counts');
+    }
+  }
+);
 const initialState = {
   counts: {
     payments: 0,
@@ -44,11 +58,28 @@ const notificationSlice = createSlice({
     },
     setError: (state, action) => {
       state.error = action.payload;
-      state.loading = false;
+state.loading = false;
     },
     clearError: (state) => {
       state.error = null;
     }
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchNotificationCounts.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchNotificationCounts.fulfilled, (state, action) => {
+        state.loading = false;
+        state.counts = { ...state.counts, ...action.payload };
+        state.lastUpdated = new Date().toISOString();
+        state.error = null;
+      })
+      .addCase(fetchNotificationCounts.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || 'Failed to fetch notification counts';
+      });
   }
 });
 
