@@ -533,7 +533,6 @@ setFormData({
     
     return matchesSearch && matchesCategory;
   });
-
 // Error boundary component
   if (error) {
     return <Error message={error} onRetry={loadProducts} />;
@@ -4465,7 +4464,7 @@ icon="Save"
             </Button>
           </div>
         </form>
-      </div>
+</div>
     </div>
   );
 };
