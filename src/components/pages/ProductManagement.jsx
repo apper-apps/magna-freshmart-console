@@ -10,6 +10,35 @@ import Loading from "@/components/ui/Loading";
 import Category from "@/components/pages/Category";
 import { productService } from "@/services/api/productService";
 
+// Material UI Switch Component
+const Switch = ({ checked, onChange, color = "primary", disabled = false, ...props }) => {
+  const baseClasses = "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2";
+  const colorClasses = {
+    primary: checked 
+      ? "bg-primary focus:ring-primary" 
+      : "bg-gray-200 focus:ring-gray-300",
+    secondary: checked 
+      ? "bg-secondary focus:ring-secondary" 
+      : "bg-gray-200 focus:ring-gray-300"
+  };
+  
+  return (
+    <button
+      type="button"
+      className={`${baseClasses} ${colorClasses[color]} ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+      onClick={() => !disabled && onChange(!checked)}
+      disabled={disabled}
+      {...props}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+          checked ? 'translate-x-6' : 'translate-x-1'
+        }`}
+      />
+    </button>
+  );
+};
+
 const ProductManagement = () => {
   // State management with proper initialization
   const [products, setProducts] = useState([]);
@@ -18,8 +47,9 @@ const ProductManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAddForm, setShowAddForm] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null);
+const [editingProduct, setEditingProduct] = useState(null);
   const [showBulkPriceModal, setShowBulkPriceModal] = useState(false);
+  const [pendingVisibilityToggles, setPendingVisibilityToggles] = useState(new Set());
 const [formData, setFormData] = useState({
     name: "",
     price: "",
@@ -336,6 +366,58 @@ setFormData({
     } catch (err) {
       console.error("Error deleting product:", err);
       toast.error(err.message || "Failed to delete product");
+}
+  };
+
+  // Handle product visibility toggle
+  const handleVisibilityToggle = async (productId, currentVisibility) => {
+    if (pendingVisibilityToggles.has(productId)) {
+      return; // Prevent double-clicks
+    }
+
+    try {
+      // Add to pending set for UI feedback
+      setPendingVisibilityToggles(prev => new Set(prev).add(productId));
+      
+      // Optimistically update the local state
+      const newVisibility = !currentVisibility;
+      setProducts(prevProducts => 
+        prevProducts.map(product => 
+          product.id === productId 
+            ? { ...product, isVisible: newVisibility }
+            : product
+        )
+      );
+
+      // Sync with backend
+      await productService.update(productId, { isVisible: newVisibility });
+      
+      toast.success(
+        newVisibility 
+          ? "Product is now visible to customers" 
+          : "Product is now hidden from customers"
+      );
+      
+    } catch (error) {
+      console.error("Error updating product visibility:", error);
+      
+      // Revert optimistic update on error
+      setProducts(prevProducts => 
+        prevProducts.map(product => 
+          product.id === productId 
+            ? { ...product, isVisible: currentVisibility }
+            : product
+        )
+      );
+      
+      toast.error("Failed to update product visibility. Please try again.");
+    } finally {
+      // Remove from pending set
+      setPendingVisibilityToggles(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(productId);
+        return newSet;
+      });
     }
   };
 
@@ -508,8 +590,11 @@ setFormData({
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Profit Margin
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+<th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Stock
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Visibility
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
@@ -517,8 +602,13 @@ setFormData({
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredProducts.map((product) => (
-                    <tr key={product.id} className="hover:bg-gray-50">
+{filteredProducts.map((product) => (
+                    <tr 
+                      key={product.id} 
+                      className={`hover:bg-gray-50 transition-opacity duration-200 ${
+                        product.isVisible === false ? 'opacity-60' : 'opacity-100'
+                      }`}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="h-10 w-10 flex-shrink-0">
@@ -579,14 +669,36 @@ setFormData({
                           <span className="text-gray-400">-</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+<td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <Badge 
                           variant={product.stock <= (product.minStock || 5) ? "error" : "success"}
                         >
                           {product.stock || 0} {product.unit || "pcs"}
                         </Badge>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center justify-center">
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              checked={product.isVisible !== false}
+                              onChange={() => handleVisibilityToggle(product.id, product.isVisible !== false)}
+                              color="primary"
+                              disabled={pendingVisibilityToggles.has(product.id)}
+                            />
+                            <span className={`text-sm font-medium ${
+                              product.isVisible === false ? 'text-gray-400' : 'text-gray-700'
+                            }`}>
+                              {product.isVisible === false ? 'Hidden' : 'Visible'}
+                            </span>
+                            {pendingVisibilityToggles.has(product.id) && (
+                              <div className="ml-2">
+                                <ApperIcon name="Loader2" size={14} className="animate-spin text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+<td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex space-x-2">
                           <Button
                             variant="ghost"
