@@ -7,7 +7,9 @@ import Input from "@/components/atoms/Input";
 import Empty from "@/components/ui/Empty";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
+import Cart from "@/components/pages/Cart";
 import Category from "@/components/pages/Category";
+import Checkout from "@/components/pages/Checkout";
 import { productService } from "@/services/api/productService";
 
 // Material UI Switch Component
@@ -47,9 +49,16 @@ const ProductManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [showAddForm, setShowAddForm] = useState(false);
-const [editingProduct, setEditingProduct] = useState(null);
+  const [editingProduct, setEditingProduct] = useState(null);
   const [showBulkPriceModal, setShowBulkPriceModal] = useState(false);
   const [pendingVisibilityToggles, setPendingVisibilityToggles] = useState(new Set());
+  
+  // Preview Mode State
+  const [previewMode, setPreviewMode] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState('desktop'); // desktop, mobile
+  const [previewProducts, setPreviewProducts] = useState([]);
+  const [previewCart, setPreviewCart] = useState([]);
+  const [selectedPreviewProduct, setSelectedPreviewProduct] = useState(null);
 const [formData, setFormData] = useState({
     name: "",
     price: "",
@@ -89,21 +98,28 @@ const [formData, setFormData] = useState({
   const units = ["kg", "g", "piece", "litre", "ml", "pack", "dozen", "box"];
 
   // Load products with comprehensive error handling
+// Load products with comprehensive error handling
   const loadProducts = async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await productService.getAll();
-      setProducts(Array.isArray(data) ? data : []);
+      const productsArray = Array.isArray(data) ? data : [];
+      setProducts(productsArray);
+      
+      // Update preview products with customer-visible products only
+      const visibleProducts = productsArray.filter(p => p.isVisible !== false);
+      setPreviewProducts(visibleProducts);
+      
     } catch (err) {
       console.error("Error loading products:", err);
       setError(err.message || "Failed to load products");
       toast.error("Failed to load products. Please try again.");
       setProducts([]);
+      setPreviewProducts([]);
     } finally {
       setLoading(false);
     }
-  };
 
   // Initialize component
   useEffect(() => {
@@ -321,11 +337,17 @@ const [formData, setFormData] = useState({
       } else {
         result = await productService.create(productData);
         toast.success("Product created successfully!");
-      }
+}
 
       // Reset form and reload products
       resetForm();
       await loadProducts();
+      
+      // Update preview if enabled
+      if (previewMode) {
+        const visibleProducts = products.filter(p => p.isVisible !== false);
+        setPreviewProducts(visibleProducts);
+      }
       
     } catch (err) {
       console.error("Error saving product:", err);
@@ -430,6 +452,14 @@ setFormData({
         newSet.delete(productId);
         return newSet;
       });
+}
+    
+    // Update preview products when visibility changes
+    if (previewMode) {
+      setTimeout(() => {
+        const visibleProducts = products.filter(p => p.isVisible !== false);
+        setPreviewProducts(visibleProducts);
+      }, 100);
     }
   };
 
@@ -514,32 +544,84 @@ setFormData({
     return <Loading />;
   }
 
-  return (
-    <div className="max-w-7xl mx-auto p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Product Management</h1>
-          <p className="text-gray-600">Manage your product inventory and pricing</p>
-        </div>
-        <div className="flex flex-wrap gap-3 mt-4 sm:mt-0">
-          <Button
-            variant="secondary"
-            icon="DollarSign"
-            onClick={() => setShowBulkPriceModal(true)}
-            disabled={!products.length}
-          >
-            Bulk Price Update
-          </Button>
-          <Button
-            variant="primary"
-            icon="Plus"
-            onClick={() => setShowAddForm(true)}
-          >
-            Add Product
-          </Button>
-        </div>
-      </div>
+return (
+    <div className="max-w-full mx-auto">
+      {previewMode ? (
+        <PreviewMode
+          products={products}
+          previewProducts={previewProducts}
+          previewDevice={previewDevice}
+          setPreviewDevice={setPreviewDevice}
+          previewCart={previewCart}
+          setPreviewCart={setPreviewCart}
+          selectedPreviewProduct={selectedPreviewProduct}
+          setSelectedPreviewProduct={setSelectedPreviewProduct}
+          onExitPreview={() => setPreviewMode(false)}
+          // Admin panel props
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+          selectedCategory={selectedCategory}
+          setSelectedCategory={setSelectedCategory}
+          showAddForm={showAddForm}
+          setShowAddForm={setShowAddForm}
+          editingProduct={editingProduct}
+          setEditingProduct={setEditingProduct}
+          showBulkPriceModal={showBulkPriceModal}
+          setShowBulkPriceModal={setShowBulkPriceModal}
+          pendingVisibilityToggles={pendingVisibilityToggles}
+          formData={formData}
+          setFormData={setFormData}
+          imageData={imageData}
+          setImageData={setImageData}
+          categories={categories}
+          units={units}
+          filteredProducts={filteredProducts}
+          handleInputChange={handleInputChange}
+          handleImageUpload={handleImageUpload}
+          handleImageSearch={handleImageSearch}
+          handleImageSelect={handleImageSelect}
+          handleAIImageGenerate={handleAIImageGenerate}
+          handleSubmit={handleSubmit}
+          handleEdit={handleEdit}
+          handleDelete={handleDelete}
+          handleVisibilityToggle={handleVisibilityToggle}
+          resetForm={resetForm}
+          handleBulkPriceUpdate={handleBulkPriceUpdate}
+        />
+      ) : (
+        <div className="max-w-7xl mx-auto p-6">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Product Management</h1>
+              <p className="text-gray-600">Manage your product inventory and pricing</p>
+            </div>
+            <div className="flex flex-wrap gap-3 mt-4 sm:mt-0">
+              <Button
+                variant="outline"
+                icon="Monitor"
+                onClick={() => setPreviewMode(true)}
+                className="text-blue-600 border-blue-200 hover:bg-blue-50"
+              >
+                Customer Preview
+              </Button>
+              <Button
+                variant="secondary"
+                icon="DollarSign"
+                onClick={() => setShowBulkPriceModal(true)}
+                disabled={!products.length}
+              >
+                Bulk Price Update
+              </Button>
+              <Button
+                variant="primary"
+                icon="Plus"
+                onClick={() => setShowAddForm(true)}
+              >
+                Add Product
+              </Button>
+            </div>
+          </div>
 
       {/* Search and Filter */}
       <div className="bg-white rounded-lg shadow-md p-6 mb-6">
@@ -1544,7 +1626,9 @@ setFormData({
           categories={categories}
           onUpdate={handleBulkPriceUpdate}
           onClose={() => setShowBulkPriceModal(false)}
-        />
+/>
+      )}
+        </div>
       )}
     </div>
   );
@@ -3293,10 +3377,1096 @@ const VariationMatrixView = ({ variations, basePrice, productName, onMatrixUpdat
             ))}
           </div>
           <div className="text-sm text-gray-600">Total Value</div>
+<div className="text-sm text-gray-600">Total Value</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+const PreviewMode = ({
+  products,
+  previewProducts,
+  previewDevice,
+  setPreviewDevice,
+  previewCart,
+  setPreviewCart,
+  selectedPreviewProduct,
+  setSelectedPreviewProduct,
+  onExitPreview,
+  // Admin panel props
+  searchTerm,
+  setSearchTerm,
+  selectedCategory,
+  setSelectedCategory,
+  showAddForm,
+  setShowAddForm,
+  editingProduct,
+  setEditingProduct,
+  showBulkPriceModal,
+  setShowBulkPriceModal,
+  pendingVisibilityToggles,
+  formData,
+  setFormData,
+  imageData,
+  setImageData,
+  categories,
+  units,
+  filteredProducts,
+  handleInputChange,
+  handleImageUpload,
+  handleImageSearch,
+  handleImageSelect,
+  handleAIImageGenerate,
+  handleSubmit,
+  handleEdit,
+  handleDelete,
+  handleVisibilityToggle,
+  resetForm,
+  handleBulkPriceUpdate
+}) => {
+  const [previewCollapsed, setPreviewCollapsed] = useState(false);
+  
+  const addToPreviewCart = (product) => {
+    const existingItem = previewCart.find(item => item.id === product.id);
+    if (existingItem) {
+      setPreviewCart(prev => 
+        prev.map(item => 
+          item.id === product.id 
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        )
+      );
+    } else {
+      setPreviewCart(prev => [...prev, { ...product, quantity: 1 }]);
+    }
+    toast.success(`${product.name} added to preview cart!`);
+  };
+
+  const removeFromPreviewCart = (productId) => {
+    setPreviewCart(prev => prev.filter(item => item.id !== productId));
+  };
+
+  const getPreviewCartTotal = () => {
+    return previewCart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  };
+
+  const getPreviewCartCount = () => {
+    return previewCart.reduce((total, item) => total + item.quantity, 0);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Preview Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                icon="ArrowLeft"
+                onClick={onExitPreview}
+                className="text-gray-600 hover:text-gray-900"
+              >
+                Exit Preview
+              </Button>
+              <div className="h-6 w-px bg-gray-300"></div>
+              <div className="flex items-center space-x-2">
+                <ApperIcon name="Eye" size={20} className="text-blue-600" />
+                <h1 className="text-lg font-semibold text-gray-900">Live Customer Preview</h1>
+                <Badge variant="success" className="text-xs">Real-time</Badge>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-4">
+              {/* Device Switcher */}
+              <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setPreviewDevice('desktop')}
+                  className={`flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium transition-colors ${
+                    previewDevice === 'desktop'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <ApperIcon name="Monitor" size={16} />
+                  <span>Desktop</span>
+                </button>
+                <button
+                  onClick={() => setPreviewDevice('mobile')}
+                  className={`flex items-center space-x-2 px-3 py-1 rounded text-sm font-medium transition-colors ${
+                    previewDevice === 'mobile'
+                      ? 'bg-white text-blue-600 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  <ApperIcon name="Smartphone" size={16} />
+                  <span>Mobile</span>
+                </button>
+              </div>
+
+              {/* Preview Cart Summary */}
+              <div className="flex items-center space-x-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-lg">
+                <ApperIcon name="ShoppingCart" size={16} />
+                <span className="text-sm font-medium">
+                  {getPreviewCartCount()} items • Rs. {getPreviewCartTotal().toFixed(2)}
+                </span>
+              </div>
+
+              {/* Collapse Preview */}
+              <Button
+                variant="ghost"
+                icon={previewCollapsed ? "ChevronUp" : "ChevronDown"}
+                onClick={() => setPreviewCollapsed(!previewCollapsed)}
+                className="text-gray-600"
+              >
+                {previewCollapsed ? 'Show' : 'Hide'} Preview
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Split Layout */}
+      <div className={`flex ${previewDevice === 'mobile' ? 'flex-col' : 'flex-row'} min-h-[calc(100vh-4rem)]`}>
+        {/* Admin Panel - Left Side */}
+        <div className={`${previewDevice === 'mobile' ? 'w-full' : previewCollapsed ? 'w-full' : 'w-1/2'} bg-white border-r border-gray-200 overflow-y-auto`}>
+          <div className="p-6">
+            {/* Admin Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Admin Panel</h2>
+                <p className="text-gray-600">Manage products - changes appear instantly in customer view</p>
+              </div>
+              <div className="flex flex-wrap gap-3 mt-4 sm:mt-0">
+                <Button
+                  variant="secondary"
+                  icon="DollarSign"
+                  onClick={() => setShowBulkPriceModal(true)}
+                  disabled={!products.length}
+                >
+                  Bulk Price Update
+                </Button>
+                <Button
+                  variant="primary"
+                  icon="Plus"
+                  onClick={() => setShowAddForm(true)}
+                >
+                  Add Product
+                </Button>
+              </div>
+            </div>
+
+            {/* Search and Filter */}
+            <div className="bg-gray-50 rounded-lg shadow-sm p-6 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Search Products"
+                  placeholder="Search by name or barcode..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  icon="Search"
+                />
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Category</label>
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => setSelectedCategory(e.target.value)}
+                    className="input-field"
+                  >
+                    <option value="all">All Categories</option>
+                    {categories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            {/* Admin Products Table */}
+            <AdminProductsTable
+              products={products}
+              filteredProducts={filteredProducts}
+              categories={categories}
+              pendingVisibilityToggles={pendingVisibilityToggles}
+              handleEdit={handleEdit}
+              handleDelete={handleDelete}
+              handleVisibilityToggle={handleVisibilityToggle}
+            />
+          </div>
+        </div>
+
+        {/* Customer Preview - Right Side */}
+        {!previewCollapsed && (
+          <div className={`${previewDevice === 'mobile' ? 'w-full' : 'w-1/2'} bg-gray-100 overflow-y-auto`}>
+            <CustomerPreview
+              previewProducts={previewProducts}
+              previewDevice={previewDevice}
+              previewCart={previewCart}
+              selectedPreviewProduct={selectedPreviewProduct}
+              setSelectedPreviewProduct={setSelectedPreviewProduct}
+              addToPreviewCart={addToPreviewCart}
+              removeFromPreviewCart={removeFromPreviewCart}
+              getPreviewCartTotal={getPreviewCartTotal}
+              getPreviewCartCount={getPreviewCartCount}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Add/Edit Product Modal */}
+      {showAddForm && (
+        <ProductFormModal
+          editingProduct={editingProduct}
+          formData={formData}
+          setFormData={setFormData}
+          imageData={imageData}
+          setImageData={setImageData}
+          categories={categories}
+          units={units}
+          handleInputChange={handleInputChange}
+          handleImageUpload={handleImageUpload}
+          handleImageSearch={handleImageSearch}
+          handleImageSelect={handleImageSelect}
+          handleAIImageGenerate={handleAIImageGenerate}
+          handleSubmit={handleSubmit}
+          resetForm={resetForm}
+        />
+      )}
+
+      {/* Bulk Price Update Modal */}
+      {showBulkPriceModal && (
+        <BulkPriceModal
+          products={products}
+          categories={categories}
+          onUpdate={handleBulkPriceUpdate}
+          onClose={() => setShowBulkPriceModal(false)}
+        />
+      )}
+    </div>
+  );
+};
+
+// Customer Preview Component
+const CustomerPreview = ({
+  previewProducts,
+  previewDevice,
+  previewCart,
+  selectedPreviewProduct,
+  setSelectedPreviewProduct,
+  addToPreviewCart,
+  removeFromPreviewCart,
+  getPreviewCartTotal,
+  getPreviewCartCount
+}) => {
+  const [previewView, setPreviewView] = useState('grid'); // grid, detail, cart
+
+  return (
+    <div className={`h-full ${previewDevice === 'mobile' ? 'max-w-sm mx-auto border-x border-gray-300' : ''}`}>
+      {/* Customer Header */}
+      <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="bg-gradient-to-r from-primary to-accent p-2 rounded-lg">
+                <ApperIcon name="ShoppingBag" size={previewDevice === 'mobile' ? 20 : 24} className="text-white" />
+              </div>
+              <span className={`${previewDevice === 'mobile' ? 'text-lg' : 'text-2xl'} font-bold gradient-text`}>
+                FreshMart
+              </span>
+            </div>
+
+            <div className="flex items-center space-x-4">
+              {/* Preview Cart */}
+              <button
+                onClick={() => setPreviewView(previewView === 'cart' ? 'grid' : 'cart')}
+                className="relative p-2 text-gray-700 hover:text-primary transition-colors"
+              >
+                <ApperIcon name="ShoppingCart" size={previewDevice === 'mobile' ? 20 : 24} />
+                {getPreviewCartCount() > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-secondary text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {getPreviewCartCount()}
+                  </span>
+                )}
+              </button>
+
+              {/* View Toggle */}
+              <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setPreviewView('grid')}
+                  className={`p-1 rounded ${previewView === 'grid' ? 'bg-white shadow-sm' : ''}`}
+                >
+                  <ApperIcon name="Grid3x3" size={16} />
+                </button>
+                <button
+                  onClick={() => setPreviewView('detail')}
+                  className={`p-1 rounded ${previewView === 'detail' ? 'bg-white shadow-sm' : ''}`}
+                  disabled={!selectedPreviewProduct}
+                >
+                  <ApperIcon name="Eye" size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Customer Content */}
+      <div className="p-4">
+        {previewView === 'grid' && (
+          <CustomerProductGrid
+            previewProducts={previewProducts}
+            previewDevice={previewDevice}
+            selectedPreviewProduct={selectedPreviewProduct}
+            setSelectedPreviewProduct={setSelectedPreviewProduct}
+            addToPreviewCart={addToPreviewCart}
+            setPreviewView={setPreviewView}
+          />
+        )}
+
+        {previewView === 'detail' && selectedPreviewProduct && (
+          <CustomerProductDetail
+            product={selectedPreviewProduct}
+            previewDevice={previewDevice}
+            addToPreviewCart={addToPreviewCart}
+            setPreviewView={setPreviewView}
+          />
+        )}
+
+        {previewView === 'cart' && (
+          <CustomerPreviewCart
+            previewCart={previewCart}
+            previewDevice={previewDevice}
+            removeFromPreviewCart={removeFromPreviewCart}
+            getPreviewCartTotal={getPreviewCartTotal}
+            setPreviewView={setPreviewView}
+          />
+        )}
+      </div>
+
+      {/* Device Frame Indicator */}
+      <div className="fixed bottom-4 left-4 bg-black/80 text-white px-3 py-1 rounded-full text-xs font-medium">
+        <div className="flex items-center space-x-2">
+          <ApperIcon name={previewDevice === 'mobile' ? 'Smartphone' : 'Monitor'} size={12} />
+          <span>{previewDevice === 'mobile' ? 'Mobile' : 'Desktop'} Preview</span>
         </div>
       </div>
     </div>
   );
 };
 
-export default ProductManagement;
+// Customer Product Grid Component
+const CustomerProductGrid = ({
+  previewProducts,
+  previewDevice,
+  selectedPreviewProduct,
+  setSelectedPreviewProduct,
+  addToPreviewCart,
+  setPreviewView
+}) => {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className={`${previewDevice === 'mobile' ? 'text-lg' : 'text-xl'} font-semibold text-gray-900`}>
+          Our Products
+        </h2>
+        <Badge variant="info" className="text-xs">
+          {previewProducts.length} items
+        </Badge>
+      </div>
+
+      {previewProducts.length === 0 ? (
+        <div className="text-center py-12">
+          <ApperIcon name="Package" size={48} className="text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No products available</h3>
+          <p className="text-gray-600">Add and make products visible to see them here</p>
+        </div>
+      ) : (
+        <div className={`grid ${
+          previewDevice === 'mobile' 
+            ? 'grid-cols-1 gap-4' 
+            : 'grid-cols-2 lg:grid-cols-3 gap-6'
+        }`}>
+          {previewProducts.map((product) => (
+            <div
+              key={product.id}
+              className="bg-white rounded-xl shadow-card hover:shadow-premium transition-all duration-300 overflow-hidden group cursor-pointer"
+              onClick={() => {
+                setSelectedPreviewProduct(product);
+                setPreviewView('detail');
+              }}
+            >
+              <div className="relative">
+                <img
+                  src={product.imageUrl || "/api/placeholder/300/200"}
+                  alt={product.name}
+                  className={`w-full ${previewDevice === 'mobile' ? 'h-48' : 'h-56'} object-cover group-hover:scale-105 transition-transform duration-300`}
+                  onError={(e) => {
+                    e.target.src = "/api/placeholder/300/200";
+                  }}
+                />
+                
+                {/* Product Badges */}
+                {product.discountValue && (
+                  <div className="absolute top-2 left-2">
+                    <Badge variant="sale" className="text-xs font-bold">
+                      {product.discountType === 'Percentage' ? 
+                        `${product.discountValue}% OFF` : 
+                        `Rs. ${product.discountValue} OFF`}
+                    </Badge>
+                  </div>
+                )}
+                
+                {product.stock <= (product.minStock || 5) && (
+                  <div className="absolute top-2 right-2">
+                    <Badge variant="warning" className="text-xs">
+                      Low Stock
+                    </Badge>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4">
+                <div className="space-y-2">
+                  <h3 className={`${previewDevice === 'mobile' ? 'text-sm' : 'text-base'} font-semibold text-gray-900 line-clamp-2`}>
+                    {product.name}
+                  </h3>
+                  
+                  <div className="flex items-center space-x-2">
+                    {product.previousPrice && (
+                      <span className="text-sm text-gray-500 line-through">
+                        Rs. {product.previousPrice}
+                      </span>
+                    )}
+                    <span className={`${previewDevice === 'mobile' ? 'text-lg' : 'text-xl'} font-bold text-primary`}>
+                      Rs. {product.price}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <Badge variant="secondary" className="text-xs">
+                      {product.category}
+                    </Badge>
+                    <span className="text-xs text-gray-500">
+                      {product.stock} {product.unit || 'pcs'} left
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    addToPreviewCart(product);
+                  }}
+                  disabled={product.stock <= 0}
+                  className={`w-full mt-4 ${
+                    product.stock <= 0 
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                      : 'btn-primary hover:scale-105'
+                  } ${previewDevice === 'mobile' ? 'py-2 text-sm' : 'py-3'} transition-all duration-200`}
+                >
+                  {product.stock <= 0 ? 'Out of Stock' : 'Add to Cart'}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Customer Product Detail Component
+const CustomerProductDetail = ({
+  product,
+  previewDevice,
+  addToPreviewCart,
+  setPreviewView
+}) => {
+  const [quantity, setQuantity] = useState(1);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center space-x-4">
+        <Button
+          variant="ghost"
+          icon="ArrowLeft"
+          onClick={() => setPreviewView('grid')}
+          className="text-gray-600"
+        >
+          Back
+        </Button>
+        <h2 className={`${previewDevice === 'mobile' ? 'text-lg' : 'text-xl'} font-semibold text-gray-900`}>
+          Product Details
+        </h2>
+      </div>
+
+      <div className={`${previewDevice === 'mobile' ? 'space-y-6' : 'grid grid-cols-2 gap-8'}`}>
+        {/* Product Image */}
+        <div className="space-y-4">
+          <div className="relative">
+            <img
+              src={product.imageUrl || "/api/placeholder/400/400"}
+              alt={product.name}
+              className="w-full h-96 object-cover rounded-xl shadow-lg"
+              onError={(e) => {
+                e.target.src = "/api/placeholder/400/400";
+              }}
+            />
+            
+            {/* Product Badges */}
+            {product.discountValue && (
+              <div className="absolute top-4 left-4">
+                <Badge variant="sale" className="text-sm font-bold">
+                  {product.discountType === 'Percentage' ? 
+                    `${product.discountValue}% OFF` : 
+                    `Rs. ${product.discountValue} OFF`}
+                </Badge>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Product Info */}
+        <div className="space-y-6">
+          <div>
+            <h1 className={`${previewDevice === 'mobile' ? 'text-xl' : 'text-2xl'} font-bold text-gray-900 mb-2`}>
+              {product.name}
+            </h1>
+            <Badge variant="secondary" className="text-sm">
+              {product.category}
+            </Badge>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center space-x-3">
+              {product.previousPrice && (
+                <span className="text-lg text-gray-500 line-through">
+                  Rs. {product.previousPrice}
+                </span>
+              )}
+              <span className={`${previewDevice === 'mobile' ? 'text-2xl' : 'text-3xl'} font-bold text-primary`}>
+                Rs. {product.price}
+              </span>
+            </div>
+            
+            {product.discountValue && (
+              <p className="text-green-600 font-medium">
+                You save Rs. {(() => {
+                  const discount = parseFloat(product.discountValue) || 0;
+                  if (product.discountType === 'Percentage') {
+                    return (product.price * discount / 100).toFixed(2);
+                  }
+                  return discount.toFixed(2);
+                })()}
+              </p>
+            )}
+          </div>
+
+          {product.description && (
+            <div>
+              <h3 className="font-medium text-gray-900 mb-2">Description</h3>
+              <p className="text-gray-600">{product.description}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-gray-600">Stock:</span>
+              <span className="ml-2 font-medium">
+                {product.stock} {product.unit || 'pcs'}
+              </span>
+            </div>
+            <div>
+              <span className="text-gray-600">Unit:</span>
+              <span className="ml-2 font-medium">{product.unit || 'piece'}</span>
+            </div>
+          </div>
+
+          {/* Quantity Selector */}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Quantity
+              </label>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50"
+                >
+                  <ApperIcon name="Minus" size={16} />
+                </button>
+                <span className="w-12 text-center font-medium">{quantity}</span>
+                <button
+                  onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+                  className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50"
+                  disabled={quantity >= product.stock}
+                >
+                  <ApperIcon name="Plus" size={16} />
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                for (let i = 0; i < quantity; i++) {
+                  addToPreviewCart(product);
+                }
+                setQuantity(1);
+              }}
+              disabled={product.stock <= 0}
+              className={`w-full ${
+                product.stock <= 0 
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                  : 'btn-primary hover:scale-105'
+              } ${previewDevice === 'mobile' ? 'py-3 text-base' : 'py-4 text-lg'} transition-all duration-200`}
+            >
+              {product.stock <= 0 ? 'Out of Stock' : `Add ${quantity} to Cart`}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Customer Preview Cart Component
+const CustomerPreviewCart = ({
+  previewCart,
+  previewDevice,
+  removeFromPreviewCart,
+  getPreviewCartTotal,
+  setPreviewView
+}) => {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center space-x-4">
+        <Button
+          variant="ghost"
+          icon="ArrowLeft"
+          onClick={() => setPreviewView('grid')}
+          className="text-gray-600"
+        >
+          Back
+        </Button>
+        <h2 className={`${previewDevice === 'mobile' ? 'text-lg' : 'text-xl'} font-semibold text-gray-900`}>
+          Shopping Cart
+        </h2>
+      </div>
+
+      {previewCart.length === 0 ? (
+        <div className="text-center py-12">
+          <ApperIcon name="ShoppingCart" size={48} className="text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Your cart is empty</h3>
+          <p className="text-gray-600 mb-4">Add some products to see them here</p>
+          <Button
+            variant="primary"
+            onClick={() => setPreviewView('grid')}
+          >
+            Continue Shopping
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="space-y-4">
+            {previewCart.map((item) => (
+              <div
+                key={`${item.id}-${Date.now()}`}
+                className="bg-white rounded-lg p-4 shadow-sm border"
+              >
+                <div className="flex items-center space-x-4">
+                  <img
+                    src={item.imageUrl || "/api/placeholder/80/80"}
+                    alt={item.name}
+                    className="w-16 h-16 object-cover rounded-lg"
+                    onError={(e) => {
+                      e.target.src = "/api/placeholder/80/80";
+                    }}
+                  />
+                  
+                  <div className="flex-1">
+                    <h3 className="font-medium text-gray-900">{item.name}</h3>
+                    <p className="text-sm text-gray-600">{item.category}</p>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <span className="font-medium text-primary">Rs. {item.price}</span>
+                      <span className="text-sm text-gray-500">× {item.quantity}</span>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <div className="font-medium text-gray-900">
+                      Rs. {(item.price * item.quantity).toFixed(2)}
+                    </div>
+                    <button
+                      onClick={() => removeFromPreviewCart(item.id)}
+                      className="text-red-600 hover:text-red-800 text-sm mt-1"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Cart Summary */}
+          <div className="bg-white rounded-lg p-6 shadow-sm border">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-medium">Total</span>
+                <span className="text-2xl font-bold text-primary">
+                  Rs. {getPreviewCartTotal().toFixed(2)}
+                </span>
+              </div>
+              
+              <div className="space-y-3">
+                <button className="w-full btn-primary py-3">
+                  Proceed to Checkout
+                </button>
+                <Button
+                  variant="outline"
+                  onClick={() => setPreviewView('grid')}
+                  className="w-full"
+                >
+                  Continue Shopping
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Admin Products Table Component
+const AdminProductsTable = ({
+  products,
+  filteredProducts,
+  categories,
+  pendingVisibilityToggles,
+  handleEdit,
+  handleDelete,
+  handleVisibilityToggle
+}) => {
+  return (
+    <div className="bg-white rounded-lg shadow-md">
+      <div className="p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Products ({filteredProducts.length})
+          </h3>
+          <div className="flex items-center space-x-2">
+            <Badge variant="primary">
+              Total: {products.length}
+            </Badge>
+            <Badge variant="secondary">
+              Low Stock: {products.filter(p => p && p.stock <= (p.minStock || 5)).length}
+            </Badge>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6">
+        {filteredProducts.length === 0 ? (
+          <Empty 
+            title="No products found"
+            description="Try adjusting your search or filter criteria"
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Product
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Price
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Stock
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Visibility
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredProducts.map((product) => (
+                  <tr 
+                    key={product.id} 
+                    className={`hover:bg-gray-50 transition-opacity duration-200 ${
+                      product.isVisible === false ? 'opacity-60' : 'opacity-100'
+                    }`}
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="h-10 w-10 flex-shrink-0">
+                          <img
+                            className="h-10 w-10 rounded-full object-cover"
+                            src={product.imageUrl || "/api/placeholder/40/40"}
+                            alt={product.name || "Product"}
+                            onError={(e) => {
+                              e.target.src = "/api/placeholder/40/40";
+                            }}
+                          />
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {product.name || "Unnamed Product"}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {product.barcode || "No barcode"}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Badge variant="secondary">
+                        {product.category || "No Category"}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      Rs. {product.price || 0}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <Badge 
+                        variant={product.stock <= (product.minStock || 5) ? "error" : "success"}
+                      >
+                        {product.stock || 0} {product.unit || "pcs"}
+                      </Badge>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center justify-center">
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            checked={product.isVisible !== false}
+                            onChange={() => handleVisibilityToggle(product.id, product.isVisible !== false)}
+                            color="primary"
+                            disabled={pendingVisibilityToggles.has(product.id)}
+                          />
+                          <span className={`text-sm font-medium ${
+                            product.isVisible === false ? 'text-gray-400' : 'text-gray-700'
+                          }`}>
+                            {product.isVisible === false ? 'Hidden' : 'Visible'}
+                          </span>
+                          {pendingVisibilityToggles.has(product.id) && (
+                            <div className="ml-2">
+                              <ApperIcon name="Loader2" size={14} className="animate-spin text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon="Edit"
+                          onClick={() => handleEdit(product)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon="Trash2"
+                          onClick={() => handleDelete(product.id)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Product Form Modal Component (extracted for reuse)
+const ProductFormModal = ({
+  editingProduct,
+  formData,
+  setFormData,
+  imageData,
+  setImageData,
+  categories,
+  units,
+  handleInputChange,
+  handleImageUpload,
+  handleImageSearch,
+  handleImageSelect,
+  handleAIImageGenerate,
+  handleSubmit,
+  resetForm
+}) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-semibold text-gray-900">
+              {editingProduct ? "Edit Product" : "Add New Product"}
+            </h2>
+            <button
+              onClick={resetForm}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <ApperIcon name="X" size={24} />
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Basic Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Product Name *"
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              required
+              icon="Package"
+              placeholder="Enter product name"
+            />
+            
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Category *
+              </label>
+              <select
+                name="category"
+                value={formData.category}
+                onChange={handleInputChange}
+                required
+                className="input-field"
+              >
+                <option value="">Select Category</option>
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Pricing */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Price (Rs.) *"
+              name="price"
+              type="number"
+              step="0.01"
+              value={formData.price}
+              onChange={handleInputChange}
+              required
+              icon="DollarSign"
+              placeholder="0.00"
+            />
+            <Input
+              label="Cost Price (Rs.)"
+              name="purchasePrice"
+              type="number"
+              step="0.01"
+              value={formData.purchasePrice}
+              onChange={handleInputChange}
+              icon="ShoppingCart"
+              placeholder="0.00"
+            />
+          </div>
+
+          {/* Inventory */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Input
+              label="Stock Quantity *"
+              name="stock"
+              type="number"
+              value={formData.stock}
+              onChange={handleInputChange}
+              required
+              icon="Archive"
+              placeholder="0"
+            />
+            <Input
+              label="Low Stock Alert"
+              name="minStock"
+              type="number"
+              value={formData.minStock}
+              onChange={handleInputChange}
+              placeholder="5"
+              icon="AlertTriangle"
+            />
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Unit *
+              </label>
+              <select
+                name="unit"
+                value={formData.unit}
+                onChange={handleInputChange}
+                className="input-field"
+                required
+              >
+                <option value="">Select Unit</option>
+                {units.map(unit => (
+                  <option key={unit} value={unit}>{unit}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Description */}
+          <Input
+            label="Product Description"
+            name="description"
+            type="textarea"
+            placeholder="Detailed product description..."
+            value={formData.description}
+            onChange={handleInputChange}
+            icon="FileText"
+          />
+
+          {/* Image Upload System */}
+          <ImageUploadSystem
+            imageData={imageData}
+            setImageData={setImageData}
+            onImageUpload={handleImageUpload}
+            onImageSearch={handleImageSearch}
+            onImageSelect={handleImageSelect}
+            onAIImageGenerate={handleAIImageGenerate}
+            formData={formData}
+          />
+
+          <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={resetForm}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              icon="Save"
+            >
+              {editingProduct ? "Update Product" : "Add Product"}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
