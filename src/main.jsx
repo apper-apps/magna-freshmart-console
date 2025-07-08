@@ -10,8 +10,55 @@ const performanceMonitor = {
   marks: {}
 };
 
-// Background SDK Loader - non-blocking
+// Data serialization utility to prevent DataCloneError
+const serializeForPostMessage = (data) => {
+  try {
+    // Convert non-serializable objects to serializable format
+    return JSON.parse(JSON.stringify(data, (key, value) => {
+      // Handle URL objects
+      if (value instanceof URL) {
+        return { __type: 'URL', href: value.href };
+      }
+      // Handle other non-serializable objects
+      if (typeof value === 'function') {
+        return undefined;
+      }
+      if (value instanceof Error) {
+        return { __type: 'Error', message: value.message, stack: value.stack };
+      }
+      return value;
+    }));
+  } catch (error) {
+    console.warn('Failed to serialize data for postMessage:', error);
+    return null;
+  }
+};
+
+// Message handler for external SDK communication
+const handleSDKMessage = (event) => {
+  try {
+    // Validate origin for security
+    if (!event.origin || event.origin === window.location.origin) {
+      return;
+    }
+    
+    // Handle SDK messages safely
+    if (event.data && typeof event.data === 'object') {
+      const serializedData = serializeForPostMessage(event.data);
+      if (serializedData) {
+        // Process the serialized data
+        console.log('SDK message received:', serializedData);
+      }
+    }
+  } catch (error) {
+    console.warn('Error handling SDK message:', error);
+  }
+};
+
+// Background SDK Loader - non-blocking with error handling
 class BackgroundSDKLoader {
+  static messageHandler = null;
+  
   static async loadInBackground() {
     try {
       // Check if Apper SDK is available
@@ -19,13 +66,50 @@ class BackgroundSDKLoader {
         console.log('Apper SDK not detected - continuing without it');
         return false;
       }
+      
+      // Set up message handler for SDK communication
+      this.setupMessageHandler();
+      
       return true;
     } catch (error) {
       console.warn('SDK loading failed:', error);
       return false;
     }
   }
-
+  
+  static setupMessageHandler() {
+    if (typeof window === 'undefined' || this.messageHandler) {
+      return;
+    }
+    
+    this.messageHandler = (event) => {
+      try {
+        handleSDKMessage(event);
+      } catch (error) {
+        console.warn('Message handler error:', error);
+      }
+    };
+    
+    window.addEventListener('message', this.messageHandler);
+  }
+  
+  static cleanup() {
+    if (this.messageHandler && typeof window !== 'undefined') {
+      window.removeEventListener('message', this.messageHandler);
+      this.messageHandler = null;
+    }
+  }
+  
+  static sendSafeMessage(targetWindow, message, targetOrigin = '*') {
+    try {
+      const serializedMessage = serializeForPostMessage(message);
+      if (serializedMessage && targetWindow && targetWindow.postMessage) {
+        targetWindow.postMessage(serializedMessage, targetOrigin);
+      }
+    } catch (error) {
+      console.warn('Failed to send safe message:', error);
+    }
+  }
   static async initializeWhenReady() {
     try {
       if (window.apperSDK?.isInitialized) {
