@@ -4462,9 +4462,9 @@ icon="Save"
             >
               {editingProduct ? "Update Product" : "Add Product"}
             </Button>
-          </div>
-        </form>
 </div>
+        </form>
+      </div>
     </div>
   );
 };
