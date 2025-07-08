@@ -4462,9 +4462,13 @@ const ProductFormModal = ({
               icon="Save"
             >
               {editingProduct ? "Update Product" : "Add Product"}
-            </Button>
+</Button>
           </div>
-</form>
+        </form>
+      </div>
+    </div>
+</div>
+        </form>
       </div>
     </div>
   );
