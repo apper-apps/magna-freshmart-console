@@ -418,7 +418,7 @@ const [filterMethod, setFilterMethod] = useState('all');
     }
   };
 
-  useEffect(() => {
+useEffect(() => {
     loadPaymentData();
   }, []);
 
@@ -431,6 +431,16 @@ const [filterMethod, setFilterMethod] = useState('all');
     }
   }, []);
 
+  const copyTxid = async (txid) => {
+    try {
+      // Remove "TXH: " prefix if present
+      const cleanTxid = txid.replace(/^TXH:\s*/, '');
+      await navigator.clipboard.writeText(cleanTxid);
+      toast.success(`Copied TXID: ${cleanTxid}`);
+    } catch (error) {
+      toast.error('Failed to copy transaction ID');
+    }
+  };
   const handleRefundProcess = async (orderId) => {
     if (!refundAmount || !refundReason) {
       toast.error('Please provide refund amount and reason');
@@ -982,11 +992,20 @@ const handleVerificationAction = async (orderId, action, notes = '') => {
                         <h4 className="font-semibold text-gray-900">Order #{verification.orderId}</h4>
                         <p className="text-sm text-gray-600">
                           Submitted {format(new Date(verification.submittedAt), 'MMM dd, yyyy hh:mm a')}
-                        </p>
+</p>
                         {verification.transactionId && (
-                          <p className="text-xs text-gray-500 font-mono">
-                            TXN: {verification.transactionId}
-                          </p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs text-gray-500 font-mono">
+                              TXH: {verification.transactionId}
+                            </p>
+                            <button
+                              onClick={() => copyTxid(`TXH: ${verification.transactionId}`)}
+                              className="ml-2 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors duration-200"
+                              title="Copy Transaction ID"
+                            >
+                              <ApperIcon name="Copy" size={24} />
+                            </button>
+                          </div>
                         )}
                       </div>
                       <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
