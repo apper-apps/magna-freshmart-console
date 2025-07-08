@@ -4457,12 +4457,12 @@ const ProductFormModal = ({
             </Button>
             <Button
               type="submit"
-              variant="primary"
-icon="Save"
+variant="primary"
+              icon="Save"
             >
               {editingProduct ? "Update Product" : "Add Product"}
             </Button>
-</div>
+          </div>
         </form>
       </div>
     </div>
