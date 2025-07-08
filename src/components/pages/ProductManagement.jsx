@@ -65,7 +65,13 @@ const [formData, setFormData] = useState({
     unit: "",
     description: "",
     imageUrl: "",
-    barcode: ""
+    barcode: "",
+    isVisible: true,
+    enableVariations: false,
+    variations: [],
+    discountStartDate: "",
+    discountEndDate: "",
+    discountPriority: 1
   });
   
   // Image management state
@@ -347,7 +353,13 @@ setFormData({
       unit: product.unit || "",
       description: product.description || "",
       imageUrl: product.imageUrl || "",
-      barcode: product.barcode || ""
+      barcode: product.barcode || "",
+      isVisible: product.isVisible !== false,
+      enableVariations: product.enableVariations || false,
+      variations: product.variations || [],
+      discountStartDate: product.discountStartDate || "",
+      discountEndDate: product.discountEndDate || "",
+      discountPriority: product.discountPriority || 1
     });
     setShowAddForm(true);
   };
@@ -438,7 +450,13 @@ setFormData({
       unit: "",
       description: "",
       imageUrl: "",
-      barcode: ""
+      barcode: "",
+      isVisible: true,
+      enableVariations: false,
+      variations: [],
+      discountStartDate: "",
+      discountEndDate: "",
+      discountPriority: 1
     });
     
     // Reset image data
@@ -746,180 +764,495 @@ setFormData({
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label="Product Name *"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  required
-                  icon="Package"
-                />
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Category *
-                  </label>
-                  <select
-                    name="category"
-                    value={formData.category}
+<form onSubmit={handleSubmit} className="p-6 space-y-8">
+              {/* 1. Basic Info Section */}
+              <div className="space-y-6">
+                <div className="flex items-center space-x-2 pb-4 border-b border-gray-200">
+                  <ApperIcon name="Package" size={20} className="text-primary" />
+                  <h3 className="text-lg font-semibold text-gray-900">Basic Information</h3>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Product Name *"
+                    name="name"
+                    value={formData.name}
                     onChange={handleInputChange}
                     required
-                    className="input-field"
-                  >
-                    <option value="">Select Category</option>
-                    {categories.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
+                    icon="Package"
+                    placeholder="Enter product name"
+                  />
+                  
+                  {/* Enhanced Category with Nested Subcategories */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Category *
+                    </label>
+                    <select
+                      name="category"
+                      value={formData.category}
+                      onChange={handleInputChange}
+                      required
+                      className="input-field"
+                    >
+                      <option value="">Select Category</option>
+                      <optgroup label="Food & Beverages">
+                        <option value="Groceries">Groceries</option>
+                        <option value="Fruits">Fresh Fruits</option>
+                        <option value="Vegetables">Fresh Vegetables</option>
+                        <option value="Meat">Meat & Poultry</option>
+                        <option value="Dairy">Dairy Products</option>
+                        <option value="Bakery">Bakery Items</option>
+                        <option value="Beverages">Beverages</option>
+                      </optgroup>
+                      <optgroup label="Household">
+                        <option value="Cleaning">Cleaning Supplies</option>
+                        <option value="Personal Care">Personal Care</option>
+                      </optgroup>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Global Visibility Toggle */}
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <ApperIcon name="Eye" size={20} className="text-blue-600" />
+                      <div>
+                        <h4 className="font-medium text-gray-900">Global Visibility</h4>
+                        <p className="text-sm text-gray-600">Control whether this product is visible to customers</p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={formData.isVisible !== false}
+                      onChange={(checked) => setFormData(prev => ({ ...prev, isVisible: checked }))}
+                      color="primary"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label="Price (Rs.) *"
-                  name="price"
-                  type="number"
-                  step="0.01"
-                  value={formData.price}
-                  onChange={handleInputChange}
-                  required
-                  icon="DollarSign"
-                />
-                <Input
-                  label="Previous Price (Rs.)"
-                  name="previousPrice"
-                  type="number"
-                  step="0.01"
-                  value={formData.previousPrice}
-                  onChange={handleInputChange}
-                  icon="TrendingDown"
-                />
-</div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label="Purchase Price (Rs.) *"
-                  name="purchasePrice"
-                  type="number"
-                  step="0.01"
-                  value={formData.purchasePrice}
-                  onChange={handleInputChange}
-                  required
-                  icon="ShoppingCart"
-                />
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Discount Type
-                  </label>
-                  <select
-                    name="discountType"
-                    value={formData.discountType}
+              {/* 2. Pricing Section */}
+              <div className="space-y-6">
+                <div className="flex items-center space-x-2 pb-4 border-b border-gray-200">
+                  <ApperIcon name="DollarSign" size={20} className="text-primary" />
+                  <h3 className="text-lg font-semibold text-gray-900">Pricing & Profit Calculator</h3>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Base Price (Rs.) *"
+                    name="price"
+                    type="number"
+                    step="0.01"
+                    value={formData.price}
                     onChange={handleInputChange}
-                    className="input-field"
-                  >
-                    <option value="Fixed Amount">Fixed Amount (Rs.)</option>
-                    <option value="Percentage">Percentage (%)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Input
-                  label={`Discount Value ${formData.discountType === 'Percentage' ? '(%)' : '(Rs.)'}`}
-                  name="discountValue"
-                  type="number"
-                  step={formData.discountType === 'Percentage' ? "0.1" : "0.01"}
-                  max={formData.discountType === 'Percentage' ? "100" : undefined}
-                  value={formData.discountValue}
-                  onChange={handleInputChange}
-                  icon="Tag"
-                />
-                <Input
-                  label="Min Selling Price (Rs.)"
-                  name="minSellingPrice"
-                  type="number"
-                  step="0.01"
-                  value={formData.minSellingPrice}
-                  readOnly
-                  className="bg-gray-50"
-                  icon="TrendingDown"
-                />
-                <Input
-                  label="Profit Margin (%)"
-                  name="profitMargin"
-                  type="number"
-                  step="0.01"
-                  value={formData.profitMargin}
-                  readOnly
-                  className="bg-gray-50"
-                  icon="TrendingUp"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Input
-                  label="Stock Quantity *"
-                  name="stock"
-                  type="number"
-                  value={formData.stock}
-                  onChange={handleInputChange}
-                  required
-                  icon="Archive"
-                />
-                <Input
-                  label="Min Stock Level"
-                  name="minStock"
-                  type="number"
-                  value={formData.minStock}
-                  onChange={handleInputChange}
-                  placeholder="5"
-                  icon="AlertTriangle"
-                />
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Unit
-                  </label>
-                  <select
-                    name="unit"
-                    value={formData.unit}
+                    required
+                    icon="DollarSign"
+                    placeholder="0.00"
+                  />
+                  <Input
+                    label="Cost Price (Rs.) *"
+                    name="purchasePrice"
+                    type="number"
+                    step="0.01"
+                    value={formData.purchasePrice}
                     onChange={handleInputChange}
-                    className="input-field"
-                  >
-<option value="">Select Unit</option>
-                    {units.map(unit => (
-                      <option key={unit} value={unit}>{unit}</option>
-                    ))}
-                  </select>
+                    required
+                    icon="ShoppingCart"
+                    placeholder="0.00"
+                  />
+                </div>
+
+                {/* Profit Calculator Display */}
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        Rs. {formData.minSellingPrice || '0.00'}
+                      </div>
+                      <div className="text-sm text-gray-600">Min Selling Price</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        {formData.profitMargin || '0.00'}%
+                      </div>
+                      <div className="text-sm text-gray-600">Profit Margin</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        Rs. {formData.price && formData.purchasePrice ? 
+                          (parseFloat(formData.price) - parseFloat(formData.purchasePrice)).toFixed(2) : '0.00'}
+                      </div>
+                      <div className="text-sm text-gray-600">Profit Amount</div>
+                    </div>
+                  </div>
                 </div>
               </div>
-<Input
-                label="Description"
-                name="description"
-                type="textarea"
-                placeholder="Product description..."
-                value={formData.description}
-                onChange={handleInputChange}
-                icon="FileText"
-              />
 
-              {/* Intelligent Image Integration System */}
-              <ImageUploadSystem
-                imageData={imageData}
-                setImageData={setImageData}
-                onImageUpload={handleImageUpload}
-                onImageSearch={handleImageSearch}
-                onImageSelect={handleImageSelect}
-                onAIImageGenerate={handleAIImageGenerate}
-                formData={formData}
-              />
-              <Input
-                label="Barcode"
-                name="barcode"
-                value={formData.barcode}
-                onChange={handleInputChange}
-                icon="BarChart"
-              />
+              {/* 3. Inventory Section */}
+              <div className="space-y-6">
+                <div className="flex items-center space-x-2 pb-4 border-b border-gray-200">
+                  <ApperIcon name="Archive" size={20} className="text-primary" />
+                  <h3 className="text-lg font-semibold text-gray-900">Inventory Management</h3>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Input
+                    label="Stock Quantity *"
+                    name="stock"
+                    type="number"
+                    value={formData.stock}
+                    onChange={handleInputChange}
+                    required
+                    icon="Archive"
+                    placeholder="0"
+                  />
+                  <Input
+                    label="Low Stock Alert"
+                    name="minStock"
+                    type="number"
+                    value={formData.minStock}
+                    onChange={handleInputChange}
+                    placeholder="5"
+                    icon="AlertTriangle"
+                  />
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Unit *
+                    </label>
+                    <select
+                      name="unit"
+                      value={formData.unit}
+                      onChange={handleInputChange}
+                      className="input-field"
+                      required
+                    >
+                      <option value="">Select Unit</option>
+                      <optgroup label="Weight">
+                        <option value="kg">Kilogram (kg)</option>
+                        <option value="g">Gram (g)</option>
+                      </optgroup>
+                      <optgroup label="Volume">
+                        <option value="litre">Litre (L)</option>
+                        <option value="ml">Millilitre (ml)</option>
+                      </optgroup>
+                      <optgroup label="Count">
+                        <option value="piece">Piece (pcs)</option>
+                        <option value="pack">Pack</option>
+                        <option value="dozen">Dozen</option>
+                        <option value="box">Box</option>
+                      </optgroup>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Stock Status Indicator */}
+                {formData.stock && formData.minStock && (
+                  <div className={`p-3 rounded-lg border ${
+                    parseInt(formData.stock) <= parseInt(formData.minStock) 
+                      ? 'bg-red-50 border-red-200' 
+                      : 'bg-green-50 border-green-200'
+                  }`}>
+                    <div className="flex items-center space-x-2">
+                      <ApperIcon 
+                        name={parseInt(formData.stock) <= parseInt(formData.minStock) ? "AlertTriangle" : "CheckCircle"} 
+                        size={16} 
+                        className={parseInt(formData.stock) <= parseInt(formData.minStock) ? "text-red-600" : "text-green-600"} 
+                      />
+                      <span className={`text-sm font-medium ${
+                        parseInt(formData.stock) <= parseInt(formData.minStock) ? "text-red-800" : "text-green-800"
+                      }`}>
+                        {parseInt(formData.stock) <= parseInt(formData.minStock) 
+                          ? "Low Stock Alert!" 
+                          : "Stock Level Normal"}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Variations Section */}
+              <div className="space-y-6">
+                <div className="flex items-center space-x-2 pb-4 border-b border-gray-200">
+                  <ApperIcon name="Settings" size={20} className="text-primary" />
+                  <h3 className="text-lg font-semibold text-gray-900">Product Variations</h3>
+                </div>
+
+                {/* Enable Variations Checkbox */}
+                <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="enableVariations"
+                        checked={formData.enableVariations || false}
+                        onChange={(e) => setFormData(prev => ({ 
+                          ...prev, 
+                          enableVariations: e.target.checked,
+                          variations: e.target.checked ? (prev.variations || []) : []
+                        }))}
+                        className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      />
+                      <label htmlFor="enableVariations" className="cursor-pointer">
+                        <h4 className="font-medium text-gray-900">Enable Variations</h4>
+                        <p className="text-sm text-gray-600">Create product variants like size, color, or material</p>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Variation Groups */}
+                {formData.enableVariations && (
+                  <div className="space-y-4">
+                    {(formData.variations || []).map((variation, index) => (
+                      <div key={index} className="bg-white p-4 rounded-lg border border-gray-200 space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h5 className="font-medium text-gray-900">Variation Group {index + 1}</h5>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            icon="Trash2"
+                            onClick={() => {
+                              const newVariations = [...(formData.variations || [])];
+                              newVariations.splice(index, 1);
+                              setFormData(prev => ({ ...prev, variations: newVariations }));
+                            }}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                              Variation Type
+                            </label>
+                            <select
+                              value={variation.type || ''}
+                              onChange={(e) => {
+                                const newVariations = [...(formData.variations || [])];
+                                newVariations[index] = { ...variation, type: e.target.value };
+                                setFormData(prev => ({ ...prev, variations: newVariations }));
+                              }}
+                              className="input-field"
+                            >
+                              <option value="">Select Type</option>
+                              <option value="Color">Color</option>
+                              <option value="Size">Size</option>
+                              <option value="Material">Material</option>
+                              <option value="Weight">Weight</option>
+                              <option value="Style">Style</option>
+                            </select>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                              Options (comma-separated)
+                            </label>
+                            <input
+                              type="text"
+                              value={variation.options || ''}
+                              onChange={(e) => {
+                                const newVariations = [...(formData.variations || [])];
+                                newVariations[index] = { ...variation, options: e.target.value };
+                                setFormData(prev => ({ ...prev, variations: newVariations }));
+                              }}
+                              placeholder="e.g., Red, Blue, Green or S, M, L, XL"
+                              className="input-field"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Display parsed options */}
+                        {variation.options && (
+                          <div className="flex flex-wrap gap-2">
+                            {variation.options.split(',').map((option, optIndex) => (
+                              <span
+                                key={optIndex}
+                                className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-sm"
+                              >
+                                {option.trim()}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Add Variation Group Button */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      icon="Plus"
+                      onClick={() => {
+                        const newVariation = { type: '', options: '' };
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          variations: [...(prev.variations || []), newVariation]
+                        }));
+                      }}
+                      className="w-full"
+                    >
+                      Add Variation Group
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* 5. Discounts Section */}
+              <div className="space-y-6">
+                <div className="flex items-center space-x-2 pb-4 border-b border-gray-200">
+                  <ApperIcon name="Tag" size={20} className="text-primary" />
+                  <h3 className="text-lg font-semibold text-gray-900">Discounts & Offers</h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Discount Type
+                    </label>
+                    <select
+                      name="discountType"
+                      value={formData.discountType}
+                      onChange={handleInputChange}
+                      className="input-field"
+                    >
+                      <option value="Fixed Amount">Fixed Amount (Rs.)</option>
+                      <option value="Percentage">Percentage (%)</option>
+                    </select>
+                  </div>
+                  
+                  <Input
+                    label={`Discount Value ${formData.discountType === 'Percentage' ? '(%)' : '(Rs.)'}`}
+                    name="discountValue"
+                    type="number"
+                    step={formData.discountType === 'Percentage' ? "0.1" : "0.01"}
+                    max={formData.discountType === 'Percentage' ? "100" : undefined}
+                    value={formData.discountValue}
+                    onChange={handleInputChange}
+                    icon="Tag"
+                    placeholder="0"
+                  />
+                </div>
+
+                {/* Date Range Picker */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Offer Start Date"
+                    name="discountStartDate"
+                    type="date"
+                    value={formData.discountStartDate || ''}
+                    onChange={handleInputChange}
+                    icon="Calendar"
+                  />
+                  <Input
+                    label="Offer End Date"
+                    name="discountEndDate"
+                    type="date"
+                    value={formData.discountEndDate || ''}
+                    onChange={handleInputChange}
+                    icon="Calendar"
+                  />
+                </div>
+
+                {/* Priority Slider */}
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Priority Level (for overlapping offers)
+                  </label>
+                  <div className="space-y-2">
+                    <input
+                      type="range"
+                      min="1"
+                      max="5"
+                      value={formData.discountPriority || 1}
+                      onChange={(e) => setFormData(prev => ({ 
+                        ...prev, 
+                        discountPriority: parseInt(e.target.value) 
+                      }))}
+                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    />
+                    <div className="flex justify-between text-sm text-gray-500">
+                      <span>Low (1)</span>
+                      <span className="font-medium text-primary">
+                        Priority: {formData.discountPriority || 1}
+                      </span>
+                      <span>High (5)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Discount Preview */}
+                {formData.price && formData.discountValue && (
+                  <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h5 className="font-medium text-gray-900">Discount Preview</h5>
+                        <p className="text-sm text-gray-600">
+                          Final Price: Rs. {(() => {
+                            const price = parseFloat(formData.price);
+                            const discount = parseFloat(formData.discountValue) || 0;
+                            if (formData.discountType === 'Percentage') {
+                              return (price - (price * discount / 100)).toFixed(2);
+                            }
+                            return (price - discount).toFixed(2);
+                          })()}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-orange-600">
+                          {formData.discountType === 'Percentage' ? 
+                            `${formData.discountValue}% OFF` : 
+                            `Rs. ${formData.discountValue} OFF`
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 6. Additional Information */}
+              <div className="space-y-6">
+                <div className="flex items-center space-x-2 pb-4 border-b border-gray-200">
+                  <ApperIcon name="FileText" size={20} className="text-primary" />
+                  <h3 className="text-lg font-semibold text-gray-900">Additional Information</h3>
+                </div>
+
+                <Input
+                  label="Product Description"
+                  name="description"
+                  type="textarea"
+                  placeholder="Detailed product description..."
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  icon="FileText"
+                />
+
+                {/* Image Upload System */}
+                <ImageUploadSystem
+                  imageData={imageData}
+                  setImageData={setImageData}
+                  onImageUpload={handleImageUpload}
+                  onImageSearch={handleImageSearch}
+                  onImageSelect={handleImageSelect}
+                  onAIImageGenerate={handleAIImageGenerate}
+                  formData={formData}
+                />
+
+                <Input
+                  label="Barcode"
+                  name="barcode"
+                  value={formData.barcode}
+                  onChange={handleInputChange}
+                  icon="BarChart"
+                  placeholder="Auto-generated if left empty"
+                />
+              </div>
+
               <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200">
                 <Button
                   type="button"
