@@ -411,11 +411,10 @@ const [formData, setFormData] = useState({
         setPreviewProducts(visibleProducts);
       }
       
-    } catch (err) {
+} catch (err) {
       console.error("Error saving product:", err);
       toast.error(err.message || "Failed to save product");
     }
-}
   };
 
   // Handle product editing
@@ -4043,9 +4042,9 @@ const PreviewMode = ({
         />
       )}
 
-      {/* Bulk Price Update Modal */}
+{/* Bulk Price Update Modal */}
       {showBulkPriceModal && (
-        <BulkPriceModal
+        <EnhancedBulkActionsModal
           products={products}
           categories={categories}
           onUpdate={handleBulkPriceUpdate}
