@@ -111,19 +111,16 @@ const [formData, setFormData] = useState({
       const visibleProducts = productsArray.filter(p => p.isVisible !== false);
       setPreviewProducts(visibleProducts);
       
-    } catch (err) {
+} catch (err) {
       console.error("Error loading products:", err);
       setError(err.message || "Failed to load products");
       toast.error("Failed to load products. Please try again.");
       setProducts([]);
       setPreviewProducts([]);
-setProducts([]);
-      setPreviewProducts([]);
     } finally {
       setLoading(false);
     }
   };
-};
 
   // Initialize component
   useEffect(() => {
@@ -132,7 +129,7 @@ setProducts([]);
 
   // Handle form input changes with validation and profit calculations
   const handleInputChange = (e) => {
-    
+    const { name, value } = e.target;
     setFormData(prev => {
       const newData = {
         ...prev,
@@ -537,7 +534,7 @@ setFormData({
     return matchesSearch && matchesCategory;
   });
 
-  // Error boundary component
+// Error boundary component
   if (error) {
     return <Error message={error} onRetry={loadProducts} />;
   }
@@ -547,7 +544,7 @@ setFormData({
     return <Loading />;
   }
 
-return (
+  return (
     <div className="max-w-full mx-auto">
       {previewMode ? (
         <PreviewMode
