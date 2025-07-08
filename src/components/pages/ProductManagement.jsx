@@ -1628,10 +1628,11 @@ setFormData({
           onClose={() => setShowBulkPriceModal(false)}
         />
       )}
-        </div>
+</div>
       )}
     </div>
   );
+};
 
 // Bulk Price Update Modal Component
 const BulkPriceModal = ({ products, categories, onUpdate, onClose }) => {
@@ -4464,7 +4465,7 @@ const ProductFormModal = ({
             </Button>
           </div>
         </form>
-      </div>
+</div>
     </div>
   );
 };
