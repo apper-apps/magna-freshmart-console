@@ -4455,17 +4455,19 @@ const ProductFormModal = ({
             >
               Cancel
             </Button>
-            <Button
+<Button
               type="submit"
-variant="primary"
+              variant="primary"
               icon="Save"
             >
               {editingProduct ? "Update Product" : "Add Product"}
             </Button>
           </div>
         </form>
-</form>
       </div>
+    </div>
+  );
+</div>
     </div>
   );
 };
