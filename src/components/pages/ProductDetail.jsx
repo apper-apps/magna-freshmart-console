@@ -50,12 +50,56 @@ const ProductDetail = () => {
     navigate('/cart');
   };
 
-  const getPriceChange = () => {
+const getPriceChange = () => {
     if (product?.previousPrice && product.previousPrice !== product.price) {
       const change = ((product.price - product.previousPrice) / product.previousPrice) * 100;
       return change;
     }
     return null;
+  };
+
+  const getActiveDeal = () => {
+    if (!product?.dealType || !product?.dealValue) return null;
+    
+    if (product.dealType === 'BOGO') {
+      return {
+        type: 'BOGO',
+        title: 'Buy 1 Get 1 FREE',
+        description: 'Add 2 items to get one absolutely free!',
+        icon: 'Gift',
+        color: 'success',
+        minQuantity: 2
+      };
+    } else if (product.dealType === 'Bundle') {
+      const [buyQty, payQty] = product.dealValue.split('for').map(x => parseInt(x.trim()));
+      return {
+        type: 'Bundle',
+        title: `${product.dealValue} Deal`,
+        description: `Buy ${buyQty} items, pay for only ${payQty}!`,
+        icon: 'Package',
+        color: 'primary',
+        minQuantity: buyQty,
+        saveCount: buyQty - payQty
+      };
+    }
+    
+    return null;
+  };
+
+  const calculateDealSavings = (qty) => {
+    const deal = getActiveDeal();
+    if (!deal || qty < deal.minQuantity) return 0;
+    
+    if (deal.type === 'BOGO' && qty >= 2) {
+      const freeItems = Math.floor(qty / 2);
+      return freeItems * product.price;
+    } else if (deal.type === 'Bundle' && qty >= deal.minQuantity) {
+      const bundleSets = Math.floor(qty / deal.minQuantity);
+      const freeItems = bundleSets * deal.saveCount;
+      return freeItems * product.price;
+    }
+    
+    return 0;
   };
 
   if (loading) {
@@ -83,6 +127,7 @@ const ProductDetail = () => {
   }
 
 const priceChange = getPriceChange();
+const activeDeal = getActiveDeal();
 
 // Calculate dynamic image dimensions with aspect ratio enforcement for 1:1 framing
   const calculateImageDimensions = () => {
@@ -196,7 +241,7 @@ const priceChange = getPriceChange();
               </Badge>
             )}
             
-            {/* Auto-Generated Offer Badge */}
+{/* Auto-Generated Offer Badge */}
             {product.discountValue && product.discountValue > 0 && (
               <Badge 
                 variant="promotional" 
@@ -206,6 +251,17 @@ const priceChange = getPriceChange();
                   ? `${product.discountValue}% OFF` 
                   : `Rs. ${product.discountValue} OFF`
                 }
+              </Badge>
+            )}
+
+            {/* Special Deal Badge */}
+            {activeDeal && (
+              <Badge 
+                variant={activeDeal.color} 
+                className="absolute bottom-4 left-4 text-sm font-bold animate-pulse shadow-lg"
+              >
+                <ApperIcon name={activeDeal.icon} size={14} className="mr-1" />
+                {activeDeal.title}
               </Badge>
             )}
           </div>
@@ -251,6 +307,34 @@ const priceChange = getPriceChange();
                     {priceChange > 0 ? 'Price increased' : 'You save'} Rs. {Math.abs(product.price - product.previousPrice).toLocaleString()}
                   </span>
                 </div>
+              </div>
+            )}
+
+            {/* Special Deal Information */}
+            {activeDeal && (
+              <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center space-x-2">
+                  <ApperIcon name={activeDeal.icon} size={20} className="text-green-600" />
+                  <h4 className="font-semibold text-green-800">{activeDeal.title}</h4>
+                </div>
+                <p className="text-sm text-green-700">{activeDeal.description}</p>
+                
+                {quantity >= activeDeal.minQuantity && (
+                  <div className="bg-white rounded-lg p-3 border border-green-200">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-green-800">Your Deal Savings:</span>
+                      <span className="text-lg font-bold text-green-600">
+                        Rs. {calculateDealSavings(quantity).toLocaleString()}
+                      </span>
+                    </div>
+                    <p className="text-xs text-green-600 mt-1">
+                      {activeDeal.type === 'BOGO' 
+                        ? `You get ${Math.floor(quantity / 2)} free item${Math.floor(quantity / 2) > 1 ? 's' : ''}!`
+                        : `You save on ${Math.floor(quantity / activeDeal.minQuantity) * activeDeal.saveCount} item${Math.floor(quantity / activeDeal.minQuantity) * activeDeal.saveCount > 1 ? 's' : ''}!`
+                      }
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -347,7 +431,12 @@ const priceChange = getPriceChange();
                   loading={cartLoading}
                   className="w-full"
                 >
-                  Add to Cart - Rs. {(product.price * quantity).toLocaleString()}
+Add to Cart - Rs. {((product.price * quantity) - calculateDealSavings(quantity)).toLocaleString()}
+                  {calculateDealSavings(quantity) > 0 && (
+                    <span className="text-xs block text-green-600 font-normal">
+                      Save Rs. {calculateDealSavings(quantity).toLocaleString()} with {activeDeal?.title}!
+                    </span>
+                  )}
                 </Button>
                 
                 <Button

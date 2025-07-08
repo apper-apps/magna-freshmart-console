@@ -32,11 +32,46 @@ const { cart, clearCart } = useCart()
   const [transactionId, setTransactionId] = useState('')
   const [errors, setErrors] = useState({})
 
-// Calculate totals with validated pricing
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
-  const deliveryCharge = subtotal >= 2000 ? 0 : 150 // Free delivery over Rs. 2000
-  const gatewayFee = calculateGatewayFee()
-  const total = subtotal + deliveryCharge + gatewayFee
+// Calculate totals with validated pricing and deals
+  const calculateCartTotals = () => {
+    let subtotal = 0;
+    let totalSavings = 0;
+    
+    cart.forEach(item => {
+      const itemTotal = item.price * item.quantity;
+      subtotal += itemTotal;
+      
+      // Calculate deal savings
+      if (item.dealType && item.dealValue) {
+        if (item.dealType === 'BOGO' && item.quantity >= 2) {
+          const freeItems = Math.floor(item.quantity / 2);
+          totalSavings += freeItems * item.price;
+        } else if (item.dealType === 'Bundle' && item.quantity >= 3) {
+          const [buyQty, payQty] = item.dealValue.split('for').map(x => parseInt(x.trim()));
+          if (buyQty && payQty && item.quantity >= buyQty) {
+            const bundleSets = Math.floor(item.quantity / buyQty);
+            const freeItems = bundleSets * (buyQty - payQty);
+            totalSavings += freeItems * item.price;
+          }
+        }
+      }
+    });
+    
+    const discountedSubtotal = subtotal - totalSavings;
+    const deliveryCharge = discountedSubtotal >= 2000 ? 0 : 150;
+    
+    return {
+      originalSubtotal: subtotal,
+      dealSavings: totalSavings,
+      subtotal: discountedSubtotal,
+      deliveryCharge,
+      total: discountedSubtotal + deliveryCharge + calculateGatewayFee()
+    };
+  };
+
+  const totals = calculateCartTotals();
+  const { originalSubtotal, dealSavings, subtotal, deliveryCharge, total } = totals;
+  const gatewayFee = calculateGatewayFee();
 
 // Load available payment methods from admin configuration
   React.useEffect(() => {
@@ -242,14 +277,40 @@ async function completeOrder(paymentResult) {
         throw new Error('Please review cart items and try again');
       }
 
-      // Recalculate totals with validated prices
-      const validatedSubtotal = validatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      const validatedDeliveryCharge = validatedSubtotal >= 2000 ? 0 : 150;
-      const validatedTotal = validatedSubtotal + validatedDeliveryCharge + gatewayFee;
+// Recalculate totals with validated prices and deals
+      let validatedSubtotal = 0;
+      let validatedDealSavings = 0;
+      
+      validatedItems.forEach(item => {
+        const itemTotal = item.price * item.quantity;
+        validatedSubtotal += itemTotal;
+        
+        // Recalculate deal savings with current validated data
+        const originalItem = cart.find(cartItem => cartItem.id === item.id);
+        if (originalItem?.dealType && originalItem?.dealValue) {
+          if (originalItem.dealType === 'BOGO' && item.quantity >= 2) {
+            const freeItems = Math.floor(item.quantity / 2);
+            validatedDealSavings += freeItems * item.price;
+          } else if (originalItem.dealType === 'Bundle' && item.quantity >= 3) {
+            const [buyQty, payQty] = originalItem.dealValue.split('for').map(x => parseInt(x.trim()));
+            if (buyQty && payQty && item.quantity >= buyQty) {
+              const bundleSets = Math.floor(item.quantity / buyQty);
+              const freeItems = bundleSets * (buyQty - payQty);
+              validatedDealSavings += freeItems * item.price;
+            }
+          }
+        }
+      });
+      
+      const finalSubtotal = validatedSubtotal - validatedDealSavings;
+      const validatedDeliveryCharge = finalSubtotal >= 2000 ? 0 : 150;
+      const validatedTotal = finalSubtotal + validatedDeliveryCharge + gatewayFee;
 
-      const orderData = {
+const orderData = {
         items: validatedItems,
-        subtotal: validatedSubtotal,
+        originalSubtotal: validatedSubtotal,
+        dealSavings: validatedDealSavings,
+        subtotal: finalSubtotal,
         deliveryCharge: validatedDeliveryCharge,
         gatewayFee,
         total: validatedTotal,
@@ -418,7 +479,20 @@ if (paymentMethod === 'card') {
                 ))}
 <div className="border-t pt-4 space-y-2">
                   <div className="flex justify-between">
-                    <span>Subtotal:</span>
+                    <span>Original Subtotal:</span>
+                    <span>Rs. {originalSubtotal.toLocaleString()}</span>
+                  </div>
+                  {dealSavings > 0 && (
+                    <div className="flex justify-between text-green-600">
+                      <span className="flex items-center">
+                        <ApperIcon name="Gift" size={16} className="mr-1" />
+                        Deal Savings:
+                      </span>
+                      <span>-Rs. {dealSavings.toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-medium">
+                    <span>Subtotal after deals:</span>
                     <span>Rs. {subtotal.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
@@ -435,6 +509,13 @@ if (paymentMethod === 'card') {
                     <span>Total:</span>
                     <span className="gradient-text">Rs. {total.toLocaleString()}</span>
                   </div>
+                  {dealSavings > 0 && (
+                    <div className="text-center py-2 bg-green-50 rounded-lg">
+                      <span className="text-sm text-green-700 font-medium">
+                        🎉 You saved Rs. {dealSavings.toLocaleString()} with deals!
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

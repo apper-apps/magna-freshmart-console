@@ -9,7 +9,17 @@ const initialState = {
   isLoading: false,
   error: null,
   priceValidationCache: {},
-  lastValidated: null
+  lastValidated: null,
+  dealsSummary: {
+    totalSavings: 0,
+    appliedDeals: []
+  }
+};
+
+// Deal types enum
+const DEAL_TYPES = {
+  BOGO: 'BOGO',
+  BUNDLE: 'Bundle'
 };
 
 // Async thunks for real-time validation
@@ -175,8 +185,79 @@ const { productId, quantity } = action.payload;
     },
     
 calculateTotals: (state) => {
-      state.total = state.items.reduce((total, item) => total + (item.price * item.quantity), 0);
+      // First calculate deals and savings
+      cartSlice.caseReducers.calculateDeals(state);
+      
+      // Calculate totals with deal adjustments
+      const subtotal = state.items.reduce((total, item) => {
+        const itemTotal = item.price * item.quantity;
+        const itemDeals = state.dealsSummary.appliedDeals.filter(deal => deal.productId === item.id);
+        const itemSavings = itemDeals.reduce((savings, deal) => savings + deal.savings, 0);
+        return total + itemTotal - itemSavings;
+      }, 0);
+      
+      state.total = subtotal;
       state.itemCount = state.items.reduce((total, item) => total + item.quantity, 0);
+    },
+    
+    calculateDeals: (state) => {
+      const appliedDeals = [];
+      let totalSavings = 0;
+      
+      state.items.forEach(item => {
+        if (!item.dealType || !item.dealValue) return;
+        
+        let itemSavings = 0;
+        
+        if (item.dealType === DEAL_TYPES.BOGO && item.quantity >= 2) {
+          // Buy One Get One - every 2nd item is free
+          const freeItems = Math.floor(item.quantity / 2);
+          itemSavings = freeItems * item.price;
+          
+          appliedDeals.push({
+            id: `${item.id}-bogo`,
+            productId: item.id,
+            productName: item.name,
+            type: DEAL_TYPES.BOGO,
+            description: 'Buy 1 Get 1 Free',
+            freeItems,
+            savings: itemSavings,
+            appliedQuantity: item.quantity
+          });
+        } else if (item.dealType === DEAL_TYPES.BUNDLE && item.dealValue && item.quantity >= 3) {
+          // Bundle deals like "3 for 2"
+          const [buyQty, payQty] = item.dealValue.split('for').map(x => parseInt(x.trim()));
+          if (buyQty && payQty && item.quantity >= buyQty) {
+            const bundleSets = Math.floor(item.quantity / buyQty);
+            const freeItems = bundleSets * (buyQty - payQty);
+            itemSavings = freeItems * item.price;
+            
+            appliedDeals.push({
+              id: `${item.id}-bundle`,
+              productId: item.id,
+              productName: item.name,
+              type: DEAL_TYPES.BUNDLE,
+              description: `${item.dealValue} Deal`,
+              freeItems,
+              savings: itemSavings,
+              appliedQuantity: item.quantity,
+              bundleSets
+            });
+          }
+        }
+        
+        totalSavings += itemSavings;
+      });
+      
+      state.dealsSummary = {
+        totalSavings,
+        appliedDeals
+      };
+    },
+    
+    applyDeals: (state) => {
+      cartSlice.caseReducers.calculateDeals(state);
+      cartSlice.caseReducers.calculateTotals(state);
     },
     
     updatePricesFromValidation: (state, action) => {
@@ -313,6 +394,8 @@ export const selectCartTotal = (state) => state.cart.total;
 export const selectCartItemCount = (state) => state.cart.itemCount;
 export const selectCartLoading = (state) => state.cart.isLoading;
 export const selectCartError = (state) => state.cart.error;
+export const selectCartDeals = (state) => state.cart.dealsSummary;
+export const selectCartSavings = (state) => state.cart.dealsSummary.totalSavings;
 export const selectIsProductInCart = (productId) => (state) => 
   state.cart.items.some(item => item.id === productId);
 export const selectProductQuantityInCart = (productId) => (state) => {
