@@ -972,7 +972,7 @@ setFormData({
                 )}
               </div>
 
-              {/* 4. Variations Section */}
+{/* 4. Enhanced Variations Section */}
               <div className="space-y-6">
                 <div className="flex items-center space-x-2 pb-4 border-b border-gray-200">
                   <ApperIcon name="Settings" size={20} className="text-primary" />
@@ -1002,27 +1002,44 @@ setFormData({
                   </div>
                 </div>
 
-                {/* Variation Groups */}
+                {/* Enhanced Variation Groups */}
                 {formData.enableVariations && (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {(formData.variations || []).map((variation, index) => (
-                      <div key={index} className="bg-white p-4 rounded-lg border border-gray-200 space-y-4">
+                      <div key={index} className="bg-white p-6 rounded-lg border border-gray-200 space-y-6">
                         <div className="flex items-center justify-between">
                           <h5 className="font-medium text-gray-900">Variation Group {index + 1}</h5>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            icon="Trash2"
-                            onClick={() => {
-                              const newVariations = [...(formData.variations || [])];
-                              newVariations.splice(index, 1);
-                              setFormData(prev => ({ ...prev, variations: newVariations }));
-                            }}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            Remove
-                          </Button>
+                          <div className="flex space-x-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              icon="Copy"
+                              onClick={() => {
+                                const clonedVariation = { ...variation };
+                                const newVariations = [...(formData.variations || [])];
+                                newVariations.splice(index + 1, 0, clonedVariation);
+                                setFormData(prev => ({ ...prev, variations: newVariations }));
+                              }}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              Clone
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              icon="Trash2"
+                              onClick={() => {
+                                const newVariations = [...(formData.variations || [])];
+                                newVariations.splice(index, 1);
+                                setFormData(prev => ({ ...prev, variations: newVariations }));
+                              }}
+                              className="text-red-600 hover:text-red-800"
+                            >
+                              Remove
+                            </Button>
+                          </div>
                         </div>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1066,15 +1083,62 @@ setFormData({
                           </div>
                         </div>
 
+                        {/* Price Override Toggle */}
+                        <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <input
+                                type="checkbox"
+                                id={`priceOverride-${index}`}
+                                checked={variation.enablePriceOverride || false}
+                                onChange={(e) => {
+                                  const newVariations = [...(formData.variations || [])];
+                                  newVariations[index] = { 
+                                    ...variation, 
+                                    enablePriceOverride: e.target.checked,
+                                    customPrice: e.target.checked ? (variation.customPrice || formData.price) : null
+                                  };
+                                  setFormData(prev => ({ ...prev, variations: newVariations }));
+                                }}
+                                className="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                              />
+                              <label htmlFor={`priceOverride-${index}`} className="cursor-pointer">
+                                <h6 className="font-medium text-gray-900">Price Override</h6>
+                                <p className="text-sm text-gray-600">Set different price from base price (Rs. {formData.price || 0})</p>
+                              </label>
+                            </div>
+                            {variation.enablePriceOverride && (
+                              <div className="space-y-2">
+                                <Input
+                                  label="Custom Price (Rs.)"
+                                  type="number"
+                                  step="0.01"
+                                  value={variation.customPrice || ''}
+                                  onChange={(e) => {
+                                    const newVariations = [...(formData.variations || [])];
+                                    newVariations[index] = { ...variation, customPrice: e.target.value };
+                                    setFormData(prev => ({ ...prev, variations: newVariations }));
+                                  }}
+                                  placeholder={formData.price || '0'}
+                                  className="w-32"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
                         {/* Display parsed options */}
                         {variation.options && (
                           <div className="flex flex-wrap gap-2">
                             {variation.options.split(',').map((option, optIndex) => (
                               <span
                                 key={optIndex}
-                                className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-sm"
+                                className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium"
                               >
                                 {option.trim()}
+                                {variation.enablePriceOverride && variation.customPrice && (
+                                  <span className="ml-2 text-green-600">Rs. {variation.customPrice}</span>
+                                )}
                               </span>
                             ))}
                           </div>
@@ -1082,13 +1146,28 @@ setFormData({
                       </div>
                     ))}
 
+                    {/* Matrix View for Color x Size Combinations */}
+                    <VariationMatrixView 
+                      variations={formData.variations || []}
+                      basePrice={formData.price}
+                      productName={formData.name}
+                      onMatrixUpdate={(matrixData) => {
+                        setFormData(prev => ({ ...prev, variationMatrix: matrixData }));
+                      }}
+                    />
+
                     {/* Add Variation Group Button */}
                     <Button
                       type="button"
                       variant="outline"
                       icon="Plus"
                       onClick={() => {
-                        const newVariation = { type: '', options: '' };
+                        const newVariation = { 
+                          type: '', 
+                          options: '', 
+                          enablePriceOverride: false,
+                          customPrice: null
+                        };
                         setFormData(prev => ({ 
                           ...prev, 
                           variations: [...(prev.variations || []), newVariation]
@@ -2651,6 +2730,388 @@ const UnsplashImageSearch = ({
           <div className="text-xs text-gray-600 pt-2 border-t border-gray-200">
             <p>All images are sourced from Unsplash and comply with their license terms. While attribution is not required, it's appreciated by photographers and helps support the creative community.</p>
           </div>
+        </div>
+      </div>
+</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+// Enhanced Variation Matrix View Component
+const VariationMatrixView = ({ variations, basePrice, productName, onMatrixUpdate }) => {
+  const [matrixData, setMatrixData] = useState({});
+  const [showMatrix, setShowMatrix] = useState(false);
+  const [bulkStockValue, setBulkStockValue] = useState('');
+  const [skuPattern, setSkuPattern] = useState('AUTO');
+
+  // Get color and size variations
+  const colorVariation = variations.find(v => v.type === 'Color' && v.options);
+  const sizeVariation = variations.find(v => v.type === 'Size' && v.options);
+
+  const colors = colorVariation ? colorVariation.options.split(',').map(c => c.trim()) : [];
+  const sizes = sizeVariation ? sizeVariation.options.split(',').map(s => s.trim()) : [];
+
+  // Generate SKU based on pattern
+  const generateSKU = (color, size) => {
+    const productCode = (productName || 'PROD').toUpperCase().slice(0, 4);
+    const colorCode = color.toUpperCase().slice(0, 3);
+    const sizeCode = size.toUpperCase();
+    
+    switch (skuPattern) {
+      case 'AUTO':
+        return `${productCode}-${colorCode}-${sizeCode}`;
+      case 'SIMPLE':
+        return `${colorCode}${sizeCode}`;
+      case 'DETAILED':
+        return `${productCode}_${color.toUpperCase()}_${size.toUpperCase()}_${Date.now().toString().slice(-4)}`;
+      default:
+        return `${productCode}-${colorCode}-${sizeCode}`;
+    }
+  };
+
+  // Initialize matrix when colors and sizes are available
+  useEffect(() => {
+    if (colors.length > 0 && sizes.length > 0) {
+      const newMatrixData = {};
+      colors.forEach(color => {
+        newMatrixData[color] = {};
+        sizes.forEach(size => {
+          const key = `${color}-${size}`;
+          newMatrixData[color][size] = matrixData[color]?.[size] || {
+            sku: generateSKU(color, size),
+            stock: 0,
+            price: basePrice,
+            enableCustomPrice: false,
+            active: true
+          };
+        });
+      });
+      setMatrixData(newMatrixData);
+      setShowMatrix(true);
+      if (onMatrixUpdate) {
+        onMatrixUpdate(newMatrixData);
+      }
+    } else {
+      setShowMatrix(false);
+    }
+  }, [colors.length, sizes.length, basePrice]);
+
+  // Update matrix cell
+  const updateMatrixCell = (color, size, field, value) => {
+    const newMatrixData = { ...matrixData };
+    if (!newMatrixData[color]) newMatrixData[color] = {};
+    if (!newMatrixData[color][size]) {
+      newMatrixData[color][size] = {
+        sku: generateSKU(color, size),
+        stock: 0,
+        price: basePrice,
+        enableCustomPrice: false,
+        active: true
+      };
+    }
+    
+    newMatrixData[color][size] = {
+      ...newMatrixData[color][size],
+      [field]: value
+    };
+    
+    setMatrixData(newMatrixData);
+    if (onMatrixUpdate) {
+      onMatrixUpdate(newMatrixData);
+    }
+  };
+
+  // Apply bulk stock to all active cells
+  const applyBulkStock = () => {
+    if (!bulkStockValue || isNaN(bulkStockValue)) return;
+    
+    const newMatrixData = { ...matrixData };
+    colors.forEach(color => {
+      sizes.forEach(size => {
+        if (newMatrixData[color]?.[size]?.active) {
+          newMatrixData[color][size] = {
+            ...newMatrixData[color][size],
+            stock: parseInt(bulkStockValue)
+          };
+        }
+      });
+    });
+    
+    setMatrixData(newMatrixData);
+    setBulkStockValue('');
+    if (onMatrixUpdate) {
+      onMatrixUpdate(newMatrixData);
+    }
+  };
+
+  // Generate new SKUs based on pattern
+  const regenerateSKUs = () => {
+    const newMatrixData = { ...matrixData };
+    colors.forEach(color => {
+      sizes.forEach(size => {
+        if (newMatrixData[color]?.[size]) {
+          newMatrixData[color][size] = {
+            ...newMatrixData[color][size],
+            sku: generateSKU(color, size)
+          };
+        }
+      });
+    });
+    
+    setMatrixData(newMatrixData);
+    if (onMatrixUpdate) {
+      onMatrixUpdate(newMatrixData);
+    }
+  };
+
+  if (!showMatrix) {
+    return (
+      <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
+        <div className="text-center">
+          <ApperIcon name="Grid3x3" size={48} className="text-blue-400 mx-auto mb-4" />
+          <h4 className="font-medium text-gray-900 mb-2">Matrix View</h4>
+          <p className="text-gray-600 mb-4">
+            Add both "Color" and "Size" variation types to enable the matrix view for SKU management
+          </p>
+          <div className="flex justify-center space-x-4 text-sm">
+            <div className="flex items-center space-x-2">
+              <div className={`w-3 h-3 rounded-full ${colorVariation ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              <span>Color Variations</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className={`w-3 h-3 rounded-full ${sizeVariation ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              <span>Size Variations</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200 space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <ApperIcon name="Grid3x3" size={24} className="text-blue-600" />
+          <div>
+            <h4 className="font-medium text-gray-900">Variation Matrix</h4>
+            <p className="text-sm text-gray-600">Manage SKUs, stock, and pricing for all combinations</p>
+          </div>
+        </div>
+        <Badge variant="info" className="text-xs">
+          {colors.length} × {sizes.length} = {colors.length * sizes.length} SKUs
+        </Badge>
+      </div>
+
+      {/* Matrix Controls */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-white rounded-lg border">
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">SKU Pattern</label>
+          <select
+            value={skuPattern}
+            onChange={(e) => {
+              setSkuPattern(e.target.value);
+              setTimeout(regenerateSKUs, 100);
+            }}
+            className="input-field text-sm"
+          >
+            <option value="AUTO">Auto (PROD-RED-L)</option>
+            <option value="SIMPLE">Simple (REDL)</option>
+            <option value="DETAILED">Detailed (PROD_RED_LARGE_1234)</option>
+          </select>
+        </div>
+        
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Bulk Stock Allocation</label>
+          <div className="flex space-x-2">
+            <input
+              type="number"
+              value={bulkStockValue}
+              onChange={(e) => setBulkStockValue(e.target.value)}
+              placeholder="Enter stock quantity"
+              className="input-field text-sm flex-1"
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={applyBulkStock}
+              disabled={!bulkStockValue}
+            >
+              Apply
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">Matrix Actions</label>
+          <div className="flex space-x-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              icon="RefreshCw"
+              onClick={regenerateSKUs}
+            >
+              Regen SKUs
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              icon="Download"
+              onClick={() => {
+                const csvData = colors.flatMap(color => 
+                  sizes.map(size => ({
+                    Color: color,
+                    Size: size,
+                    SKU: matrixData[color]?.[size]?.sku || '',
+                    Stock: matrixData[color]?.[size]?.stock || 0,
+                    Price: matrixData[color]?.[size]?.price || basePrice,
+                    Active: matrixData[color]?.[size]?.active || true
+                  }))
+                );
+                console.log('Export CSV:', csvData);
+              }}
+            >
+              Export
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Matrix Grid */}
+      <div className="overflow-x-auto">
+        <div className="min-w-full">
+          <table className="w-full border-collapse bg-white rounded-lg overflow-hidden shadow-sm">
+            <thead>
+              <tr className="bg-gray-50">
+                <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b">
+                  Color \ Size
+                </th>
+                {sizes.map(size => (
+                  <th
+                    key={size}
+                    className="p-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-l"
+                  >
+                    {size}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {colors.map((color, colorIndex) => (
+                <tr key={color} className={colorIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                  <td className="p-3 text-sm font-medium text-gray-900 border-b">
+                    <div className="flex items-center space-x-2">
+                      <div 
+                        className="w-4 h-4 rounded-full border-2 border-gray-300"
+                        style={{ backgroundColor: color.toLowerCase() }}
+                      ></div>
+                      <span>{color}</span>
+                    </div>
+                  </td>
+                  {sizes.map(size => {
+                    const cellData = matrixData[color]?.[size] || {};
+                    return (
+                      <td key={`${color}-${size}`} className="p-2 border-b border-l">
+                        <div className="space-y-2 min-w-48">
+                          {/* SKU */}
+                          <div className="text-xs font-mono text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                            {cellData.sku || generateSKU(color, size)}
+                          </div>
+                          
+                          {/* Stock Input */}
+                          <input
+                            type="number"
+                            value={cellData.stock || ''}
+                            onChange={(e) => updateMatrixCell(color, size, 'stock', parseInt(e.target.value) || 0)}
+                            placeholder="Stock"
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          
+                          {/* Price Toggle & Input */}
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-1">
+                              <input
+                                type="checkbox"
+                                checked={cellData.enableCustomPrice || false}
+                                onChange={(e) => updateMatrixCell(color, size, 'enableCustomPrice', e.target.checked)}
+                                className="text-blue-600 focus:ring-blue-500 rounded"
+                              />
+                              <span className="text-xs text-gray-600">Custom Price</span>
+                            </div>
+                            {cellData.enableCustomPrice ? (
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={cellData.price || ''}
+                                onChange={(e) => updateMatrixCell(color, size, 'price', parseFloat(e.target.value) || 0)}
+                                placeholder={basePrice}
+                                className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                              />
+                            ) : (
+                              <div className="px-2 py-1 text-sm text-gray-500 bg-gray-50 rounded border">
+                                Rs. {basePrice || 0}
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Active Toggle */}
+                          <div className="flex items-center justify-center">
+                            <Switch
+                              checked={cellData.active !== false}
+                              onChange={(checked) => updateMatrixCell(color, size, 'active', checked)}
+                              color="primary"
+                            />
+                          </div>
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Matrix Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-white rounded-lg border">
+        <div className="text-center">
+          <div className="text-2xl font-bold text-blue-600">
+            {Object.values(matrixData).reduce((total, colorData) => 
+              total + Object.values(colorData).filter(cell => cell.active !== false).length, 0
+            )}
+          </div>
+          <div className="text-sm text-gray-600">Active SKUs</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold text-green-600">
+            {Object.values(matrixData).reduce((total, colorData) => 
+              total + Object.values(colorData).reduce((sum, cell) => sum + (cell.stock || 0), 0), 0
+            )}
+          </div>
+          <div className="text-sm text-gray-600">Total Stock</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold text-purple-600">
+            {Object.values(matrixData).reduce((count, colorData) => 
+              count + Object.values(colorData).filter(cell => cell.enableCustomPrice).length, 0
+            )}
+          </div>
+          <div className="text-sm text-gray-600">Custom Prices</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold text-orange-600">
+            Rs. {Math.round(Object.values(matrixData).reduce((total, colorData) => 
+              total + Object.values(colorData).reduce((sum, cell) => 
+                sum + ((cell.price || basePrice) * (cell.stock || 0)), 0
+              ), 0
+            ))}
+          </div>
+          <div className="text-sm text-gray-600">Total Value</div>
         </div>
       </div>
     </div>
