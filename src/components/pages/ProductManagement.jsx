@@ -4470,4 +4470,6 @@ const ProductFormModal = ({
 );
 };
 
+};
+
 export default ProductManagement;
