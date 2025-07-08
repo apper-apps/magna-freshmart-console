@@ -123,13 +123,15 @@ setProducts([]);
       setLoading(false);
     }
   };
+};
 
   // Initialize component
   useEffect(() => {
+    loadProducts();
+  }, []);
 
-// Handle form input changes with validation and profit calculations
+  // Handle form input changes with validation and profit calculations
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
     
     setFormData(prev => {
       const newData = {
