@@ -187,12 +187,25 @@ const priceChange = getPriceChange();
               </Badge>
             )}
             
-            {priceChange && (
+{priceChange && (
               <Badge 
-                variant={priceChange > 0 ? 'danger' : 'success'} 
-                className="absolute top-4 right-4"
+                variant={priceChange > 0 ? 'danger' : 'sale'} 
+                className="absolute top-4 right-4 text-sm font-bold shadow-lg"
               >
-                {priceChange > 0 ? '+' : ''}{priceChange.toFixed(1)}%
+                {priceChange > 0 ? 'PRICE UP' : 'SALE'} {Math.abs(priceChange).toFixed(1)}% OFF
+              </Badge>
+            )}
+            
+            {/* Auto-Generated Offer Badge */}
+            {product.discountValue && product.discountValue > 0 && (
+              <Badge 
+                variant="promotional" 
+                className="absolute top-4 left-4 text-sm font-bold"
+              >
+                {product.discountType === 'Percentage' 
+                  ? `${product.discountValue}% OFF` 
+                  : `Rs. ${product.discountValue} OFF`
+                }
               </Badge>
             )}
           </div>
@@ -220,14 +233,24 @@ const priceChange = getPriceChange();
               </span>
             </div>
             
-            {product.previousPrice && product.previousPrice !== product.price && (
-              <div className="flex items-center space-x-2">
-                <span className="text-lg text-gray-500 line-through">
-                  Rs. {product.previousPrice.toLocaleString()}
-                </span>
-<span className={`text-sm font-medium ${priceChange > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  {priceChange > 0 ? 'Price increased' : 'Price decreased'}
-                </span>
+{product.previousPrice && product.previousPrice !== product.price && (
+              <div className="space-y-2">
+                <div className="flex items-center space-x-3">
+                  <Badge variant="strikethrough" className="text-base px-3 py-1">
+                    Rs. {product.previousPrice.toLocaleString()}
+                  </Badge>
+                  <Badge 
+                    variant={priceChange > 0 ? 'danger' : 'sale'} 
+                    className="text-sm font-bold animate-pulse"
+                  >
+                    {priceChange > 0 ? 'PRICE UP!' : `SAVE ${Math.abs(priceChange).toFixed(1)}%`}
+                  </Badge>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className={`text-sm font-medium ${priceChange > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {priceChange > 0 ? 'Price increased' : 'You save'} Rs. {Math.abs(product.price - product.previousPrice).toLocaleString()}
+                  </span>
+                </div>
               </div>
             )}
           </div>

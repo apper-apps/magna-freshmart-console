@@ -1181,13 +1181,133 @@ setFormData({
                 )}
               </div>
 
-              {/* 5. Discounts Section */}
+{/* 5. Enhanced Offers & Discounts Management */}
               <div className="space-y-6">
                 <div className="flex items-center space-x-2 pb-4 border-b border-gray-200">
                   <ApperIcon name="Tag" size={20} className="text-primary" />
-                  <h3 className="text-lg font-semibold text-gray-900">Discounts & Offers</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Offers & Auto-Apply Rules</h3>
                 </div>
 
+                {/* Auto-Apply Rules Section */}
+                <div className="bg-gradient-to-br from-purple-50 to-blue-50 p-6 rounded-lg border border-purple-200">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <ApperIcon name="Zap" size={20} className="text-purple-600" />
+                    <h4 className="font-medium text-gray-900">Auto-Apply Offer Rules</h4>
+                    <Badge variant="featured" className="text-xs">Smart Automation</Badge>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <label className="flex items-center space-x-2">
+                        <input 
+                          type="checkbox" 
+                          checked={formData.enableRamadanOffer || false}
+                          onChange={(e) => setFormData(prev => ({ ...prev, enableRamadanOffer: e.target.checked }))}
+                          className="rounded text-purple-600 focus:ring-purple-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Enable during Ramadan</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input 
+                          type="checkbox" 
+                          checked={formData.enableEidOffer || false}
+                          onChange={(e) => setFormData(prev => ({ ...prev, enableEidOffer: e.target.checked }))}
+                          className="rounded text-purple-600 focus:ring-purple-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Enable during Eid celebrations</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input 
+                          type="checkbox" 
+                          checked={formData.enableWeekendOffer || false}
+                          onChange={(e) => setFormData(prev => ({ ...prev, enableWeekendOffer: e.target.checked }))}
+                          className="rounded text-purple-600 focus:ring-purple-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Weekend special offers</span>
+                      </label>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <label className="flex items-center space-x-2">
+                        <input 
+                          type="checkbox" 
+                          checked={formData.enableLowStockOffer || false}
+                          onChange={(e) => setFormData(prev => ({ ...prev, enableLowStockOffer: e.target.checked }))}
+                          className="rounded text-purple-600 focus:ring-purple-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Auto-apply when low stock</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input 
+                          type="checkbox" 
+                          checked={formData.enableBulkOffer || false}
+                          onChange={(e) => setFormData(prev => ({ ...prev, enableBulkOffer: e.target.checked }))}
+                          className="rounded text-purple-600 focus:ring-purple-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Bulk purchase incentives</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input 
+                          type="checkbox" 
+                          checked={formData.enableSeasonalOffer || false}
+                          onChange={(e) => setFormData(prev => ({ ...prev, enableSeasonalOffer: e.target.checked }))}
+                          className="rounded text-purple-600 focus:ring-purple-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Seasonal promotions</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Badge Generator Section */}
+                <div className="bg-gradient-to-br from-orange-50 to-red-50 p-6 rounded-lg border border-orange-200">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <ApperIcon name="Award" size={20} className="text-orange-600" />
+                    <h4 className="font-medium text-gray-900">Auto Badge Generator</h4>
+                    <Badge variant="promotional" className="text-xs">Live Preview</Badge>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Input
+                        label="Badge Text Template"
+                        name="badgeTemplate"
+                        value={formData.badgeTemplate || "Eid Sale: {discount}% OFF"}
+                        onChange={handleInputChange}
+                        placeholder="e.g., Eid Sale: 30% OFF"
+                      />
+                      <div className="space-y-2">
+                        <label className="block text-sm font-medium text-gray-700">Badge Style</label>
+                        <select
+                          name="badgeStyle"
+                          value={formData.badgeStyle || 'promotional'}
+                          onChange={handleInputChange}
+                          className="input-field"
+                        >
+                          <option value="promotional">Promotional (Animated)</option>
+                          <option value="sale">Sale (Gradient Red)</option>
+                          <option value="featured">Featured (Purple Gradient)</option>
+                          <option value="offer">Special Offer (Green-Blue)</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    {/* Live Badge Preview */}
+                    <div className="bg-white p-4 rounded-lg border">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Live Preview:</span>
+                        <Badge 
+                          variant={formData.badgeStyle || 'promotional'} 
+                          className="text-sm font-bold"
+                        >
+                          {formData.badgeTemplate?.replace('{discount}', formData.discountValue || '30') || 'Eid Sale: 30% OFF'}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Enhanced Discount Configuration */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-700">
@@ -1217,12 +1337,13 @@ setFormData({
                   />
                 </div>
 
-                {/* Date Range Picker */}
+                {/* Enhanced Date Range with Validation */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input
                     label="Offer Start Date"
                     name="discountStartDate"
                     type="date"
+                    min={new Date().toISOString().split('T')[0]}
                     value={formData.discountStartDate || ''}
                     onChange={handleInputChange}
                     icon="Calendar"
@@ -1231,62 +1352,125 @@ setFormData({
                     label="Offer End Date"
                     name="discountEndDate"
                     type="date"
+                    min={formData.discountStartDate || new Date().toISOString().split('T')[0]}
                     value={formData.discountEndDate || ''}
                     onChange={handleInputChange}
                     icon="Calendar"
                   />
                 </div>
 
-                {/* Priority Slider */}
-                <div className="space-y-3">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Priority Level (for overlapping offers)
-                  </label>
-                  <div className="space-y-2">
-                    <input
-                      type="range"
-                      min="1"
-                      max="5"
-                      value={formData.discountPriority || 1}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        discountPriority: parseInt(e.target.value) 
-                      }))}
-                      className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                    />
-                    <div className="flex justify-between text-sm text-gray-500">
-                      <span>Low (1)</span>
-                      <span className="font-medium text-primary">
-                        Priority: {formData.discountPriority || 1}
-                      </span>
-                      <span>High (5)</span>
+                {/* Priority & Auto-Apply Logic */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Priority Level (for overlapping offers)
+                    </label>
+                    <div className="space-y-2">
+                      <input
+                        type="range"
+                        min="1"
+                        max="5"
+                        value={formData.discountPriority || 1}
+                        onChange={(e) => setFormData(prev => ({ 
+                          ...prev, 
+                          discountPriority: parseInt(e.target.value) 
+                        }))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                      <div className="flex justify-between text-sm text-gray-500">
+                        <span>Low (1)</span>
+                        <span className="font-medium text-primary">
+                          Priority: {formData.discountPriority || 1}
+                        </span>
+                        <span>High (5)</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Auto-Apply Conditions
+                    </label>
+                    <div className="space-y-2">
+                      <label className="flex items-center space-x-2">
+                        <input 
+                          type="checkbox" 
+                          checked={formData.autoApplyForNewCustomers || false}
+                          onChange={(e) => setFormData(prev => ({ ...prev, autoApplyForNewCustomers: e.target.checked }))}
+                          className="rounded text-primary focus:ring-primary"
+                        />
+                        <span className="text-sm text-gray-700">New customers only</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input 
+                          type="checkbox" 
+                          checked={formData.autoApplyMinimumOrder || false}
+                          onChange={(e) => setFormData(prev => ({ ...prev, autoApplyMinimumOrder: e.target.checked }))}
+                          className="rounded text-primary focus:ring-primary"
+                        />
+                        <span className="text-sm text-gray-700">Minimum order amount</span>
+                      </label>
+                      {formData.autoApplyMinimumOrder && (
+                        <Input
+                          label="Minimum Amount (Rs.)"
+                          name="minimumOrderAmount"
+                          type="number"
+                          value={formData.minimumOrderAmount || ''}
+                          onChange={handleInputChange}
+                          placeholder="1000"
+                          className="mt-2"
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Discount Preview */}
+                {/* Enhanced Discount Preview with Strikethrough */}
                 {formData.price && formData.discountValue && (
-                  <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h5 className="font-medium text-gray-900">Discount Preview</h5>
-                        <p className="text-sm text-gray-600">
-                          Final Price: Rs. {(() => {
-                            const price = parseFloat(formData.price);
-                            const discount = parseFloat(formData.discountValue) || 0;
-                            if (formData.discountType === 'Percentage') {
-                              return (price - (price * discount / 100)).toFixed(2);
-                            }
-                            return (price - discount).toFixed(2);
-                          })()}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-orange-600">
-                          {formData.discountType === 'Percentage' ? 
-                            `${formData.discountValue}% OFF` : 
-                            `Rs. ${formData.discountValue} OFF`
-                          }
+                  <div className="bg-gradient-to-br from-orange-50 to-red-50 p-6 rounded-lg border border-orange-200">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h5 className="font-medium text-gray-900 flex items-center space-x-2">
+                            <ApperIcon name="Eye" size={16} />
+                            <span>Offer Preview</span>
+                          </h5>
+                          <div className="flex items-center space-x-4 mt-2">
+                            <Badge variant="strikethrough" className="text-lg">
+                              Rs. {formData.price}
+                            </Badge>
+                            <Badge variant="sale" className="text-lg font-bold">
+                              Rs. {(() => {
+                                const price = parseFloat(formData.price);
+                                const discount = parseFloat(formData.discountValue) || 0;
+                                if (formData.discountType === 'Percentage') {
+                                  return (price - (price * discount / 100)).toFixed(2);
+                                }
+                                return (price - discount).toFixed(2);
+                              })()}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <Badge 
+                            variant={formData.badgeStyle || 'promotional'} 
+                            className="text-lg font-bold mb-2"
+                          >
+                            {formData.badgeTemplate?.replace('{discount}', formData.discountValue) || 
+                             (formData.discountType === 'Percentage' ? 
+                               `${formData.discountValue}% OFF` : 
+                               `Rs. ${formData.discountValue} OFF`)}
+                          </Badge>
+                          <div className="text-sm text-gray-600">
+                            You save: Rs. {(() => {
+                              const price = parseFloat(formData.price);
+                              const discount = parseFloat(formData.discountValue) || 0;
+                              if (formData.discountType === 'Percentage') {
+                                return (price * discount / 100).toFixed(2);
+                              }
+                              return discount.toFixed(2);
+                            })()}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2730,9 +2914,10 @@ const UnsplashImageSearch = ({
           <div className="text-xs text-gray-600 pt-2 border-t border-gray-200">
             <p>All images are sourced from Unsplash and comply with their license terms. While attribution is not required, it's appreciated by photographers and helps support the creative community.</p>
           </div>
-        </div>
-      </div>
-</div>
+<div className="text-xs text-gray-600 pt-2 border-t border-gray-200">
+              <p>All images are sourced from Unsplash and comply with their license terms. While attribution is not required, it's appreciated by photographers and helps support the creative community.</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
