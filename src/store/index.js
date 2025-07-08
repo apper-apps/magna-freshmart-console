@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { persistStore, persistReducer } from 'redux-persist';
 import storage from 'redux-persist/lib/storage/session';
 import cartReducer from './cartSlice';
+import notificationReducer from './notificationSlice';
 
 const persistConfig = {
   key: 'freshmart_cart',
@@ -13,7 +14,8 @@ const persistedCartReducer = persistReducer(persistConfig, cartReducer);
 
 export const store = configureStore({
   reducer: {
-    cart: persistedCartReducer
+    cart: persistedCartReducer,
+    notifications: notificationReducer
   },
 middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

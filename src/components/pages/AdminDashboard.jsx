@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
+import { useSelector, useDispatch } from "react-redux";
 import { store } from "@/store/index";
+import { updateCounts, resetCount, setLoading, setError } from "@/store/notificationSlice";
 import ApperIcon from "@/components/ApperIcon";
 import Button from "@/components/atoms/Button";
 import Error from "@/components/ui/Error";
@@ -11,8 +13,10 @@ import Orders from "@/components/pages/Orders";
 import { orderService } from "@/services/api/orderService";
 import { productService } from "@/services/api/productService";
 import { paymentService } from "@/services/api/paymentService";
-
+import { notificationService } from "@/services/api/notificationService";
 const AdminDashboard = () => {
+  const dispatch = useDispatch();
+  const notificationCounts = useSelector(state => state.notifications.counts);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState({
@@ -31,7 +35,7 @@ const AdminDashboard = () => {
   const [walletLoading, setWalletLoading] = useState(false);
   const [recentOrders, setRecentOrders] = useState([]);
   const [revenueBreakdown, setRevenueBreakdown] = useState([]);
-
+  const pollingRef = useRef(null);
   const loadDashboardData = async () => {
     setLoading(true);
     try {
@@ -94,7 +98,42 @@ const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  };
+};
+
+  // Notification polling functionality
+  const fetchNotificationCounts = useCallback(async () => {
+    try {
+      dispatch(setLoading(true));
+      const counts = await notificationService.getUnreadCounts();
+      dispatch(updateCounts(counts));
+    } catch (error) {
+      console.error('Failed to fetch notification counts:', error);
+      dispatch(setError('Failed to load notification counts'));
+    }
+  }, [dispatch]);
+
+  const handleTabClick = useCallback((path) => {
+    const notificationKey = notificationService.getNotificationKey(path);
+    if (notificationKey && notificationCounts[notificationKey] > 0) {
+      dispatch(resetCount({ key: notificationKey }));
+      notificationService.markAsRead(notificationKey);
+    }
+  }, [dispatch, notificationCounts]);
+
+  // Setup polling for notification counts
+  useEffect(() => {
+    // Initial fetch
+    fetchNotificationCounts();
+
+    // Setup 30-second polling
+    pollingRef.current = setInterval(fetchNotificationCounts, 30000);
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
+    };
+  }, [fetchNotificationCounts]);
 
   useEffect(() => {
     loadDashboardData();
@@ -144,16 +183,16 @@ const handleWalletAction = async (action, amount = 0) => {
     }
   };
 
-  const quickActions = [
-    { label: 'Manage Products', path: '/admin/products', icon: 'Package', color: 'from-blue-500 to-cyan-500' },
-    { label: 'POS Terminal', path: '/admin/pos', icon: 'Calculator', color: 'from-green-500 to-emerald-500' },
-    { label: 'View Orders', path: '/orders', icon: 'ShoppingCart', color: 'from-purple-500 to-pink-500' },
-    { label: 'Financial Dashboard', path: '/admin/financial-dashboard', icon: 'DollarSign', color: 'from-emerald-500 to-teal-500' },
-    { label: 'AI Generate', path: '/admin/ai-generate', icon: 'Brain', color: 'from-purple-500 to-indigo-500' },
-    { label: 'Payment Verification', path: '/admin/payments?tab=verification', icon: 'Shield', color: 'from-orange-500 to-red-500' },
-    { label: 'Payment Management', path: '/admin/payments', icon: 'CreditCard', color: 'from-teal-500 to-cyan-500' },
-    { label: 'Delivery Tracking', path: '/admin/delivery-dashboard', icon: 'MapPin', color: 'from-indigo-500 to-purple-500' },
-    { label: 'Analytics', path: '/admin/analytics', icon: 'TrendingUp', color: 'from-amber-500 to-orange-500' }
+const quickActions = [
+    { label: 'Manage Products', path: '/admin/products', icon: 'Package', color: 'from-blue-500 to-cyan-500', notificationKey: 'products' },
+    { label: 'POS Terminal', path: '/admin/pos', icon: 'Calculator', color: 'from-green-500 to-emerald-500', notificationKey: 'pos' },
+    { label: 'View Orders', path: '/orders', icon: 'ShoppingCart', color: 'from-purple-500 to-pink-500', notificationKey: 'orders' },
+    { label: 'Financial Dashboard', path: '/admin/financial-dashboard', icon: 'DollarSign', color: 'from-emerald-500 to-teal-500', notificationKey: 'financial' },
+    { label: 'AI Generate', path: '/admin/ai-generate', icon: 'Brain', color: 'from-purple-500 to-indigo-500', notificationKey: 'ai' },
+    { label: 'Payment Verification', path: '/admin/payments?tab=verification', icon: 'Shield', color: 'from-orange-500 to-red-500', notificationKey: 'verification' },
+    { label: 'Payment Management', path: '/admin/payments', icon: 'CreditCard', color: 'from-teal-500 to-cyan-500', notificationKey: 'payments' },
+    { label: 'Delivery Tracking', path: '/admin/delivery-dashboard', icon: 'MapPin', color: 'from-indigo-500 to-purple-500', notificationKey: 'delivery' },
+    { label: 'Analytics', path: '/admin/analytics', icon: 'TrendingUp', color: 'from-amber-500 to-orange-500', notificationKey: 'analytics' }
   ];
 
   return (
@@ -231,25 +270,34 @@ const handleWalletAction = async (action, amount = 0) => {
 {/* Quick Actions */}
         <div className="card p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {quickActions.map((action) => (
-              <Link
-                key={action.path}
-                to={action.path}
-                className="group"
-              >
-                <div className="p-4 rounded-lg border border-gray-200 hover:border-primary hover:shadow-md transition-all duration-200">
-                  <div className="flex items-center space-x-3">
-                    <div className={`bg-gradient-to-r ${action.color} p-2 rounded-lg`}>
-                      <ApperIcon name={action.icon} size={20} className="text-white" />
+<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {quickActions.map((action) => {
+              const badgeCount = notificationCounts[action.notificationKey] || 0;
+              return (
+                <Link
+                  key={action.path}
+                  to={action.path}
+                  className="group"
+                  onClick={() => handleTabClick(action.path)}
+                >
+                  <div className="relative p-4 rounded-lg border border-gray-200 hover:border-primary hover:shadow-md transition-all duration-200">
+                    <div className="flex items-center space-x-3">
+                      <div className={`relative bg-gradient-to-r ${action.color} p-2 rounded-lg`}>
+                        <ApperIcon name={action.icon} size={20} className="text-white" />
+                        {badgeCount > 0 && (
+                          <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center min-w-[20px] shadow-lg">
+                            {badgeCount > 99 ? '99+' : badgeCount}
+                          </div>
+                        )}
+                      </div>
+                      <span className="font-medium text-gray-900 group-hover:text-primary transition-colors">
+                        {action.label}
+                      </span>
                     </div>
-                    <span className="font-medium text-gray-900 group-hover:text-primary transition-colors">
-                      {action.label}
-                    </span>
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         </div>
 
