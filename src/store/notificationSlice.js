@@ -6,7 +6,7 @@ export const fetchNotificationCounts = createAsyncThunk(
   'notifications/fetchCounts',
   async (_, { rejectWithValue }) => {
     try {
-      const counts = await notificationService.getCounts();
+      const counts = await notificationService.getUnreadCounts();
       return counts;
     } catch (error) {
       console.error('Failed to fetch notification counts:', error);
@@ -14,10 +14,10 @@ export const fetchNotificationCounts = createAsyncThunk(
     }
   }
 );
+
 const initialState = {
   counts: {
     payments: 0,
-    orders: 0,
     products: 0,
     pos: 0,
     financial: 0,
@@ -31,18 +31,13 @@ const initialState = {
   error: null,
   lastUpdated: null
 };
-
 const notificationSlice = createSlice({
   name: 'notifications',
   initialState,
   reducers: {
-    setLoading: (state, action) => {
-      state.loading = action.payload;
-    },
     updateCounts: (state, action) => {
       state.counts = { ...state.counts, ...action.payload };
       state.lastUpdated = new Date().toISOString();
-      state.loading = false;
       state.error = null;
     },
     resetCount: (state, action) => {
@@ -51,17 +46,28 @@ const notificationSlice = createSlice({
         state.counts[key] = 0;
       }
     },
-    resetAllCounts: (state) => {
-      Object.keys(state.counts).forEach(key => {
-        state.counts[key] = 0;
-      });
+setLoading: (state, action) => {
+      state.loading = action.payload;
     },
     setError: (state, action) => {
       state.error = action.payload;
-state.loading = false;
     },
     clearError: (state) => {
       state.error = null;
+    },
+    resetAllCounts: (state) => {
+      state.counts = {
+        payments: 0,
+        products: 0,
+        pos: 0,
+        financial: 0,
+        ai: 0,
+        verification: 0,
+        management: 0,
+        delivery: 0,
+        analytics: 0
+      };
+      state.lastUpdated = new Date().toISOString();
     }
   },
   extraReducers: (builder) => {
@@ -84,10 +90,10 @@ state.loading = false;
 });
 
 export const {
-  setLoading,
   updateCounts,
   resetCount,
   resetAllCounts,
+  setLoading,
   setError,
   clearError
 } = notificationSlice.actions;

@@ -3,8 +3,7 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
 import { useSelector, useDispatch } from "react-redux";
-import { store } from "@/store/index";
-import { updateCounts, resetCount, setLoading, setError } from "@/store/notificationSlice";
+import { fetchNotificationCounts, updateCounts, resetCount, setLoading, setError } from "@/store/notificationSlice";
 import ApperIcon from "@/components/ApperIcon";
 import Button from "@/components/atoms/Button";
 import Error from "@/components/ui/Error";
@@ -100,12 +99,13 @@ const AdminDashboard = () => {
     }
 };
 
-  // Notification polling functionality
-  const fetchNotificationCounts = useCallback(async () => {
+// Notification polling functionality
+  const fetchNotificationCountsData = useCallback(async () => {
     try {
-      dispatch(setLoading(true));
-      const counts = await notificationService.getUnreadCounts();
-      dispatch(updateCounts(counts));
+      const result = await dispatch(fetchNotificationCounts());
+      if (fetchNotificationCounts.rejected.match(result)) {
+        console.error('Failed to fetch notification counts:', result.payload);
+      }
     } catch (error) {
       console.error('Failed to fetch notification counts:', error);
       dispatch(setError('Failed to load notification counts'));
@@ -121,20 +121,20 @@ const AdminDashboard = () => {
   }, [dispatch, notificationCounts]);
 
   // Setup polling for notification counts
+// Setup polling for notification counts
   useEffect(() => {
     // Initial fetch
-    fetchNotificationCounts();
+    fetchNotificationCountsData();
 
     // Setup 30-second polling
-    pollingRef.current = setInterval(fetchNotificationCounts, 30000);
+    pollingRef.current = setInterval(fetchNotificationCountsData, 30000);
 
     return () => {
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
       }
     };
-  }, [fetchNotificationCounts]);
-
+}, [fetchNotificationCountsData]);
   useEffect(() => {
     loadDashboardData();
   }, []);
