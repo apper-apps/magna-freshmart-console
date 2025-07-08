@@ -277,18 +277,18 @@ const activeDeal = getActiveDeal();
               {product.name}
             </h1>
           </div>
-{/* Price */}
-          <div className="space-y-2">
-            <div className="flex items-center space-x-4">
-              <span className="text-4xl font-bold gradient-text">
-                Rs. {product.price.toLocaleString()}
-              </span>
-              <span className="text-lg text-gray-500">
-                /{product.unit}
-              </span>
-            </div>
+{/* Pricing Hierarchy Display */}
+          <div className="space-y-4">
+            <PricingHierarchyDisplay 
+              product={product} 
+              quantity={quantity}
+              onPriceUpdate={(effectivePrice) => {
+                console.log('Effective price updated:', effectivePrice);
+              }}
+            />
             
-{product.previousPrice && product.previousPrice !== product.price && (
+            {/* Legacy Price Change Information */}
+            {product.previousPrice && product.previousPrice !== product.price && (
               <div className="space-y-2">
                 <div className="flex items-center space-x-3">
                   <Badge variant="strikethrough" className="text-base px-3 py-1">
@@ -318,7 +318,6 @@ const activeDeal = getActiveDeal();
                 console.log('Selected discount:', discount);
               }}
             />
-
             {/* Special Deal Information */}
             {activeDeal && (
               <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl p-4 space-y-3">
@@ -440,7 +439,7 @@ const activeDeal = getActiveDeal();
                   loading={cartLoading}
                   className="w-full"
                 >
-Add to Cart - Rs. {((product.price * quantity) - calculateDealSavings(quantity)).toLocaleString()}
+Add to Cart - Rs. {(calculateEffectivePrice(product, quantity) - calculateDealSavings(quantity)).toLocaleString()}
                   {calculateDealSavings(quantity) > 0 && (
                     <span className="text-xs block text-green-600 font-normal">
                       Save Rs. {calculateDealSavings(quantity).toLocaleString()} with {activeDeal?.title}!
@@ -516,6 +515,214 @@ Add to Cart - Rs. {((product.price * quantity) - calculateDealSavings(quantity))
         </div>
       </div>
 </div>
+  );
+};
+
+// Calculate effective price based on pricing hierarchy
+const calculateEffectivePrice = (product, quantity = 1) => {
+  if (!product) return 0;
+  
+  // Step 1: Start with base price
+  let effectivePrice = product.basePrice || product.price;
+  
+  // Step 2: Apply variation override if exists (higher precedence than base)
+  if (product.variationPrice && product.variationPrice > 0) {
+    effectivePrice = product.variationPrice;
+  }
+  
+  // Step 3: Apply seasonal discount (highest precedence)
+  if (product.seasonalDiscount && product.seasonalDiscountActive) {
+    if (product.seasonalDiscountType === 'Percentage') {
+      effectivePrice = effectivePrice * (1 - product.seasonalDiscount / 100);
+    } else {
+      effectivePrice = Math.max(0, effectivePrice - product.seasonalDiscount);
+    }
+  }
+  
+  return effectivePrice * quantity;
+};
+
+// Pricing Hierarchy Display Component
+const PricingHierarchyDisplay = ({ product, quantity, onPriceUpdate }) => {
+  const [selectedVariation, setSelectedVariation] = useState(null);
+  const [seasonalDiscountApplied, setSeasonalDiscountApplied] = useState(false);
+
+  // Calculate pricing at each tier
+  const basePrice = product.basePrice || product.price;
+  const variationPrice = selectedVariation?.price || product.variationPrice || null;
+  const seasonalDiscount = product.seasonalDiscount || 0;
+  const seasonalDiscountType = product.seasonalDiscountType || 'Fixed Amount';
+
+  // Calculate effective price step by step
+  let currentPrice = basePrice;
+  if (variationPrice && variationPrice > 0) {
+    currentPrice = variationPrice;
+  }
+  
+  let finalPrice = currentPrice;
+  if (seasonalDiscount > 0 && (product.seasonalDiscountActive || seasonalDiscountApplied)) {
+    if (seasonalDiscountType === 'Percentage') {
+      finalPrice = currentPrice * (1 - seasonalDiscount / 100);
+    } else {
+      finalPrice = Math.max(0, currentPrice - seasonalDiscount);
+    }
+  }
+
+  // Available variations (simulated)
+  const variations = [
+    { id: 1, name: '1 kg Pack', price: basePrice, popular: true },
+    { id: 2, name: '5 kg Pack', price: basePrice * 4.8, savings: basePrice * 0.2 },
+    { id: 3, name: '10 kg Pack', price: basePrice * 9.5, savings: basePrice * 0.5, bulk: true }
+  ];
+
+  useEffect(() => {
+    onPriceUpdate && onPriceUpdate(finalPrice);
+  }, [finalPrice, onPriceUpdate]);
+
+  return (
+    <div className="space-y-4">
+      {/* Main Price Display */}
+      <div className="flex items-center space-x-4">
+        <span className="text-4xl font-bold gradient-text">
+          Rs. {finalPrice.toLocaleString()}
+        </span>
+        <span className="text-lg text-gray-500">
+          /{product.unit}
+        </span>
+        {finalPrice !== basePrice && (
+          <Badge variant="sale" className="animate-pulse">
+            {((basePrice - finalPrice) / basePrice * 100).toFixed(0)}% OFF
+          </Badge>
+        )}
+      </div>
+
+      {/* Pricing Hierarchy Breakdown */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
+        <h4 className="font-semibold text-gray-900 mb-3 flex items-center space-x-2">
+          <ApperIcon name="TrendingUp" size={18} className="text-blue-600" />
+          <span>Pricing Breakdown</span>
+        </h4>
+        
+        <div className="space-y-3">
+          {/* Base Price */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+              <span className="text-sm text-gray-700">Base Price</span>
+            </div>
+            <span className="font-medium text-gray-900">Rs. {basePrice.toLocaleString()}</span>
+          </div>
+
+          {/* Variation Override */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className={`w-3 h-3 rounded-full ${variationPrice ? 'bg-orange-500' : 'bg-gray-300'}`}></div>
+              <span className="text-sm text-gray-700">Variation Override</span>
+              {variationPrice && (
+                <Badge variant="primary" className="text-xs">Active</Badge>
+              )}
+            </div>
+            <span className="font-medium text-gray-900">
+              {variationPrice ? `Rs. ${variationPrice.toLocaleString()}` : 'None'}
+            </span>
+          </div>
+
+          {/* Seasonal Discount */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className={`w-3 h-3 rounded-full ${seasonalDiscount > 0 ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+              <span className="text-sm text-gray-700">Seasonal Discount</span>
+              {seasonalDiscount > 0 && (
+                <Badge variant="success" className="text-xs">Active</Badge>
+              )}
+            </div>
+            <span className="font-medium text-gray-900">
+              {seasonalDiscount > 0 
+                ? `${seasonalDiscountType === 'Percentage' ? `${seasonalDiscount}%` : `Rs. ${seasonalDiscount}`} OFF`
+                : 'None'
+              }
+            </span>
+          </div>
+
+          {/* Final Price */}
+          <div className="pt-2 border-t border-blue-200">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-gray-900">Final Price</span>
+              <span className="text-lg font-bold text-green-600">Rs. {finalPrice.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Variation Selector */}
+      <div className="space-y-3">
+        <h4 className="font-medium text-gray-900 flex items-center space-x-2">
+          <ApperIcon name="Package" size={16} />
+          <span>Choose Size</span>
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {variations.map((variation) => (
+            <button
+              key={variation.id}
+              onClick={() => setSelectedVariation(variation)}
+              className={`p-3 rounded-lg border transition-all ${
+                selectedVariation?.id === variation.id
+                  ? 'border-blue-500 bg-blue-50'
+                  : 'border-gray-200 hover:border-blue-300'
+              }`}
+            >
+              <div className="text-left">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-medium text-gray-900">{variation.name}</span>
+                  {variation.popular && (
+                    <Badge variant="primary" className="text-xs">Popular</Badge>
+                  )}
+                  {variation.bulk && (
+                    <Badge variant="warning" className="text-xs">Bulk</Badge>
+                  )}
+                </div>
+                <div className="text-sm text-gray-600">Rs. {variation.price.toLocaleString()}</div>
+                {variation.savings && (
+                  <div className="text-xs text-green-600 font-medium">
+                    Save Rs. {variation.savings.toLocaleString()}
+                  </div>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Seasonal Discount Toggle */}
+      {seasonalDiscount > 0 && (
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <ApperIcon name="Calendar" size={20} className="text-green-600" />
+              <div>
+                <h4 className="font-medium text-green-800">Seasonal Offer Available</h4>
+                <p className="text-sm text-green-600">
+                  {seasonalDiscountType === 'Percentage' 
+                    ? `${seasonalDiscount}% discount` 
+                    : `Rs. ${seasonalDiscount} off`
+                  } on this product
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setSeasonalDiscountApplied(!seasonalDiscountApplied)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                seasonalDiscountApplied
+                  ? 'bg-green-600 text-white'
+                  : 'bg-white text-green-600 border border-green-600'
+              }`}
+            >
+              {seasonalDiscountApplied ? 'Applied' : 'Apply'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

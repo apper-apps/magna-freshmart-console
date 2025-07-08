@@ -122,7 +122,7 @@ const cartSlice = createSlice({
       state.isLoading = action.payload;
     },
     
-    addToCart: (state, action) => {
+addToCart: (state, action) => {
       const product = action.payload;
       const existingItem = state.items.find(item => item.id === product.id);
       
@@ -132,9 +132,15 @@ const cartSlice = createSlice({
         if (newQuantity > existingItem.quantity) {
           existingItem.quantity = newQuantity;
           existingItem.updatedAt = Date.now();
+          // Update pricing hierarchy data if changed
+          existingItem.basePrice = product.basePrice || product.price;
+          existingItem.variationPrice = product.variationPrice;
+          existingItem.seasonalDiscount = product.seasonalDiscount;
+          existingItem.seasonalDiscountType = product.seasonalDiscountType;
+          existingItem.seasonalDiscountActive = product.seasonalDiscountActive;
         }
       } else {
-        // Add new item with proper field mapping
+        // Add new item with pricing hierarchy mapping
         const cartItem = {
           ...product,
           quantity: 1,
@@ -144,6 +150,11 @@ const cartSlice = createSlice({
           id: product.id,
           name: product.name,
           price: product.price,
+          basePrice: product.basePrice || product.price,
+          variationPrice: product.variationPrice || null,
+          seasonalDiscount: product.seasonalDiscount || 0,
+          seasonalDiscountType: product.seasonalDiscountType || 'Fixed Amount',
+          seasonalDiscountActive: product.seasonalDiscountActive || false,
           stock: product.stock,
           unit: product.unit || 'piece'
         };
@@ -188,9 +199,26 @@ calculateTotals: (state) => {
       // First calculate deals and savings
       cartSlice.caseReducers.calculateDeals(state);
       
-      // Calculate totals with deal adjustments
+      // Calculate totals with pricing hierarchy: Base Price > Variation Override > Seasonal Discount
       const subtotal = state.items.reduce((total, item) => {
-        const itemTotal = item.price * item.quantity;
+        // Step 1: Start with base price
+        let effectivePrice = item.basePrice || item.price;
+        
+        // Step 2: Apply variation override if exists (higher precedence than base)
+        if (item.variationPrice && item.variationPrice > 0) {
+          effectivePrice = item.variationPrice;
+        }
+        
+        // Step 3: Apply seasonal discount (highest precedence)
+        if (item.seasonalDiscount && item.seasonalDiscountActive) {
+          if (item.seasonalDiscountType === 'Percentage') {
+            effectivePrice = effectivePrice * (1 - item.seasonalDiscount / 100);
+          } else {
+            effectivePrice = Math.max(0, effectivePrice - item.seasonalDiscount);
+          }
+        }
+        
+        const itemTotal = effectivePrice * item.quantity;
         const itemDeals = state.dealsSummary.appliedDeals.filter(deal => deal.productId === item.id);
         const itemSavings = itemDeals.reduce((savings, deal) => savings + deal.savings, 0);
         return total + itemTotal - itemSavings;
@@ -323,15 +351,20 @@ calculateTotals: (state) => {
         state.error = action.payload;
         toast.error('Failed to validate cart prices');
       })
-      .addCase(addToCartWithValidation.fulfilled, (state, action) => {
+.addCase(addToCartWithValidation.fulfilled, (state, action) => {
         const product = action.payload;
         const existingItem = state.items.find(item => item.id === product.id);
         
         if (existingItem) {
           existingItem.quantity = Math.min(existingItem.quantity + 1, product.stock);
           existingItem.updatedAt = Date.now();
-          // Update with current product data
+          // Update with current product data including pricing hierarchy
           existingItem.price = product.price;
+          existingItem.basePrice = product.basePrice || product.price;
+          existingItem.variationPrice = product.variationPrice;
+          existingItem.seasonalDiscount = product.seasonalDiscount;
+          existingItem.seasonalDiscountType = product.seasonalDiscountType;
+          existingItem.seasonalDiscountActive = product.seasonalDiscountActive;
           existingItem.stock = product.stock;
         } else {
           const cartItem = {
@@ -340,6 +373,11 @@ calculateTotals: (state) => {
             addedAt: Date.now(),
             updatedAt: Date.now(),
             image: product.image || product.imageUrl || '/placeholder-image.jpg',
+            basePrice: product.basePrice || product.price,
+            variationPrice: product.variationPrice || null,
+            seasonalDiscount: product.seasonalDiscount || 0,
+            seasonalDiscountType: product.seasonalDiscountType || 'Fixed Amount',
+            seasonalDiscountActive: product.seasonalDiscountActive || false,
             unit: product.unit || 'piece'
           };
           state.items.push(cartItem);
@@ -351,7 +389,7 @@ calculateTotals: (state) => {
       .addCase(addToCartWithValidation.rejected, (state, action) => {
         toast.error(action.payload);
       })
-      .addCase(updateQuantityWithValidation.fulfilled, (state, action) => {
+.addCase(updateQuantityWithValidation.fulfilled, (state, action) => {
         const { productId, quantity, currentProduct } = action.payload;
         
         if (quantity <= 0) {
@@ -361,8 +399,13 @@ calculateTotals: (state) => {
           if (item) {
             item.quantity = quantity;
             item.updatedAt = Date.now();
-            // Update with current product data
+            // Update with current product data including pricing hierarchy
             item.price = currentProduct.price;
+            item.basePrice = currentProduct.basePrice || currentProduct.price;
+            item.variationPrice = currentProduct.variationPrice;
+            item.seasonalDiscount = currentProduct.seasonalDiscount;
+            item.seasonalDiscountType = currentProduct.seasonalDiscountType;
+            item.seasonalDiscountActive = currentProduct.seasonalDiscountActive;
             item.stock = currentProduct.stock;
           }
         }

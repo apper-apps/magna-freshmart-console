@@ -1008,112 +1008,102 @@ width = targetHeight * aspectRatio;
     return styleParams[style] || styleParams['realistic'];
   }
 
-// Validate offer conflicts and overlapping discounts
-  async validateOfferConflicts(productData, allProducts = [], excludeId = null) {
+// Enhanced pricing hierarchy validation with conflict detection
+  async validatePricingHierarchy(productData, allProducts = [], excludeId = null) {
     try {
       await this.delay(200);
       
       const conflicts = [];
       const warnings = [];
       
-      // Basic validation
       if (!productData) {
         return { isValid: false, error: 'Invalid product data', conflicts, warnings };
       }
 
-      const price = parseFloat(productData.price) || 0;
-      const discountValue = parseFloat(productData.discountValue) || 0;
-      const discountType = productData.discountType || 'Fixed Amount';
+      const basePrice = parseFloat(productData.basePrice || productData.price) || 0;
+      const variationPrice = parseFloat(productData.variationPrice) || 0;
+      const seasonalDiscount = parseFloat(productData.seasonalDiscount) || 0;
+      const seasonalDiscountType = productData.seasonalDiscountType || 'Fixed Amount';
       const category = productData.category;
-      const discountStartDate = productData.discountStartDate;
-      const discountEndDate = productData.discountEndDate;
 
-      // Check for overlapping date ranges with same category products
-      if (discountValue > 0 && discountStartDate && discountEndDate) {
-        const categoryProducts = allProducts.filter(p => 
-          p && p.category === category && 
-          p.id !== excludeId && 
-          p.discountValue > 0 &&
-          p.discountStartDate && p.discountEndDate
-        );
+      // Validate base price
+      if (basePrice <= 0) {
+        conflicts.push({
+          type: 'invalid_base_price',
+          details: 'Base price must be greater than 0'
+        });
+      }
 
-        for (const product of categoryProducts) {
-          const existingStart = new Date(product.discountStartDate);
-          const existingEnd = new Date(product.discountEndDate);
-          const newStart = new Date(discountStartDate);
-          const newEnd = new Date(discountEndDate);
+      // Validate variation price hierarchy
+      if (variationPrice > 0 && variationPrice < basePrice * 0.8) {
+        warnings.push('Variation price is significantly lower than base price (less than 80%)');
+      }
 
-          // Check for date overlap
-          if (newStart <= existingEnd && newEnd >= existingStart) {
+      // Validate seasonal discount hierarchy
+      if (seasonalDiscount > 0) {
+        const applicablePrice = variationPrice > 0 ? variationPrice : basePrice;
+        
+        if (seasonalDiscountType === 'Percentage' && seasonalDiscount > 70) {
+          conflicts.push({
+            type: 'excessive_seasonal_discount',
+            details: 'Seasonal discount percentage exceeds 70%'
+          });
+        }
+
+        if (seasonalDiscountType === 'Fixed Amount' && seasonalDiscount >= applicablePrice) {
+          conflicts.push({
+            type: 'invalid_seasonal_discount',
+            details: 'Seasonal discount amount equals or exceeds applicable price'
+          });
+        }
+
+        // Calculate final price after all hierarchy rules
+        let finalPrice = applicablePrice;
+        if (seasonalDiscountType === 'Percentage') {
+          finalPrice = applicablePrice * (1 - seasonalDiscount / 100);
+        } else {
+          finalPrice = Math.max(0, applicablePrice - seasonalDiscount);
+        }
+
+        // Check minimum viable price (at least 10% of base price)
+        if (finalPrice < basePrice * 0.1) {
+          conflicts.push({
+            type: 'price_too_low',
+            details: 'Final price after hierarchy is too low (less than 10% of base price)'
+          });
+        }
+
+        // Check profit margin if purchase price is available
+        const purchasePrice = parseFloat(productData.purchasePrice) || 0;
+        if (purchasePrice > 0) {
+          const profitMargin = ((finalPrice - purchasePrice) / purchasePrice) * 100;
+          if (profitMargin < 5) {
             conflicts.push({
-              type: 'overlapping_dates',
-              productId: product.id,
-              productName: product.name,
-              details: `Overlapping discount period with ${product.name} (${product.discountStartDate} to ${product.discountEndDate})`
+              type: 'low_profit_margin',
+              details: `Final price results in ${profitMargin.toFixed(2)}% profit margin (minimum 5% recommended)`
             });
           }
         }
       }
 
-      // Check for excessive discount stacking
-      if (discountValue > 0) {
-        let finalPrice = price;
-        if (discountType === 'Percentage') {
-          finalPrice = price - (price * discountValue / 100);
-        } else {
-          finalPrice = price - discountValue;
-        }
+      // Check for conflicting seasonal discounts in same category
+      if (seasonalDiscount > 0 && productData.seasonalDiscountStartDate && productData.seasonalDiscountEndDate) {
+        const conflictingProducts = allProducts.filter(p => 
+          p && p.category === category && 
+          p.id !== excludeId && 
+          p.seasonalDiscount > 0 &&
+          p.seasonalDiscountStartDate && p.seasonalDiscountEndDate
+        );
 
-        // Check if final price is too low (less than 10% of original)
-        if (finalPrice < price * 0.1) {
-          warnings.push('Discount results in very low final price (less than 10% of original)');
-        }
+        for (const product of conflictingProducts) {
+          const existingStart = new Date(product.seasonalDiscountStartDate);
+          const existingEnd = new Date(product.seasonalDiscountEndDate);
+          const newStart = new Date(productData.seasonalDiscountStartDate);
+          const newEnd = new Date(productData.seasonalDiscountEndDate);
 
-        // Check for unrealistic discount values
-        if (discountType === 'Percentage' && discountValue > 90) {
-          conflicts.push({
-            type: 'excessive_discount',
-            details: 'Percentage discount exceeds 90%'
-          });
-        }
-
-        if (discountType === 'Fixed Amount' && discountValue >= price) {
-          conflicts.push({
-            type: 'invalid_discount',
-            details: 'Fixed discount amount equals or exceeds product price'
-          });
-        }
-      }
-
-      // Check for priority conflicts in same category
-      const priority = parseInt(productData.discountPriority) || 1;
-      const samePriorityProducts = allProducts.filter(p => 
-        p && p.category === category && 
-        p.id !== excludeId && 
-        parseInt(p.discountPriority) === priority &&
-        p.discountValue > 0
-      );
-
-      if (samePriorityProducts.length > 0) {
-        warnings.push(`${samePriorityProducts.length} other products in ${category} have the same priority level`);
-      }
-
-      // Check minimum profit margin compliance
-      const purchasePrice = parseFloat(productData.purchasePrice) || 0;
-      if (purchasePrice > 0 && discountValue > 0) {
-        let finalPrice = price;
-        if (discountType === 'Percentage') {
-          finalPrice = price - (price * discountValue / 100);
-        } else {
-          finalPrice = price - discountValue;
-        }
-
-        const profitMargin = ((finalPrice - purchasePrice) / purchasePrice) * 100;
-        if (profitMargin < 5) {
-          conflicts.push({
-            type: 'low_profit_margin',
-            details: `Discounted price results in ${profitMargin.toFixed(2)}% profit margin (minimum 5% recommended)`
-          });
+          if (newStart <= existingEnd && newEnd >= existingStart) {
+            warnings.push(`Overlapping seasonal discount with ${product.name} (${product.seasonalDiscountStartDate} to ${product.seasonalDiscountEndDate})`);
+          }
         }
       }
 
@@ -1123,22 +1113,110 @@ width = targetHeight * aspectRatio;
         isValid,
         conflicts,
         warnings,
-        error: isValid ? null : 'Offer conflicts detected'
+        error: isValid ? null : 'Pricing hierarchy conflicts detected',
+        hierarchyBreakdown: {
+          basePrice,
+          variationPrice: variationPrice || null,
+          seasonalDiscount,
+          seasonalDiscountType,
+          finalPrice: this.calculateHierarchyPrice(productData)
+        }
       };
 
     } catch (error) {
-      console.error('Error validating offer conflicts:', error);
+      console.error('Error validating pricing hierarchy:', error);
       return {
         isValid: false,
-        error: 'Failed to validate offer conflicts',
+        error: 'Failed to validate pricing hierarchy',
         conflicts: [],
         warnings: []
       };
     }
   }
 
-  // Enhanced bulk update with category-wide discounts and conflict resolution
-  async bulkUpdatePrices(updateData) {
+  // Calculate final price based on hierarchy: Base Price > Variation Override > Seasonal Discount
+  calculateHierarchyPrice(productData) {
+    if (!productData) return 0;
+
+    // Step 1: Start with base price
+    let effectivePrice = parseFloat(productData.basePrice || productData.price) || 0;
+
+    // Step 2: Apply variation override if exists (higher precedence than base)
+    if (productData.variationPrice && parseFloat(productData.variationPrice) > 0) {
+      effectivePrice = parseFloat(productData.variationPrice);
+    }
+
+    // Step 3: Apply seasonal discount (highest precedence)
+    if (productData.seasonalDiscount && parseFloat(productData.seasonalDiscount) > 0) {
+      if (productData.seasonalDiscountType === 'Percentage') {
+        effectivePrice = effectivePrice * (1 - parseFloat(productData.seasonalDiscount) / 100);
+      } else {
+        effectivePrice = Math.max(0, effectivePrice - parseFloat(productData.seasonalDiscount));
+      }
+    }
+
+    return Math.round(effectivePrice * 100) / 100;
+  }
+
+  // Add variation pricing to product
+  async addVariationPricing(productId, variations) {
+    await this.delay(300);
+    
+    const productIndex = this.products.findIndex(p => p.id === parseInt(productId));
+    if (productIndex === -1) {
+      throw new Error('Product not found');
+    }
+
+    // Validate variations
+    for (const variation of variations) {
+      if (!variation.name || !variation.price || variation.price <= 0) {
+        throw new Error('Each variation must have a valid name and price');
+      }
+    }
+
+    this.products[productIndex] = {
+      ...this.products[productIndex],
+      variations: variations,
+      hasVariations: true,
+      variationPrice: variations.find(v => v.default)?.price || variations[0]?.price
+    };
+
+    return { ...this.products[productIndex] };
+  }
+
+  // Add seasonal discount to product
+  async addSeasonalDiscount(productId, discountData) {
+    await this.delay(300);
+    
+    const productIndex = this.products.findIndex(p => p.id === parseInt(productId));
+    if (productIndex === -1) {
+      throw new Error('Product not found');
+    }
+
+    // Validate seasonal discount
+    const validation = await this.validatePricingHierarchy({
+      ...this.products[productIndex],
+      ...discountData
+    }, this.products, productId);
+
+    if (!validation.isValid) {
+      throw new Error(validation.error || 'Invalid seasonal discount configuration');
+    }
+
+    this.products[productIndex] = {
+      ...this.products[productIndex],
+      seasonalDiscount: parseFloat(discountData.seasonalDiscount) || 0,
+      seasonalDiscountType: discountData.seasonalDiscountType || 'Fixed Amount',
+      seasonalDiscountActive: discountData.seasonalDiscountActive || false,
+      seasonalDiscountStartDate: discountData.seasonalDiscountStartDate,
+      seasonalDiscountEndDate: discountData.seasonalDiscountEndDate
+    };
+
+    return { ...this.products[productIndex] };
+  }
+
+// Enhanced bulk update with pricing hierarchy support
+  async bulkUpdatePricingHierarchy(updateData) {
     await this.delay(500);
     
     const validation = this.validateBulkPriceUpdate(updateData);
@@ -1160,15 +1238,18 @@ width = targetHeight * aspectRatio;
 
     let updatedCount = 0;
     const conflictProducts = [];
+    const hierarchyUpdates = [];
     
-    // Process each product with conflict detection
+    // Process each product with hierarchy awareness
     for (const product of filteredProducts) {
-      const originalPrice = product.price;
-      let newPrice = originalPrice;
       let shouldUpdate = true;
+      const updates = { ...product };
       
-      // Handle pricing updates
-      if (updateData.activeTab === 'pricing') {
+      // Handle base price updates
+      if (updateData.updateType === 'base_price') {
+        const originalPrice = product.basePrice || product.price;
+        let newPrice = originalPrice;
+        
         switch (updateData.strategy) {
           case 'percentage':
             const percentage = parseFloat(updateData.value) || 0;
@@ -1178,83 +1259,90 @@ width = targetHeight * aspectRatio;
             const fixedAmount = parseFloat(updateData.value) || 0;
             newPrice = originalPrice + fixedAmount;
             break;
-          case 'range':
-            const minPrice = parseFloat(updateData.minPrice) || 0;
-            const maxPrice = parseFloat(updateData.maxPrice) || originalPrice;
-            newPrice = Math.min(Math.max(originalPrice, minPrice), maxPrice);
-            break;
         }
-      }
-
-      // Handle category-wide discounts
-      if (updateData.activeTab === 'discounts' && updateData.categoryDiscount) {
-        const discountValue = parseFloat(updateData.discountValue) || 0;
         
-        // Check for existing discounts
-        if (product.discountValue > 0) {
+        updates.basePrice = Math.round(newPrice * 100) / 100;
+        updates.price = updates.basePrice; // Sync legacy price field
+      }
+      
+      // Handle variation price updates
+      if (updateData.updateType === 'variation_price' && updateData.variationPrice) {
+        updates.variationPrice = parseFloat(updateData.variationPrice);
+      }
+      
+      // Handle seasonal discount updates
+      if (updateData.updateType === 'seasonal_discount') {
+        if (product.seasonalDiscount > 0) {
           switch (updateData.conflictResolution) {
             case 'skip':
               shouldUpdate = false;
               conflictProducts.push(product);
               break;
             case 'override':
-              // Override existing discount
+              updates.seasonalDiscount = parseFloat(updateData.seasonalDiscount) || 0;
+              updates.seasonalDiscountType = updateData.seasonalDiscountType || 'Fixed Amount';
+              updates.seasonalDiscountActive = updateData.seasonalDiscountActive || false;
               break;
             case 'merge':
-              // Keep the higher discount
-              if (updateData.discountType === 'percentage') {
-                const newDiscountAmount = originalPrice * discountValue / 100;
-                const existingDiscountAmount = product.discountType === 'Percentage' 
-                  ? originalPrice * product.discountValue / 100
-                  : product.discountValue;
-                if (newDiscountAmount <= existingDiscountAmount) {
-                  shouldUpdate = false;
-                }
+              // Keep higher discount
+              const existingDiscount = product.seasonalDiscount || 0;
+              const newDiscount = parseFloat(updateData.seasonalDiscount) || 0;
+              if (newDiscount > existingDiscount) {
+                updates.seasonalDiscount = newDiscount;
+                updates.seasonalDiscountType = updateData.seasonalDiscountType;
+                updates.seasonalDiscountActive = updateData.seasonalDiscountActive;
+              } else {
+                shouldUpdate = false;
               }
               break;
           }
-        }
-
-        if (shouldUpdate && discountValue > 0) {
-          // Apply discount to base price
-          if (updateData.discountType === 'percentage') {
-            newPrice = originalPrice * (1 - discountValue / 100);
-          } else {
-            newPrice = originalPrice - discountValue;
-          }
+        } else {
+          updates.seasonalDiscount = parseFloat(updateData.seasonalDiscount) || 0;
+          updates.seasonalDiscountType = updateData.seasonalDiscountType || 'Fixed Amount';
+          updates.seasonalDiscountActive = updateData.seasonalDiscountActive || false;
         }
       }
 
-      // Apply min/max price guards
-      if (updateData.minPrice && newPrice < parseFloat(updateData.minPrice)) {
-        newPrice = parseFloat(updateData.minPrice);
-      }
-      if (updateData.maxPrice && newPrice > parseFloat(updateData.maxPrice)) {
-        newPrice = parseFloat(updateData.maxPrice);
+      // Validate hierarchy before applying
+      if (shouldUpdate) {
+        const hierarchyValidation = await this.validatePricingHierarchy(updates, this.products, product.id);
+        if (!hierarchyValidation.isValid) {
+          conflictProducts.push({
+            ...product,
+            hierarchyError: hierarchyValidation.error,
+            conflicts: hierarchyValidation.conflicts
+          });
+          shouldUpdate = false;
+        }
       }
 
-      // Ensure price is within acceptable range
-      newPrice = Math.max(1, Math.min(newPrice, 100000));
-
-      // Update product if price changed and should update
-      if (shouldUpdate && Math.abs(newPrice - originalPrice) > 0.01) {
+      // Apply updates if valid
+      if (shouldUpdate) {
         const productIndex = this.products.findIndex(p => p.id === product.id);
         if (productIndex !== -1) {
-          const updatedProduct = {
+          // Calculate final effective price using hierarchy
+          const effectivePrice = this.calculateHierarchyPrice(updates);
+          
+          this.products[productIndex] = {
             ...this.products[productIndex],
-            previousPrice: originalPrice,
-            price: Math.round(newPrice * 100) / 100
+            ...updates,
+            effectivePrice: effectivePrice,
+            hierarchyLastUpdated: new Date().toISOString()
           };
-
-          // Add discount information if applying category discount
-          if (updateData.activeTab === 'discounts' && updateData.categoryDiscount) {
-            updatedProduct.discountType = updateData.discountType;
-            updatedProduct.discountValue = parseFloat(updateData.discountValue) || 0;
-            updatedProduct.discountStartDate = updateData.discountStartDate;
-            updatedProduct.discountEndDate = updateData.discountEndDate;
-          }
-
-          this.products[productIndex] = updatedProduct;
+          
+          hierarchyUpdates.push({
+            productId: product.id,
+            productName: product.name,
+            oldPrice: product.price,
+            newEffectivePrice: effectivePrice,
+            hierarchyBreakdown: {
+              basePrice: updates.basePrice || updates.price,
+              variationPrice: updates.variationPrice,
+              seasonalDiscount: updates.seasonalDiscount,
+              seasonalDiscountType: updates.seasonalDiscountType
+            }
+          });
+          
           updatedCount++;
         }
       }
@@ -1264,8 +1352,14 @@ width = targetHeight * aspectRatio;
       updatedCount,
       totalFiltered: filteredProducts.length,
       conflictCount: conflictProducts.length,
-      strategy: updateData.strategy || 'category_discount',
-      conflictProducts: conflictProducts.slice(0, 5) // Return first 5 for reference
+      updateType: updateData.updateType,
+      hierarchyUpdates: hierarchyUpdates.slice(0, 10), // Return first 10 for reference
+      conflictProducts: conflictProducts.slice(0, 5),
+      summary: {
+        basePriceUpdates: hierarchyUpdates.filter(u => u.hierarchyBreakdown.basePrice !== u.oldPrice).length,
+        variationUpdates: hierarchyUpdates.filter(u => u.hierarchyBreakdown.variationPrice > 0).length,
+        seasonalDiscountUpdates: hierarchyUpdates.filter(u => u.hierarchyBreakdown.seasonalDiscount > 0).length
+      }
     };
   }
 
