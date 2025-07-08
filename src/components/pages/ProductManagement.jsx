@@ -4465,8 +4465,9 @@ variant="primary"
           </div>
         </form>
       </div>
-    </div>
+</div>
   );
 };
 
+export default ProductManagement;
 export default ProductManagement;
