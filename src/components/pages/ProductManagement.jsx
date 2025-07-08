@@ -4467,6 +4467,7 @@ const ProductFormModal = ({
       </div>
     </div>
   );
+);
 };
 
 export default ProductManagement;
