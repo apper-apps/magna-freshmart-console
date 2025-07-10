@@ -1418,7 +1418,235 @@ width = targetHeight * aspectRatio;
       y: Math.max(0, mainRegion.y - 50),
       width: Math.min(targetDimensions.width, mainRegion.width + 100),
       height: Math.min(targetDimensions.height, mainRegion.height + 100)
+};
+  }
+
+  // Vendor-specific methods for vendor portal functionality
+  async getVendorProducts(vendorId) {
+    await this.delay(300);
+    
+    // Get vendor assignments (this would typically come from a vendor service)
+    const vendorAssignments = await this.getVendorProductAssignments(vendorId);
+    
+    if (!vendorAssignments || vendorAssignments.length === 0) {
+      return [];
+    }
+    
+    // Filter products to only those assigned to this vendor
+    const assignedProductIds = vendorAssignments.map(assignment => assignment.productId);
+    const vendorProducts = this.products.filter(product => 
+      assignedProductIds.includes(product.id)
+    );
+    
+    // Add vendor-specific pricing information
+    return vendorProducts.map(product => {
+      const assignment = vendorAssignments.find(a => a.productId === product.id);
+      return {
+        ...product,
+        vendorInfo: {
+          vendorId: vendorId,
+          assignedDate: assignment.assignedDate,
+          canEditPrice: assignment.canEditPrice || true,
+          canEditCost: assignment.canEditCost || false,
+          minMargin: assignment.minMargin || 5,
+          maxDiscount: assignment.maxDiscount || 20
+        }
+      };
+    });
+  }
+
+  async getVendorProductAssignments(vendorId) {
+    await this.delay(200);
+    
+    // Mock vendor product assignments
+    const assignments = [
+      { vendorId: 1, productId: 1, assignedDate: '2024-01-15', canEditPrice: true, canEditCost: false, minMargin: 5, maxDiscount: 15 },
+      { vendorId: 1, productId: 3, assignedDate: '2024-01-15', canEditPrice: true, canEditCost: false, minMargin: 8, maxDiscount: 20 },
+      { vendorId: 1, productId: 6, assignedDate: '2024-01-20', canEditPrice: true, canEditCost: true, minMargin: 10, maxDiscount: 25 },
+      { vendorId: 2, productId: 2, assignedDate: '2024-01-10', canEditPrice: true, canEditCost: false, minMargin: 5, maxDiscount: 10 },
+      { vendorId: 2, productId: 5, assignedDate: '2024-01-12', canEditPrice: true, canEditCost: true, minMargin: 7, maxDiscount: 15 },
+      { vendorId: 2, productId: 12, assignedDate: '2024-01-18', canEditPrice: true, canEditCost: false, minMargin: 12, maxDiscount: 18 }
+    ];
+    
+    return assignments.filter(assignment => assignment.vendorId === parseInt(vendorId));
+  }
+
+  async updateVendorPrice(vendorId, productId, priceData) {
+    await this.delay(400);
+    
+    // Validate vendor has access to this product
+    const hasAccess = await this.validateVendorAccess(vendorId, productId);
+    if (!hasAccess.valid) {
+      throw new Error(hasAccess.error);
+    }
+    
+    const productIndex = this.products.findIndex(p => p.id === parseInt(productId));
+    if (productIndex === -1) {
+      throw new Error('Product not found');
+    }
+    
+    const vendorAssignments = await this.getVendorProductAssignments(vendorId);
+    const assignment = vendorAssignments.find(a => a.productId === parseInt(productId));
+    
+    // Validate pricing rules for vendor
+    const validation = await this.validateVendorPricing(priceData, assignment, this.products[productIndex]);
+    if (!validation.isValid) {
+      throw new Error(validation.error);
+    }
+    
+    // Update the product with vendor pricing
+    const updatedProduct = {
+      ...this.products[productIndex],
+      ...priceData,
+      lastUpdatedBy: `vendor_${vendorId}`,
+      lastUpdatedAt: new Date().toISOString()
     };
+    
+    // Recalculate profit metrics
+    const metrics = this.calculateProfitMetrics(updatedProduct);
+    updatedProduct.minSellingPrice = metrics.minSellingPrice;
+    updatedProduct.profitMargin = metrics.profitMargin;
+    
+    this.products[productIndex] = updatedProduct;
+    
+    return {
+      ...updatedProduct,
+      vendorInfo: {
+        vendorId: vendorId,
+        assignedDate: assignment.assignedDate,
+        canEditPrice: assignment.canEditPrice,
+        canEditCost: assignment.canEditCost,
+        minMargin: assignment.minMargin,
+        maxDiscount: assignment.maxDiscount
+      }
+    };
+  }
+
+  async validateVendorAccess(vendorId, productId) {
+    try {
+      const assignments = await this.getVendorProductAssignments(vendorId);
+      const hasAssignment = assignments.some(a => a.productId === parseInt(productId));
+      
+      if (!hasAssignment) {
+        return {
+          valid: false,
+          error: 'You do not have permission to edit this product'
+        };
+      }
+      
+      return { valid: true };
+    } catch (error) {
+      return {
+        valid: false,
+        error: 'Unable to validate vendor access'
+      };
+    }
+  }
+
+  async validateVendorPricing(priceData, assignment, currentProduct) {
+    try {
+      const newPrice = parseFloat(priceData.price) || currentProduct.price;
+      const newPurchasePrice = parseFloat(priceData.purchasePrice) || currentProduct.purchasePrice;
+      const currentPurchasePrice = currentProduct.purchasePrice || 0;
+      
+      // Check if vendor can edit cost price
+      if (priceData.purchasePrice && !assignment.canEditCost) {
+        return {
+          isValid: false,
+          error: 'You do not have permission to edit cost prices'
+        };
+      }
+      
+      // Check if vendor can edit selling price
+      if (priceData.price && !assignment.canEditPrice) {
+        return {
+          isValid: false,
+          error: 'You do not have permission to edit selling prices'
+        };
+      }
+      
+      // Validate minimum margin requirement
+      if (newPurchasePrice > 0) {
+        const margin = ((newPrice - newPurchasePrice) / newPurchasePrice) * 100;
+        if (margin < assignment.minMargin) {
+          return {
+            isValid: false,
+            error: `Profit margin must be at least ${assignment.minMargin}%`
+          };
+        }
+      }
+      
+      // Validate maximum discount limit
+      if (currentProduct.price > 0 && newPrice < currentProduct.price) {
+        const discountPercentage = ((currentProduct.price - newPrice) / currentProduct.price) * 100;
+        if (discountPercentage > assignment.maxDiscount) {
+          return {
+            isValid: false,
+            error: `Maximum discount allowed is ${assignment.maxDiscount}%`
+          };
+        }
+      }
+      
+      // Apply general product validation
+      const generalValidation = this.validateProfitRules({
+        ...currentProduct,
+        ...priceData,
+        price: newPrice,
+        purchasePrice: newPurchasePrice
+      });
+      
+      if (!generalValidation.isValid) {
+        return generalValidation;
+      }
+      
+      return { isValid: true };
+      
+    } catch (error) {
+      console.error('Error validating vendor pricing:', error);
+      return {
+        isValid: false,
+        error: 'Unable to validate pricing'
+      };
+    }
+  }
+
+  async getVendorStats(vendorId) {
+    await this.delay(200);
+    
+    try {
+      const vendorProducts = await this.getVendorProducts(vendorId);
+      
+      if (vendorProducts.length === 0) {
+        return {
+          totalProducts: 0,
+          averageMargin: 0,
+          totalValue: 0,
+          lowStockCount: 0
+        };
+      }
+      
+      const totalProducts = vendorProducts.length;
+      const totalMargin = vendorProducts.reduce((sum, product) => sum + (product.profitMargin || 0), 0);
+      const averageMargin = totalMargin / totalProducts;
+      const totalValue = vendorProducts.reduce((sum, product) => sum + (product.price * product.stock), 0);
+      const lowStockCount = vendorProducts.filter(product => product.stock <= (product.minStock || 10)).length;
+      
+      return {
+        totalProducts,
+        averageMargin: Math.round(averageMargin * 100) / 100,
+        totalValue: Math.round(totalValue * 100) / 100,
+        lowStockCount
+      };
+      
+    } catch (error) {
+      console.error('Error getting vendor stats:', error);
+      return {
+        totalProducts: 0,
+        averageMargin: 0,
+        totalValue: 0,
+        lowStockCount: 0
+      };
+    }
   }
 }
 export const productService = new ProductService();

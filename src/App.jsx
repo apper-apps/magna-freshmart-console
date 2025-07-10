@@ -27,6 +27,7 @@ const Category = React.lazy(() => import('@/components/pages/Category'));
 const Orders = React.lazy(() => import('@/components/pages/Orders'));
 const OrderTracking = React.lazy(() => import('@/components/pages/OrderTracking'));
 const Account = React.lazy(() => import('@/components/pages/Account'));
+const VendorPortal = React.lazy(() => import('@/components/pages/VendorPortal'));
 // Import components
 
 function App() {
@@ -204,12 +205,19 @@ return (
                       <AIGenerate />
                     </Suspense>
                   } />
-                  <Route path="admin/payroll" element={
+<Route path="admin/payroll" element={
                     <Suspense fallback={<Loading type="page" />}>
                       <PayrollManagement />
                     </Suspense>
                   } />
-</Route>
+                  
+                  {/* Vendor Portal Route */}
+                  <Route path="vendor-portal" element={
+                    <Suspense fallback={<Loading type="page" />}>
+                      <VendorPortal />
+                    </Suspense>
+                  } />
+                </Route>
               </Routes>
             </Suspense>
             <ToastContainer

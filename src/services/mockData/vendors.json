@@ -1,0 +1,41 @@
+[
+  {
+    "Id": 1,
+    "name": "Ahmed Khan",
+    "email": "ahmed.khan@vendor.com",
+    "password": "vendor123",
+    "company": "Khan Trading Co.",
+    "phone": "+92-300-1234567",
+    "address": "Shop 15, Main Market, Karachi",
+    "joinDate": "2024-01-15T00:00:00.000Z",
+    "isActive": true,
+    "permissions": ["view_products", "edit_prices", "view_reports"],
+    "createdAt": "2024-01-15T00:00:00.000Z"
+  },
+  {
+    "Id": 2,
+    "name": "Fatima Ali",
+    "email": "fatima.ali@vendor.com",
+    "password": "vendor456",
+    "company": "Ali Fresh Foods",
+    "phone": "+92-301-9876543",
+    "address": "Block B, Commercial Area, Lahore",
+    "joinDate": "2024-01-10T00:00:00.000Z",
+    "isActive": true,
+    "permissions": ["view_products", "edit_prices"],
+    "createdAt": "2024-01-10T00:00:00.000Z"
+  },
+  {
+    "Id": 3,
+    "name": "Muhammad Hassan",
+    "email": "hassan@vendor.com",
+    "password": "vendor789",
+    "company": "Hassan Grocery Store",
+    "phone": "+92-302-5551234",
+    "address": "Street 5, F-10 Markaz, Islamabad",
+    "joinDate": "2024-01-20T00:00:00.000Z",
+    "isActive": false,
+    "permissions": ["view_products"],
+    "createdAt": "2024-01-20T00:00:00.000Z"
+  }
+]
