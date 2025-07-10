@@ -333,9 +333,15 @@ paymentStatus: paymentMethod === 'cash' ? 'pending' : 'pending_verification',
           postalCode: formData.postalCode,
           instructions: formData.instructions
         },
-        status: paymentMethod === 'cash' ? 'confirmed' : 'payment_pending',
+status: paymentMethod === 'cash' ? 'confirmed' : 'payment_pending',
         verificationStatus: paymentMethod === 'cash' ? null : 'pending',
-        priceValidatedAt: new Date().toISOString()
+        priceValidatedAt: new Date().toISOString(),
+        walletTransaction: paymentMethod === 'wallet' && paymentResult ? {
+          transactionId: paymentResult.transactionId,
+          type: 'order_payment',
+          amount: validatedTotal,
+          processedAt: paymentResult.timestamp
+        } : null
       }
 
       const order = await orderService.create(orderData)
@@ -384,8 +390,27 @@ if (paymentMethod === 'card') {
           Date.now(),
           formData.phone
         )
-      } else if (paymentMethod === 'wallet') {
+} else if (paymentMethod === 'wallet') {
         paymentResult = await paymentService.processWalletPayment(total, Date.now())
+        
+        // Record wallet transaction for order payment
+        if (paymentResult.status === 'completed') {
+          await paymentService.recordWalletTransaction({
+            type: 'order_payment',
+            amount: -total, // Negative because it's a payment (deduction)
+            description: `Order payment for ${validatedItems.length} items`,
+            reference: paymentResult.transactionId,
+            orderId: Date.now(),
+            transactionId: paymentResult.transactionId,
+            status: 'completed',
+            metadata: {
+              itemCount: validatedItems.length,
+              originalAmount: validatedSubtotal,
+              dealSavings: validatedDealSavings,
+              deliveryCharge: validatedDeliveryCharge
+            }
+          });
+        }
       } else if (paymentMethod === 'bank') {
         paymentResult = await paymentService.processBankTransfer(
           total,

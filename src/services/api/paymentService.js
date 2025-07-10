@@ -359,6 +359,7 @@ generateTransactionId() {
   }
 
   // Approval Workflow Integration Methods
+// Approval Workflow Integration Methods
   async holdWalletBalance(amount, reason, requestId = null) {
     await this.delay(300);
     
@@ -373,23 +374,27 @@ generateTransactionId() {
     // Create hold transaction
     const holdTransaction = {
       Id: this.getWalletTransactionId(),
-      type: 'hold',
+      type: 'approval_hold',
       amount,
       balance: this.walletBalance, // Balance before hold
       timestamp: new Date().toISOString(),
       description: reason || 'Approval workflow hold',
       reference: this.generateReference(),
       requestId,
-      status: 'holding'
+      orderId: null,
+      transactionId: null,
+      status: 'holding',
+      metadata: {
+        holdReason: reason,
+        approvalType: 'pending'
+      }
     };
 
     this.walletTransactions.push(holdTransaction);
     console.log(`Wallet hold created: Rs. ${amount} for ${reason}`);
     
-    return holdTransaction;
+return holdTransaction;
   }
-
-  async releaseWalletHold(amount, reason, requestId = null) {
     await this.delay(300);
     
     if (amount <= 0) {
@@ -415,7 +420,7 @@ generateTransactionId() {
     return releaseTransaction;
   }
 
-  async processApprovalAdjustment(adjustmentData) {
+async processApprovalAdjustment(adjustmentData) {
     await this.delay(500);
     
     const { requestId, adjustmentAmount, adjustmentType, transactionId } = adjustmentData;
@@ -430,15 +435,21 @@ generateTransactionId() {
     // Create adjustment transaction
     const adjustmentTransaction = {
       Id: this.getWalletTransactionId(),
-      type: 'approval_adjustment',
+      type: 'price_adjustment',
       amount: adjustmentAmount,
       balance: this.walletBalance,
       timestamp: new Date().toISOString(),
-      description: `Approval adjustment (${adjustmentType}): Request #${requestId}`,
+      description: `Price adjustment (${adjustmentType}): Request #${requestId}`,
       reference: transactionId || this.generateReference(),
       requestId,
+      orderId: null,
+      transactionId: transactionId || null,
       adjustmentType,
-      status: 'completed'
+      status: 'completed',
+      metadata: {
+        adjustmentReason: adjustmentType,
+        approvalType: 'approved'
+      }
     };
 
     this.walletTransactions.push(adjustmentTransaction);
@@ -446,6 +457,46 @@ generateTransactionId() {
     console.log(`Processed approval adjustment: Rs. ${adjustmentAmount} for request ${requestId}`);
     
     return adjustmentTransaction;
+  }
+
+  async recordWalletTransaction(transactionData) {
+    await this.delay(200);
+    
+    const { 
+      type, 
+      amount, 
+      description, 
+      reference, 
+      requestId = null, 
+      orderId = null, 
+      transactionId = null,
+      status = 'completed',
+      metadata = {}
+    } = transactionData;
+    
+    if (!type || amount === undefined) {
+      throw new Error('Transaction type and amount are required');
+    }
+
+    const transaction = {
+      Id: this.getWalletTransactionId(),
+      type, // 'approval_hold', 'price_adjustment', 'order_payment', 'deposit', 'withdraw', 'transfer', 'hold_release', 'rejection_release'
+      amount,
+      balance: this.walletBalance,
+      timestamp: new Date().toISOString(),
+      description: description || `${type.replace('_', ' ')} transaction`,
+      reference: reference || this.generateReference(),
+      requestId,
+      orderId,
+      transactionId,
+      status,
+      metadata
+    };
+
+    this.walletTransactions.push(transaction);
+    console.log(`Recorded wallet transaction: ${type} - Rs. ${amount}`);
+    
+    return transaction;
   }
 
   async depositToWallet(amount) {
@@ -573,18 +624,27 @@ async processWalletPayment(amount, orderId) {
     
     const transaction = {
       Id: this.getWalletTransactionId(),
-      type: 'payment',
+      type: 'order_payment',
       amount,
       balance: this.walletBalance,
       timestamp: new Date().toISOString(),
       description: `Wallet payment for order ${orderId}`,
       reference: this.generateReference(),
+      requestId: null,
       orderId,
-      status: 'completed'
+      transactionId: this.generateTransactionId(),
+      status: 'completed',
+      metadata: {
+        paymentMethod: 'wallet',
+        orderType: 'purchase'
+      }
     };
 
     this.walletTransactions.push(transaction);
-    return { ...transaction };
+    return { 
+      ...transaction,
+      transactionId: transaction.transactionId
+    };
   }
   async getWalletTransactions(limit = 50) {
     await this.delay(300);

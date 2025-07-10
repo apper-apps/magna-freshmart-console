@@ -217,7 +217,7 @@ addNewApprovalRequest: (state, action) => {
         const adjustment = state.walletIntegration.pendingAdjustments[adjustmentIndex];
         state.walletIntegration.holdingBalance -= adjustment.holdAmount;
         state.walletIntegration.pendingAdjustments.splice(adjustmentIndex, 1);
-      }
+}
       
       // Add transaction record
       state.walletIntegration.walletTransactions.unshift({
@@ -231,6 +231,37 @@ addNewApprovalRequest: (state, action) => {
       state.walletIntegration.lastBalanceUpdate = new Date().toISOString();
     },
     
+    recordWalletTransaction: (state, action) => {
+      const { 
+        type, 
+        amount, 
+        description, 
+        reference, 
+        requestId, 
+        orderId, 
+        transactionId, 
+        status = 'completed',
+        metadata = {} 
+      } = action.payload;
+      
+      const transaction = {
+        Id: state.walletIntegration.walletTransactions.length + 1,
+        type, // 'approval_hold', 'price_adjustment', 'order_payment', 'deposit', 'withdraw', 'transfer', 'hold_release', 'rejection_release'
+        amount,
+        description,
+        reference: reference || `TXN_${Date.now()}`,
+        requestId: requestId || null,
+        orderId: orderId || null,
+        transactionId: transactionId || null,
+        status,
+        processedAt: new Date().toISOString(),
+        metadata
+      };
+      
+      state.walletIntegration.walletTransactions.unshift(transaction);
+      state.walletIntegration.lastBalanceUpdate = new Date().toISOString();
+    },
+    
     updateWalletIntegrationSettings: (state, action) => {
       state.walletIntegration = { 
         ...state.walletIntegration, 
@@ -239,7 +270,6 @@ addNewApprovalRequest: (state, action) => {
       };
     }
   },
-  
   extraReducers: (builder) => {
     builder
       // Fetch pending approvals
@@ -297,15 +327,22 @@ addNewApprovalRequest: (state, action) => {
             const adjustment = state.walletIntegration.pendingAdjustments[adjustmentIndex];
             state.walletIntegration.holdingBalance -= adjustment.holdAmount;
             state.walletIntegration.pendingAdjustments.splice(adjustmentIndex, 1);
-            
-            // Record wallet transaction
+// Record wallet transaction
             state.walletIntegration.walletTransactions.unshift({
+              Id: state.walletIntegration.walletTransactions.length + 1,
               requestId,
               transactionId: action.payload.walletAdjustment.transactionId,
-              adjustmentAmount: action.payload.walletAdjustment.amount,
+              amount: action.payload.walletAdjustment.amount,
+              type: 'price_adjustment',
+              description: `Price adjustment for approved request #${requestId}`,
+              reference: action.payload.walletAdjustment.transactionId,
+              orderId: null,
               processedAt: new Date().toISOString(),
-              type: 'approval_adjustment',
-              status: 'completed'
+              status: 'completed',
+              metadata: {
+                approvalType: 'approved',
+                adjustmentReason: 'price_change_approval'
+              }
             });
             
             state.walletIntegration.lastBalanceUpdate = new Date().toISOString();
@@ -342,15 +379,23 @@ addNewApprovalRequest: (state, action) => {
           state.walletIntegration.holdingBalance -= adjustment.holdAmount;
           state.walletIntegration.pendingAdjustments.splice(adjustmentIndex, 1);
           
-          // Record wallet transaction for rejection
+// Record wallet transaction for rejection
           state.walletIntegration.walletTransactions.unshift({
+            Id: state.walletIntegration.walletTransactions.length + 1,
             requestId,
             transactionId: `REJ_${Date.now()}`,
-            adjustmentAmount: 0,
-            processedAt: new Date().toISOString(),
+            amount: 0,
             type: 'rejection_release',
+            description: `Hold released for rejected request #${requestId}`,
+            reference: `REJ_${Date.now()}`,
+            orderId: null,
+            processedAt: new Date().toISOString(),
             status: 'completed',
-            note: 'Hold released due to rejection'
+            metadata: {
+              approvalType: 'rejected',
+              originalHoldAmount: adjustment.holdAmount,
+              releaseReason: 'approval_rejected'
+            }
           });
           
           state.walletIntegration.lastBalanceUpdate = new Date().toISOString();
@@ -375,9 +420,10 @@ export const {
   updatePagination,
   clearError,
   clearNotifications,
-  holdWalletBalance,
+holdWalletBalance,
   releaseWalletHold,
   adjustWalletBalance,
+  recordWalletTransaction,
   updateWalletIntegrationSettings
 } = approvalWorkflowSlice.actions;
 // Selectors

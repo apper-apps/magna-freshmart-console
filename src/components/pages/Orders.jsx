@@ -295,7 +295,35 @@ const Orders = () => {
                     <span>Reorder</span>
                   </button>
                 )}
-              </div>
+</div>
+              
+              {/* Wallet Transaction Details */}
+              {order.walletTransaction && (
+                <div className="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <ApperIcon name="Wallet" size={16} className="text-purple-600" />
+                    <h4 className="text-sm font-medium text-purple-900">Wallet Transaction</h4>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-purple-700">Transaction ID:</span>
+                      <span className="font-mono text-purple-900">{order.walletTransaction.transactionId}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-purple-700">Type:</span>
+                      <span className="font-medium text-purple-900 capitalize">
+                        {order.walletTransaction.type.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-purple-700">Amount:</span>
+                      <span className="font-semibold text-purple-900">
+                        Rs. {order.walletTransaction.amount.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ))}
