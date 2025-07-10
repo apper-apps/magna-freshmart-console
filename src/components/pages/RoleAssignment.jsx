@@ -6,7 +6,7 @@ import Input from '@/components/atoms/Input';
 import Loading from '@/components/ui/Loading';
 import Error from '@/components/ui/Error';
 import Empty from '@/components/ui/Empty';
-import { employeeService } from '@/services/api/employeeService';
+import employeeService from '@/services/api/employeeService';
 
 // Error Boundary Component
 class RoleAssignmentErrorBoundary extends React.Component {
