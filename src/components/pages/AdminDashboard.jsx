@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { toast } from "react-toastify";
 import { useDispatch, useSelector } from "react-redux";
 import { store } from "@/store/index";
-import { addRealTimeNotification, approveRequest, fetchPendingApprovals, rejectRequest, selectApprovalLoading, selectPendingApprovals, selectRealTimeUpdates, setConnectionStatus } from "@/store/approvalWorkflowSlice";
+import { addRealTimeNotification, approveRequest, fetchPendingApprovals, rejectRequest, selectApprovalLoading, selectPendingApprovals, selectRealTimeUpdates, setConnectionStatus, updateApprovalStatus } from "@/store/approvalWorkflowSlice";
 import { fetchNotificationCounts, resetCount, setError, setLoading, updateCounts } from "@/store/notificationSlice";
 import ApperIcon from "@/components/ApperIcon";
 import Badge from "@/components/atoms/Badge";
@@ -19,7 +19,6 @@ import webSocketService from "@/services/api/websocketService";
 import { productService } from "@/services/api/productService";
 import { notificationService } from "@/services/api/notificationService";
 import { paymentService } from "@/services/api/paymentService";
-const AdminDashboard = () => {
   const dispatch = useDispatch();
   const notificationCounts = useSelector(state => state.notifications.counts);
   const pendingApprovals = useSelector(selectPendingApprovals);
