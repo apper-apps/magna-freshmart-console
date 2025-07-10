@@ -185,6 +185,8 @@ const handleWalletAction = async (action, amount = 0) => {
 
 const quickActions = [
     { label: 'Manage Products', path: '/admin/products', icon: 'Package', color: 'from-blue-500 to-cyan-500', notificationKey: 'products' },
+    { label: 'Vendor Portal', path: '/vendor-portal', icon: 'Store', color: 'from-purple-500 to-violet-500', notificationKey: 'vendor', role: ['admin', 'moderator'] },
+    { label: 'Role Assignment', path: '/role-management', icon: 'Settings', color: 'from-amber-500 to-yellow-500', notificationKey: 'roles', role: ['admin'] },
     { label: 'POS Terminal', path: '/admin/pos', icon: 'Calculator', color: 'from-green-500 to-emerald-500', notificationKey: 'pos' },
     { label: 'View Orders', path: '/orders', icon: 'ShoppingCart', color: 'from-purple-500 to-pink-500', notificationKey: 'orders' },
     { label: 'Financial Dashboard', path: '/admin/financial-dashboard', icon: 'DollarSign', color: 'from-emerald-500 to-teal-500', notificationKey: 'financial' },
