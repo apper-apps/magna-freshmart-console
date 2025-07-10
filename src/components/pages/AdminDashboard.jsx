@@ -3,10 +3,8 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
 import { useDispatch, useSelector } from "react-redux";
-import { addRealTimeNotification, approveRequest, fetchPendingApprovals, rejectRequest, selectApprovalLoading, selectPendingApprovals, selectRealTimeUpdates, setConnectionStatus } from "@/store/approvalWorkflowSlice";
-import { approvalWorkflowService } from "@/services/api/approvalWorkflowService";
-import { webSocketService } from "@/services/api/websocketService";
 import { store } from "@/store/index";
+import { addRealTimeNotification, approveRequest, fetchPendingApprovals, rejectRequest, selectApprovalLoading, selectPendingApprovals, selectRealTimeUpdates, setConnectionStatus } from "@/store/approvalWorkflowSlice";
 import { fetchNotificationCounts, resetCount, setError, setLoading, updateCounts } from "@/store/notificationSlice";
 import ApperIcon from "@/components/ApperIcon";
 import Badge from "@/components/atoms/Badge";
@@ -15,6 +13,8 @@ import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import Orders from "@/components/pages/Orders";
 import { orderService } from "@/services/api/orderService";
+import { approvalWorkflowService } from "@/services/api/approvalWorkflowService";
+import webSocketService from "@/services/api/websocketService";
 import { productService } from "@/services/api/productService";
 import { notificationService } from "@/services/api/notificationService";
 import { paymentService } from "@/services/api/paymentService";
@@ -539,9 +539,9 @@ const quickActions = [
               ))}
             </div>
           )}
-        </div>
-      </div>
 </div>
+      </div>
+    </div>
 
       {/* Approval Workflow Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
