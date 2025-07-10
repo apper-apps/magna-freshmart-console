@@ -622,13 +622,12 @@ async executeApprovedChanges(approvedRequest) {
         }
         break;
     }
-    
-    return { required: false };
+return { required: false };
   }
-}
 
   delay(ms = 300) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
   // Wallet Integration Methods
   async calculateWalletImpact(approvalData) {
