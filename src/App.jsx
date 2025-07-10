@@ -28,8 +28,8 @@ const Orders = React.lazy(() => import('@/components/pages/Orders'));
 const OrderTracking = React.lazy(() => import('@/components/pages/OrderTracking'));
 const Account = React.lazy(() => import('@/components/pages/Account'));
 const VendorPortal = React.lazy(() => import('@/components/pages/VendorPortal'));
+const RoleAssignment = React.lazy(() => import('@/components/pages/RoleAssignment'));
 // Import components
-
 function App() {
   const [sdkReady, setSdkReady] = useState(false);
   const [sdkError, setSdkError] = useState(null);
@@ -208,6 +208,13 @@ return (
 <Route path="admin/payroll" element={
                     <Suspense fallback={<Loading type="page" />}>
                       <PayrollManagement />
+                    </Suspense>
+                  } />
+                  
+                  {/* Role Assignment Route - Admin Only */}
+                  <Route path="role-management" element={
+                    <Suspense fallback={<Loading type="page" />}>
+                      <RoleAssignment />
                     </Suspense>
                   } />
                   
