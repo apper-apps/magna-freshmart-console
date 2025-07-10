@@ -1,4 +1,4 @@
-// Mock data for notification counts
+// Mock data for notification counts including approval workflow
 const mockNotificationCounts = {
   payments: 5,
   orders: 3,
@@ -9,7 +9,10 @@ const mockNotificationCounts = {
   verification: 8,
   management: 4,
   delivery: 6,
-  analytics: 0
+  analytics: 0,
+  approvals: 3,
+  workflow: 2,
+  sensitive_changes: 1
 };
 
 class NotificationService {
@@ -17,7 +20,6 @@ class NotificationService {
     this.counts = { ...mockNotificationCounts };
     this.lastUpdate = new Date().toISOString();
   }
-
   async getUnreadCounts() {
     await this.delay();
     
@@ -85,7 +87,7 @@ class NotificationService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // Map quick action paths to notification categories
+// Map quick action paths to notification categories
   getNotificationKey(path) {
     const pathMap = {
       '/admin/products': 'products',
@@ -96,10 +98,41 @@ class NotificationService {
       '/admin/payments?tab=verification': 'verification',
       '/admin/payments': 'payments',
       '/admin/delivery-dashboard': 'delivery',
-      '/admin/analytics': 'analytics'
+      '/admin/analytics': 'analytics',
+      '/admin/approvals': 'approvals',
+      '/admin/workflow': 'workflow',
+      '/admin/sensitive-changes': 'sensitive_changes'
     };
     
     return pathMap[path] || null;
+  }
+
+  // Approval workflow specific notifications
+  async getApprovalNotifications() {
+    await this.delay(200);
+    
+    return {
+      pendingApprovals: this.counts.approvals || 0,
+      workflowAlerts: this.counts.workflow || 0,
+      sensitiveChanges: this.counts.sensitive_changes || 0,
+      lastUpdated: this.lastUpdate
+    };
+  }
+
+  async markApprovalAsRead(category) {
+    await this.delay(150);
+    
+    const approvalCategories = ['approvals', 'workflow', 'sensitive_changes'];
+    if (approvalCategories.includes(category)) {
+      this.counts[category] = 0;
+      this.lastUpdate = new Date().toISOString();
+    }
+    
+    return {
+      success: true,
+      category,
+      newCount: this.counts[category] || 0
+    };
   }
 }
 

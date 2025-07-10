@@ -3,27 +3,36 @@ import { persistReducer, persistStore } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 import cartSlice from "./cartSlice";
 import notificationSlice from "./notificationSlice";
+import approvalWorkflowSlice from "./approvalWorkflowSlice";
+
 const persistConfig = {
   key: 'root',
   storage,
-  whitelist: ['cart'] // Only persist cart state
+  whitelist: ['cart', 'approvalWorkflow'] // Persist cart and approval workflow state
 };
 
 const rootReducer = combineReducers({
   cart: cartSlice,
-  notifications: notificationSlice
+  notifications: notificationSlice,
+  approvalWorkflow: approvalWorkflowSlice
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
+
 export const store = configureStore({
   reducer: persistedReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE']
+        ignoredActions: [
+          'persist/PERSIST', 
+          'persist/REHYDRATE',
+          'approvalWorkflow/setConnectionStatus',
+          'approvalWorkflow/addRealTimeNotification'
+]
       }
     }),
-  devTools: process.env.NODE_ENV !== 'production'
+  devTools: typeof process !== 'undefined' && process.env.NODE_ENV !== 'production'
 });
 
 export const persistor = persistStore(store);

@@ -1,21 +1,31 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
-import { useSelector, useDispatch } from "react-redux";
-import { fetchNotificationCounts, updateCounts, resetCount, setLoading, setError } from "@/store/notificationSlice";
+import { useDispatch, useSelector } from "react-redux";
+import { addRealTimeNotification, approveRequest, fetchPendingApprovals, rejectRequest, selectApprovalLoading, selectPendingApprovals, selectRealTimeUpdates, setConnectionStatus } from "@/store/approvalWorkflowSlice";
+import { approvalWorkflowService } from "@/services/api/approvalWorkflowService";
+import { webSocketService } from "@/services/api/websocketService";
+import { store } from "@/store/index";
+import { fetchNotificationCounts, resetCount, setError, setLoading, updateCounts } from "@/store/notificationSlice";
 import ApperIcon from "@/components/ApperIcon";
+import Badge from "@/components/atoms/Badge";
 import Button from "@/components/atoms/Button";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import Orders from "@/components/pages/Orders";
 import { orderService } from "@/services/api/orderService";
 import { productService } from "@/services/api/productService";
-import { paymentService } from "@/services/api/paymentService";
 import { notificationService } from "@/services/api/notificationService";
+import { paymentService } from "@/services/api/paymentService";
+
 const AdminDashboard = () => {
   const dispatch = useDispatch();
   const notificationCounts = useSelector(state => state.notifications.counts);
+  const pendingApprovals = useSelector(selectPendingApprovals);
+  const approvalLoading = useSelector(selectApprovalLoading);
+  const realTimeUpdates = useSelector(selectRealTimeUpdates);
+  
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState({
@@ -34,7 +44,13 @@ const AdminDashboard = () => {
   const [walletLoading, setWalletLoading] = useState(false);
   const [recentOrders, setRecentOrders] = useState([]);
   const [revenueBreakdown, setRevenueBreakdown] = useState([]);
+  const [selectedApproval, setSelectedApproval] = useState(null);
+  const [approvalComments, setApprovalComments] = useState('');
+  const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [wsConnectionStatus, setWsConnectionStatus] = useState({ connected: false });
   const pollingRef = useRef(null);
+  const wsUnsubscribeRef = useRef(null);
+
   const loadDashboardData = async () => {
     setLoading(true);
     try {
@@ -135,9 +151,87 @@ const AdminDashboard = () => {
       }
     };
 }, [fetchNotificationCountsData]);
-  useEffect(() => {
+useEffect(() => {
     loadDashboardData();
   }, []);
+
+  // Initialize WebSocket connection and approval workflows
+  useEffect(() => {
+    const initializeApprovalWorkflow = async () => {
+      try {
+        // Initialize WebSocket connection
+        const wsConnection = await webSocketService.connect();
+        setWsConnectionStatus(webSocketService.getConnectionStatus());
+        
+        // Subscribe to approval workflow updates
+        wsUnsubscribeRef.current = webSocketService.subscribeToApprovalUpdates((update) => {
+          dispatch(addRealTimeNotification({
+            id: `notif_${Date.now()}`,
+            type: update.type,
+            data: update.data,
+            timestamp: new Date().toISOString()
+          }));
+          
+          // Handle specific approval events
+          if (update.type === 'approval_status_changed') {
+            dispatch(updateApprovalStatus(update.data));
+            toast.info(`Approval request ${update.data.status}`);
+          }
+        });
+        
+        // Set connection status in Redux
+        dispatch(setConnectionStatus(wsConnection.connected));
+        
+        // Load pending approvals
+        dispatch(fetchPendingApprovals());
+        
+      } catch (error) {
+        console.error('Failed to initialize approval workflow:', error);
+        toast.warning('Real-time updates may be limited');
+      }
+    };
+    
+    initializeApprovalWorkflow();
+    
+    return () => {
+      if (wsUnsubscribeRef.current) {
+        wsUnsubscribeRef.current();
+      }
+    };
+  }, [dispatch]);
+
+  // Handle approval actions
+  const handleApprovalAction = async (action, requestId, comments = '') => {
+    try {
+      if (action === 'approve') {
+        await dispatch(approveRequest({ requestId, comments })).unwrap();
+        toast.success('Approval request approved successfully');
+      } else if (action === 'reject') {
+        if (!comments.trim()) {
+          toast.error('Rejection comments are required');
+          return;
+        }
+        await dispatch(rejectRequest({ requestId, comments })).unwrap();
+        toast.success('Approval request rejected');
+      }
+      
+      setSelectedApproval(null);
+      setApprovalComments('');
+      setShowApprovalModal(false);
+      
+      // Refresh approvals list
+      dispatch(fetchPendingApprovals());
+      
+    } catch (error) {
+      toast.error(`Failed to ${action} request: ${error.message}`);
+    }
+  };
+
+  const openApprovalModal = (approval, action) => {
+    setSelectedApproval({ ...approval, action });
+    setApprovalComments('');
+    setShowApprovalModal(true);
+  };
 
   if (loading) {
     return (
@@ -195,7 +289,7 @@ const quickActions = [
     { label: 'Payment Management', path: '/admin/payments', icon: 'CreditCard', color: 'from-teal-500 to-cyan-500', notificationKey: 'payments' },
     { label: 'Delivery Tracking', path: '/admin/delivery-dashboard', icon: 'MapPin', color: 'from-indigo-500 to-purple-500', notificationKey: 'delivery' },
     { label: 'Analytics', path: '/admin/analytics', icon: 'TrendingUp', color: 'from-amber-500 to-orange-500', notificationKey: 'analytics' }
-  ];
+];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -447,21 +541,164 @@ const quickActions = [
           )}
         </div>
       </div>
+</div>
+
+      {/* Approval Workflow Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {/* Pending Approvals */}
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <ApperIcon name="Clock" size={20} className="text-orange-600" />
+              <h2 className="text-xl font-semibold text-gray-900">Pending Approvals</h2>
+              {realTimeUpdates.connected && (
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-green-600">Live</span>
+                </div>
+              )}
+            </div>
+            <Badge variant="warning" className="text-sm">
+              {pendingApprovals.length} pending
+            </Badge>
+          </div>
+          
+          {approvalLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loading type="spinner" />
+            </div>
+          ) : pendingApprovals.length === 0 ? (
+            <div className="text-center py-8">
+              <ApperIcon name="CheckCircle" size={48} className="text-green-400 mx-auto mb-4" />
+              <p className="text-gray-600">No pending approvals</p>
+            </div>
+          ) : (
+            <div className="space-y-4 max-h-64 overflow-y-auto">
+              {pendingApprovals.slice(0, 5).map((approval) => (
+                <div key={approval.Id} className="bg-gray-50 p-4 rounded-lg border-l-4 border-orange-400">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <h3 className="font-medium text-gray-900">{approval.title}</h3>
+                        <Badge 
+                          variant={approval.priority === 'urgent' ? 'error' : approval.priority === 'high' ? 'warning' : 'info'}
+                          className="text-xs"
+                        >
+                          {approval.priority}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-2">{approval.description}</p>
+                      <div className="flex items-center space-x-4 text-xs text-gray-500">
+                        <span>By: {approval.submittedBy}</span>
+                        <span>{format(new Date(approval.submittedAt), 'MMM dd, HH:mm')}</span>
+                        {approval.businessImpact?.revenueImpact && (
+                          <span className={approval.businessImpact.revenueImpact > 0 ? 'text-green-600' : 'text-red-600'}>
+                            Rs. {Math.abs(approval.businessImpact.revenueImpact).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex space-x-2 ml-4">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon="Check"
+                        onClick={() => openApprovalModal(approval, 'approve')}
+                        className="text-green-600 hover:text-green-800 hover:bg-green-50"
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon="X"
+                        onClick={() => openApprovalModal(approval, 'reject')}
+                        className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Real-time System Status */}
+        <div className="card p-6">
+          <div className="flex items-center space-x-2 mb-4">
+            <ApperIcon name="Activity" size={20} className="text-blue-600" />
+            <h2 className="text-xl font-semibold text-gray-900">System Status</h2>
+          </div>
+          
+          <div className="space-y-4">
+            {/* WebSocket Connection */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className={`p-2 rounded-lg ${realTimeUpdates.connected ? 'bg-green-100' : 'bg-red-100'}`}>
+                  <ApperIcon 
+                    name={realTimeUpdates.connected ? "Wifi" : "WifiOff"} 
+                    size={20} 
+                    className={realTimeUpdates.connected ? "text-green-600" : "text-red-600"} 
+                  />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">Real-time Updates</p>
+                  <p className={`text-sm ${realTimeUpdates.connected ? 'text-green-600' : 'text-red-600'}`}>
+                    {realTimeUpdates.connected ? 'Connected' : 'Disconnected'}
+                  </p>
+                </div>
+              </div>
+              <Badge variant={realTimeUpdates.connected ? "success" : "error"} className="text-xs">
+                {realTimeUpdates.connected ? 'Live' : 'Offline'}
+              </Badge>
+            </div>
+
+            {/* Database Status */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="bg-green-100 p-2 rounded-lg">
+                  <ApperIcon name="Database" size={20} className="text-green-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">MongoDB Database</p>
+                  <p className="text-sm text-green-600">Connected</p>
+                </div>
+              </div>
+              <Badge variant="success" className="text-xs">Active</Badge>
+            </div>
+
+            {/* Approval Workflow Status */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="bg-blue-100 p-2 rounded-lg">
+                  <ApperIcon name="GitBranch" size={20} className="text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">Approval Workflow</p>
+                  <p className="text-sm text-blue-600">
+                    {pendingApprovals.length} pending, {realTimeUpdates.notifications.length} updates
+                  </p>
+                </div>
+              </div>
+              <Badge variant="info" className="text-xs">Active</Badge>
+            </div>
+
+            {/* Last Update */}
+            {realTimeUpdates.lastUpdate && (
+              <div className="text-center text-xs text-gray-500 pt-2 border-t">
+                Last update: {format(new Date(realTimeUpdates.lastUpdate), 'HH:mm:ss')}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* System Status */}
       <div className="card p-6 mt-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">System Status</h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Infrastructure Status</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="flex items-center space-x-3">
-            <div className="bg-green-100 p-2 rounded-lg">
-              <ApperIcon name="CheckCircle" size={20} className="text-green-600" />
-            </div>
-            <div>
-              <p className="font-medium text-gray-900">Database</p>
-              <p className="text-sm text-green-600">Connected</p>
-            </div>
-          </div>
-          
           <div className="flex items-center space-x-3">
             <div className="bg-green-100 p-2 rounded-lg">
               <ApperIcon name="CheckCircle" size={20} className="text-green-600" />
@@ -481,9 +718,114 @@ const quickActions = [
               <p className="text-sm text-green-600">Up to date</p>
             </div>
           </div>
+
+          <div className="flex items-center space-x-3">
+            <div className={`p-2 rounded-lg ${realTimeUpdates.connected ? 'bg-green-100' : 'bg-yellow-100'}`}>
+              <ApperIcon 
+                name="Server" 
+                size={20} 
+                className={realTimeUpdates.connected ? "text-green-600" : "text-yellow-600"} 
+              />
+            </div>
+            <div>
+              <p className="font-medium text-gray-900">Node.js Backend</p>
+              <p className={`text-sm ${realTimeUpdates.connected ? 'text-green-600' : 'text-yellow-600'}`}>
+                {realTimeUpdates.connected ? 'Connected' : 'Connecting...'}
+              </p>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Approval Action Modal */}
+      {showApprovalModal && selectedApproval && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {selectedApproval.action === 'approve' ? 'Approve' : 'Reject'} Request
+                </h2>
+                <button
+                  onClick={() => setShowApprovalModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <ApperIcon name="X" size={24} />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Request Details */}
+              <div>
+                <h3 className="font-medium text-gray-900 mb-2">{selectedApproval.title}</h3>
+                <p className="text-gray-600 mb-4">{selectedApproval.description}</p>
+                
+                {/* Business Impact */}
+                {selectedApproval.businessImpact && (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="font-medium text-gray-900 mb-2">Business Impact</h4>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600">Revenue Impact:</span>
+                        <p className={`font-medium ${selectedApproval.businessImpact.revenueImpact >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          Rs. {Math.abs(selectedApproval.businessImpact.revenueImpact).toLocaleString()}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Margin Impact:</span>
+                        <p className={`font-medium ${selectedApproval.businessImpact.marginImpact >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {selectedApproval.businessImpact.marginImpact}%
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Customer Impact:</span>
+                        <p className="font-medium text-gray-900 capitalize">
+                          {selectedApproval.businessImpact.customerImpact}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {/* Comments */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {selectedApproval.action === 'approve' ? 'Approval Comments (Optional)' : 'Rejection Reason (Required)'}
+                </label>
+                <textarea
+                  value={approvalComments}
+                  onChange={(e) => setApprovalComments(e.target.value)}
+                  placeholder={selectedApproval.action === 'approve' 
+                    ? 'Add any comments about this approval...' 
+                    : 'Please provide a reason for rejection...'}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  rows={4}
+                  required={selectedApproval.action === 'reject'}
+                />
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-4">
+              <Button
+                variant="ghost"
+                onClick={() => setShowApprovalModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant={selectedApproval.action === 'approve' ? 'primary' : 'secondary'}
+                onClick={() => handleApprovalAction(selectedApproval.action, selectedApproval.Id, approvalComments)}
+                disabled={selectedApproval.action === 'reject' && !approvalComments.trim()}
+                icon={selectedApproval.action === 'approve' ? 'Check' : 'X'}
+              >
+                {selectedApproval.action === 'approve' ? 'Approve Request' : 'Reject Request'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
   );
 };
 
