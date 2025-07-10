@@ -1,5 +1,7 @@
 import React from "react";
 import Error from "@/components/ui/Error";
+// Payment Service - Pure JavaScript implementation
+// Handles all payment processing operations
 class PaymentService {
 constructor() {
     this.transactions = [];
@@ -519,34 +521,7 @@ generateTransactionId() {
       reference: this.generateReference(),
       recipientId
     };
-
-    this.walletTransactions.push(transaction);
-    return { ...transaction };
-async transferFromWallet(amount, recipientId = null) {
-    await this.delay(500);
-    
-    if (amount <= 0) {
-      throw new Error('Transfer amount must be positive');
-    }
-
-    if (amount > this.walletBalance) {
-      throw new Error('Insufficient wallet balance');
-    }
-
-    this.walletBalance -= amount;
-    
-    const transaction = {
-      Id: this.getWalletTransactionId(),
-      type: 'transfer',
-      amount,
-      balance: this.walletBalance,
-      timestamp: new Date().toISOString(),
-      description: `Wallet transfer${recipientId ? ` to ${recipientId}` : ''}`,
-      reference: this.generateReference(),
-      recipientId
-    };
-
-    this.walletTransactions.push(transaction);
+this.walletTransactions.push(transaction);
     return { ...transaction };
   }
 
@@ -583,8 +558,34 @@ async transferFromWallet(amount, recipientId = null) {
     };
   }
 
-  async processWalletPayment(amount, orderId) {
+async processWalletPayment(amount, orderId) {
+    await this.delay(500);
+    
+    if (amount <= 0) {
+      throw new Error('Payment amount must be positive');
+    }
 
+    if (amount > this.walletBalance) {
+      throw new Error('Insufficient wallet balance');
+    }
+
+    this.walletBalance -= amount;
+    
+    const transaction = {
+      Id: this.getWalletTransactionId(),
+      type: 'payment',
+      amount,
+      balance: this.walletBalance,
+      timestamp: new Date().toISOString(),
+      description: `Wallet payment for order ${orderId}`,
+      reference: this.generateReference(),
+      orderId,
+      status: 'completed'
+    };
+
+    this.walletTransactions.push(transaction);
+    return { ...transaction };
+  }
   async getWalletTransactions(limit = 50) {
     await this.delay(300);
     return [...this.walletTransactions]
@@ -1150,6 +1151,7 @@ delay(ms = 300) {
   generateFileUrl(fileName) {
     // Simulate file URL generation
     return `https://storage.example.com/proofs/${Date.now()}-${fileName}`;
+}
 }
 
   // Recurring Payment Automation Methods
