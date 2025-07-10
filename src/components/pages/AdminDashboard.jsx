@@ -286,18 +286,30 @@ const handleWalletAction = async (action, amount = 0) => {
   };
 
 const quickActions = [
-    { label: 'Manage Products', path: '/admin/products', icon: 'Package', color: 'from-blue-500 to-cyan-500', notificationKey: 'products' },
-    { label: 'Vendor Portal', path: '/vendor-portal', icon: 'Store', color: 'from-purple-500 to-violet-500', notificationKey: 'vendor', role: ['admin', 'moderator'] },
-    { label: 'Role Assignment', path: '/role-management', icon: 'Settings', color: 'from-amber-500 to-yellow-500', notificationKey: 'roles', role: ['admin'] },
-    { label: 'POS Terminal', path: '/admin/pos', icon: 'Calculator', color: 'from-green-500 to-emerald-500', notificationKey: 'pos' },
-    { label: 'View Orders', path: '/orders', icon: 'ShoppingCart', color: 'from-purple-500 to-pink-500', notificationKey: 'orders' },
-    { label: 'Financial Dashboard', path: '/admin/financial-dashboard', icon: 'DollarSign', color: 'from-emerald-500 to-teal-500', notificationKey: 'financial' },
-    { label: 'AI Generate', path: '/admin/ai-generate', icon: 'Brain', color: 'from-purple-500 to-indigo-500', notificationKey: 'ai' },
-    { label: 'Payment Verification', path: '/admin/payments?tab=verification', icon: 'Shield', color: 'from-orange-500 to-red-500', notificationKey: 'verification' },
-    { label: 'Payment Management', path: '/admin/payments', icon: 'CreditCard', color: 'from-teal-500 to-cyan-500', notificationKey: 'payments' },
-    { label: 'Delivery Tracking', path: '/admin/delivery-dashboard', icon: 'MapPin', color: 'from-indigo-500 to-purple-500', notificationKey: 'delivery' },
-    { label: 'Analytics', path: '/admin/analytics', icon: 'TrendingUp', color: 'from-amber-500 to-orange-500', notificationKey: 'analytics' }
+    // Critical Priority
+    { label: 'Payment Verification', path: '/admin/payments?tab=verification', icon: 'Shield', color: 'from-orange-500 to-red-500', notificationKey: 'verification', priority: 'critical' },
+    { label: 'View Orders', path: '/orders', icon: 'ShoppingCart', color: 'from-purple-500 to-pink-500', notificationKey: 'orders', priority: 'critical' },
+    { label: 'POS Terminal', path: '/admin/pos', icon: 'Calculator', color: 'from-green-500 to-emerald-500', notificationKey: 'pos', priority: 'critical' },
+    
+    // High Priority  
+    { label: 'Financial Dashboard', path: '/admin/financial-dashboard', icon: 'DollarSign', color: 'from-emerald-500 to-teal-500', notificationKey: 'financial', priority: 'high' },
+    { label: 'Payment Management', path: '/admin/payments', icon: 'CreditCard', color: 'from-teal-500 to-cyan-500', notificationKey: 'payments', priority: 'high' },
+    { label: 'Delivery Tracking', path: '/admin/delivery-dashboard', icon: 'MapPin', color: 'from-indigo-500 to-purple-500', notificationKey: 'delivery', priority: 'high' },
+    { label: 'Manage Products', path: '/admin/products', icon: 'Package', color: 'from-blue-500 to-cyan-500', notificationKey: 'products', priority: 'high' },
+    
+    // Medium Priority
+    { label: 'Analytics', path: '/admin/analytics', icon: 'TrendingUp', color: 'from-amber-500 to-orange-500', notificationKey: 'analytics', priority: 'medium' },
+    { label: 'Vendor Portal', path: '/vendor-portal', icon: 'Store', color: 'from-purple-500 to-violet-500', notificationKey: 'vendor', role: ['admin', 'moderator'], priority: 'medium' },
+    { label: 'AI Generate', path: '/admin/ai-generate', icon: 'Brain', color: 'from-purple-500 to-indigo-500', notificationKey: 'ai', priority: 'medium' },
+    { label: 'Role Assignment', path: '/role-management', icon: 'Settings', color: 'from-amber-500 to-yellow-500', notificationKey: 'roles', role: ['admin'], priority: 'medium' }
 ];
+
+// Priority indicator configuration
+const priorityConfig = {
+  critical: { color: 'bg-red-500', text: 'Critical', textColor: 'text-red-600' },
+  high: { color: 'bg-orange-500', text: 'High', textColor: 'text-orange-600' },
+  medium: { color: 'bg-blue-500', text: 'Medium', textColor: 'text-blue-600' }
+};
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -373,10 +385,27 @@ const quickActions = [
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
 {/* Quick Actions */}
         <div className="card p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">Quick Actions</h2>
+            <div className="flex items-center space-x-2 text-xs">
+              <div className="flex items-center space-x-1">
+                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                <span className="text-gray-600">Critical</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                <span className="text-gray-600">High</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span className="text-gray-600">Medium</span>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
             {quickActions.map((action) => {
               const badgeCount = notificationCounts[action.notificationKey] || 0;
+              const priorityInfo = priorityConfig[action.priority];
               return (
                 <Link
                   key={action.path}
@@ -385,7 +414,15 @@ const quickActions = [
                   onClick={() => handleTabClick(action.path)}
                 >
                   <div className="relative p-4 rounded-lg border border-gray-200 hover:border-primary hover:shadow-md transition-all duration-200">
-                    <div className="flex items-center space-x-3">
+                    {/* Priority indicator */}
+                    <div className="absolute top-2 right-2 flex items-center space-x-1">
+                      <div className={`w-2 h-2 ${priorityInfo.color} rounded-full`}></div>
+                      <span className={`text-xs font-medium ${priorityInfo.textColor}`}>
+                        {priorityInfo.text}
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3 mt-2">
                       <div className={`relative bg-gradient-to-r ${action.color} p-2 rounded-lg`}>
                         <ApperIcon name={action.icon} size={20} className="text-white" />
                         {badgeCount > 0 && (
@@ -394,9 +431,14 @@ const quickActions = [
                           </div>
                         )}
                       </div>
-                      <span className="font-medium text-gray-900 group-hover:text-primary transition-colors">
-                        {action.label}
-                      </span>
+                      <div className="flex-1">
+                        <span className="font-medium text-gray-900 group-hover:text-primary transition-colors block">
+                          {action.label}
+                        </span>
+                        <span className={`text-xs ${priorityInfo.textColor} opacity-75`}>
+                          {priorityInfo.text} Priority
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </Link>
