@@ -11,9 +11,9 @@ class WebSocketService {
   }
 
   // Initialize WebSocket connection
-  async connect(url = 'ws://localhost:8080/api/ws') {
+async connect(url = 'ws://localhost:8080/api/ws') {
     if (this.isConnecting || (this.connection && this.connection.readyState === WebSocket.OPEN)) {
-      return Promise.resolve();
+      return this.getConnectionStatus();
     }
 
     this.isConnecting = true;
@@ -33,7 +33,7 @@ class WebSocketService {
           // Notify listeners of connection status
           this.notifyListeners('connection_status', { connected: true, timestamp: new Date().toISOString() });
           
-          resolve();
+          resolve(this.getConnectionStatus());
         };
 
         this.connection.onmessage = (event) => {
@@ -296,14 +296,18 @@ class WebSocketService {
     this.reconnectAttempts = 0;
   }
 
-  // Get connection status
+// Get connection status
   getConnectionStatus() {
+    // Check if we're in a browser environment and WebSocket is available
+    const isWebSocketAvailable = typeof WebSocket !== 'undefined';
+    
     return {
-      connected: this.connection && this.connection.readyState === WebSocket.OPEN,
+      connected: isWebSocketAvailable && this.connection && this.connection.readyState === 1, // 1 = OPEN
       connecting: this.isConnecting,
       reconnectAttempts: this.reconnectAttempts,
       lastHeartbeat: this.lastHeartbeat,
-      listenersCount: Array.from(this.listeners.values()).reduce((sum, set) => sum + set.size, 0)
+      listenersCount: Array.from(this.listeners.values()).reduce((sum, set) => sum + set.size, 0),
+      webSocketAvailable: isWebSocketAvailable
     };
   }
 

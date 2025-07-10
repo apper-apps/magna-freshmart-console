@@ -156,31 +156,36 @@ useEffect(() => {
   }, []);
 
   // Initialize WebSocket connection and approval workflows
-  useEffect(() => {
+useEffect(() => {
     const initializeApprovalWorkflow = async () => {
       try {
         // Initialize WebSocket connection
-        const wsConnection = await webSocketService.connect();
-        setWsConnectionStatus(webSocketService.getConnectionStatus());
+        await webSocketService.connect();
         
-        // Subscribe to approval workflow updates
-        wsUnsubscribeRef.current = webSocketService.subscribeToApprovalUpdates((update) => {
-          dispatch(addRealTimeNotification({
-            id: `notif_${Date.now()}`,
-            type: update.type,
-            data: update.data,
-            timestamp: new Date().toISOString()
-          }));
-          
-          // Handle specific approval events
-          if (update.type === 'approval_status_changed') {
-            dispatch(updateApprovalStatus(update.data));
-            toast.info(`Approval request ${update.data.status}`);
-          }
-        });
+        // Get connection status after connection attempt
+        const connectionStatus = webSocketService.getConnectionStatus();
+        setWsConnectionStatus(connectionStatus);
+        
+        // Subscribe to approval workflow updates only if connection is successful
+        if (connectionStatus?.connected) {
+          wsUnsubscribeRef.current = webSocketService.subscribeToApprovalUpdates((update) => {
+            dispatch(addRealTimeNotification({
+              id: `notif_${Date.now()}`,
+              type: update.type,
+              data: update.data,
+              timestamp: new Date().toISOString()
+            }));
+            
+            // Handle specific approval events
+            if (update.type === 'approval_status_changed') {
+              dispatch(updateApprovalStatus(update.data));
+              toast.info(`Approval request ${update.data.status}`);
+            }
+          });
+        }
         
         // Set connection status in Redux
-        dispatch(setConnectionStatus(wsConnection.connected));
+        dispatch(setConnectionStatus(connectionStatus?.connected || false));
         
         // Load pending approvals
         dispatch(fetchPendingApprovals());
@@ -188,6 +193,9 @@ useEffect(() => {
       } catch (error) {
         console.error('Failed to initialize approval workflow:', error);
         toast.warning('Real-time updates may be limited');
+        
+        // Ensure connection status is set to false on error
+        dispatch(setConnectionStatus(false));
       }
     };
     
