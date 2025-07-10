@@ -1,3 +1,5 @@
+import React from "react";
+import Error from "@/components/ui/Error";
 class PaymentService {
 constructor() {
     this.transactions = [];
@@ -354,6 +356,96 @@ generateTransactionId() {
     return this.walletBalance;
   }
 
+  // Approval Workflow Integration Methods
+  async holdWalletBalance(amount, reason, requestId = null) {
+    await this.delay(300);
+    
+    if (amount <= 0) {
+      throw new Error('Hold amount must be positive');
+    }
+
+    if (amount > this.walletBalance) {
+      throw new Error('Insufficient wallet balance for hold');
+    }
+
+    // Create hold transaction
+    const holdTransaction = {
+      Id: this.getWalletTransactionId(),
+      type: 'hold',
+      amount,
+      balance: this.walletBalance, // Balance before hold
+      timestamp: new Date().toISOString(),
+      description: reason || 'Approval workflow hold',
+      reference: this.generateReference(),
+      requestId,
+      status: 'holding'
+    };
+
+    this.walletTransactions.push(holdTransaction);
+    console.log(`Wallet hold created: Rs. ${amount} for ${reason}`);
+    
+    return holdTransaction;
+  }
+
+  async releaseWalletHold(amount, reason, requestId = null) {
+    await this.delay(300);
+    
+    if (amount <= 0) {
+      throw new Error('Release amount must be positive');
+    }
+
+    // Create release transaction
+    const releaseTransaction = {
+      Id: this.getWalletTransactionId(),
+      type: 'hold_release',
+      amount,
+      balance: this.walletBalance,
+      timestamp: new Date().toISOString(),
+      description: reason || 'Hold released',
+      reference: this.generateReference(),
+      requestId,
+      status: 'completed'
+    };
+
+    this.walletTransactions.push(releaseTransaction);
+    console.log(`Wallet hold released: Rs. ${amount} for ${reason}`);
+    
+    return releaseTransaction;
+  }
+
+  async processApprovalAdjustment(adjustmentData) {
+    await this.delay(500);
+    
+    const { requestId, adjustmentAmount, adjustmentType, transactionId } = adjustmentData;
+    
+    if (!requestId || adjustmentAmount === undefined) {
+      throw new Error('Request ID and adjustment amount are required');
+    }
+
+    // Apply the adjustment to wallet balance
+    this.walletBalance += adjustmentAmount;
+    
+    // Create adjustment transaction
+    const adjustmentTransaction = {
+      Id: this.getWalletTransactionId(),
+      type: 'approval_adjustment',
+      amount: adjustmentAmount,
+      balance: this.walletBalance,
+      timestamp: new Date().toISOString(),
+      description: `Approval adjustment (${adjustmentType}): Request #${requestId}`,
+      reference: transactionId || this.generateReference(),
+      requestId,
+      adjustmentType,
+      status: 'completed'
+    };
+
+    this.walletTransactions.push(adjustmentTransaction);
+    
+    console.log(`Processed approval adjustment: Rs. ${adjustmentAmount} for request ${requestId}`);
+    
+    return adjustmentTransaction;
+  }
+
   async depositToWallet(amount) {
     await this.delay(500);
     
@@ -430,35 +522,68 @@ generateTransactionId() {
 
     this.walletTransactions.push(transaction);
     return { ...transaction };
-  }
-
-  async processWalletPayment(amount, orderId) {
+async transferFromWallet(amount, recipientId = null) {
     await this.delay(500);
     
     if (amount <= 0) {
-      throw new Error('Payment amount must be positive');
+      throw new Error('Transfer amount must be positive');
     }
 
     if (amount > this.walletBalance) {
-      throw new Error('Insufficient wallet balance for payment');
+      throw new Error('Insufficient wallet balance');
     }
 
     this.walletBalance -= amount;
     
     const transaction = {
       Id: this.getWalletTransactionId(),
-      type: 'payment',
+      type: 'transfer',
       amount,
       balance: this.walletBalance,
       timestamp: new Date().toISOString(),
-      description: `Payment for order #${orderId}`,
+      description: `Wallet transfer${recipientId ? ` to ${recipientId}` : ''}`,
       reference: this.generateReference(),
-      orderId
+      recipientId
     };
 
     this.walletTransactions.push(transaction);
     return { ...transaction };
   }
+
+  async getApprovalRelatedTransactions(requestId = null, limit = 50) {
+    await this.delay(200);
+    
+    let transactions = this.walletTransactions.filter(t => 
+      ['hold', 'hold_release', 'approval_adjustment'].includes(t.type)
+    );
+    
+    if (requestId) {
+      transactions = transactions.filter(t => t.requestId === requestId);
+    }
+    
+    return transactions
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+      .slice(0, limit);
+  }
+
+  async getWalletHoldSummary() {
+    await this.delay(200);
+    
+    const holdTransactions = this.walletTransactions.filter(t => 
+      t.type === 'hold' && t.status === 'holding'
+    );
+    
+    const totalHolding = holdTransactions.reduce((sum, t) => sum + t.amount, 0);
+    
+    return {
+      totalHolding,
+      activeHolds: holdTransactions.length,
+      availableBalance: this.walletBalance - totalHolding,
+      holdTransactions: holdTransactions.slice(-10)
+    };
+  }
+
+  async processWalletPayment(amount, orderId) {
 
   async getWalletTransactions(limit = 50) {
     await this.delay(300);

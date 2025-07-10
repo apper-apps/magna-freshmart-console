@@ -1,3 +1,6 @@
+import React from "react";
+import { approveRequest, rejectRequest, submitForApproval } from "@/store/approvalWorkflowSlice";
+import Error from "@/components/ui/Error";
 // Mock data for approval workflow
 const mockApprovalRequests = [
   {
@@ -90,6 +93,8 @@ class ApprovalWorkflowService {
     this.nextId = 4;
     this.wsConnection = null;
     this.wsListeners = new Set();
+    this.walletHolds = new Map(); // Track wallet holds by request ID
+    this.walletAdjustments = []; // Track completed wallet adjustments
   }
 
   // WebSocket Connection Management
@@ -230,7 +235,7 @@ class ApprovalWorkflowService {
     };
   }
 
-  async submitForApproval(approvalData) {
+async submitForApproval(approvalData) {
     await this.delay(400);
     
     // Validate required fields
@@ -254,6 +259,17 @@ class ApprovalWorkflowService {
       attachments: approvalData.attachments || []
     };
     
+    // Calculate wallet impact for price changes
+    if (approvalData.type === 'price_change') {
+      const walletImpact = await this.calculateWalletImpact(approvalData);
+      newRequest.walletImpact = walletImpact;
+      
+      // Create wallet hold if significant impact
+      if (walletImpact.requiresHold) {
+        await this.createWalletHold(newRequest.Id, walletImpact);
+      }
+    }
+    
     this.requests.unshift(newRequest);
     
     // Notify WebSocket listeners
@@ -265,7 +281,7 @@ class ApprovalWorkflowService {
     return newRequest;
   }
 
-  async approveRequest(requestId, comments = '') {
+async approveRequest(requestId, comments = '') {
     await this.delay(300);
     
     const request = this.requests.find(req => req.Id === parseInt(requestId));
@@ -277,13 +293,20 @@ class ApprovalWorkflowService {
       throw new Error('Request is not in pending status');
     }
     
+    // Process wallet adjustment for approved price change
+    let walletAdjustment = null;
+    if (request.type === 'price_change' && request.walletImpact) {
+      walletAdjustment = await this.processWalletApproval(parseInt(requestId), request.walletImpact);
+    }
+    
     // Update request status
     const updatedRequest = {
       ...request,
       status: 'approved',
       approvedBy: 'current_user', // In production, get from auth context
       approvedAt: new Date().toISOString(),
-      approvalComments: comments
+      approvalComments: comments,
+      walletAdjustment
     };
     
     const index = this.requests.findIndex(req => req.Id === parseInt(requestId));
@@ -296,14 +319,14 @@ class ApprovalWorkflowService {
         requestId: parseInt(requestId),
         status: 'approved',
         approvedBy: 'current_user',
-        comments
+        comments,
+        walletAdjustment
       }
     });
     
     // Execute the approved changes (in production, this would trigger actual changes)
     await this.executeApprovedChanges(updatedRequest);
-    
-    return updatedRequest;
+return updatedRequest;
   }
 
   async rejectRequest(requestId, comments = '') {
@@ -320,6 +343,11 @@ class ApprovalWorkflowService {
     
     if (!comments.trim()) {
       throw new Error('Rejection comments are required');
+    }
+    
+    // Release wallet hold for rejected price change
+    if (request.type === 'price_change' && request.walletImpact) {
+      await this.processWalletRejection(parseInt(requestId), request.walletImpact);
     }
     
     // Update request status
@@ -344,8 +372,7 @@ class ApprovalWorkflowService {
         comments
       }
     });
-    
-    return updatedRequest;
+return updatedRequest;
   }
 
   async addComment(requestId, comment) {
@@ -462,17 +489,24 @@ class ApprovalWorkflowService {
     }
   }
 
-  async executeApprovedChanges(approvedRequest) {
+async executeApprovedChanges(approvedRequest) {
     // In production, this would integrate with your product/inventory services
     // to actually apply the approved changes
     
     try {
-      const { type, affectedEntity } = approvedRequest;
+      const { type, affectedEntity, walletAdjustment } = approvedRequest;
       
       switch (type) {
         case 'price_change':
           console.log(`Executing price change for product ${affectedEntity.entityId}`);
           // productService.update(affectedEntity.entityId, affectedEntity.proposedValues);
+          
+          // Process wallet adjustment if present
+          if (walletAdjustment) {
+            console.log(`Processing wallet adjustment: ${walletAdjustment.amount}`);
+            // In production, integrate with paymentService
+            // await paymentService.processApprovalAdjustment(walletAdjustment);
+          }
           break;
           
         case 'bulk_discount':
@@ -591,9 +625,142 @@ class ApprovalWorkflowService {
     
     return { required: false };
   }
+}
 
   delay(ms = 300) {
     return new Promise(resolve => setTimeout(resolve, ms));
+
+  // Wallet Integration Methods
+  async calculateWalletImpact(approvalData) {
+    try {
+      const { type, affectedEntity } = approvalData;
+      
+      if (type !== 'price_change') {
+        return { requiresHold: false, holdAmount: 0, adjustmentType: 'none' };
+      }
+      
+      const priceChange = affectedEntity.proposedValues.price - affectedEntity.currentValues.price;
+      const stock = affectedEntity.currentValues.stock || 0;
+      const totalImpact = Math.abs(priceChange * stock);
+      
+      // Determine if wallet hold is required (for changes > Rs. 1000)
+      const requiresHold = totalImpact > 1000;
+      
+      return {
+        requiresHold,
+        holdAmount: requiresHold ? totalImpact * 0.1 : 0, // Hold 10% of impact
+        adjustmentType: priceChange > 0 ? 'increase' : 'decrease',
+        totalImpact,
+        priceChange,
+        calculatedAt: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error calculating wallet impact:', error);
+      return { requiresHold: false, holdAmount: 0, adjustmentType: 'error' };
+    }
+  }
+
+  async createWalletHold(requestId, walletImpact) {
+    try {
+      // Store wallet hold information
+      this.walletHolds.set(requestId, {
+        requestId,
+        holdAmount: walletImpact.holdAmount,
+        adjustmentType: walletImpact.adjustmentType,
+        totalImpact: walletImpact.totalImpact,
+        createdAt: new Date().toISOString(),
+        status: 'holding'
+      });
+      
+      // In production, integrate with payment service
+      // await paymentService.holdWalletBalance(walletImpact.holdAmount, `Approval hold for request ${requestId}`);
+      
+      console.log(`Created wallet hold: Rs. ${walletImpact.holdAmount} for request ${requestId}`);
+      return true;
+    } catch (error) {
+      console.error('Error creating wallet hold:', error);
+      return false;
+    }
+  }
+
+  async processWalletApproval(requestId, walletImpact) {
+    try {
+      const hold = this.walletHolds.get(requestId);
+      if (!hold) {
+        return null;
+      }
+      
+      // Calculate final adjustment based on approval
+      const finalAdjustment = walletImpact.adjustmentType === 'increase' 
+        ? walletImpact.totalImpact 
+        : -walletImpact.totalImpact;
+      
+      // Create wallet adjustment record
+      const adjustment = {
+        requestId,
+        transactionId: `APP_${Date.now()}`,
+        holdAmount: hold.holdAmount,
+        adjustmentAmount: finalAdjustment,
+        adjustmentType: walletImpact.adjustmentType,
+        processedAt: new Date().toISOString(),
+        status: 'completed'
+      };
+      
+      // Store adjustment
+      this.walletAdjustments.push(adjustment);
+      
+      // Remove hold
+      this.walletHolds.delete(requestId);
+      
+      // In production, integrate with payment service
+      // await paymentService.processApprovalAdjustment(adjustment);
+      
+      console.log(`Processed wallet approval adjustment: Rs. ${finalAdjustment} for request ${requestId}`);
+      return {
+        transactionId: adjustment.transactionId,
+        amount: finalAdjustment,
+        type: 'approval_adjustment'
+      };
+    } catch (error) {
+      console.error('Error processing wallet approval:', error);
+      return null;
+    }
+  }
+
+  async processWalletRejection(requestId, walletImpact) {
+    try {
+      const hold = this.walletHolds.get(requestId);
+      if (!hold) {
+        return;
+      }
+      
+      // Simply release the hold without adjustment
+      this.walletHolds.delete(requestId);
+      
+      // In production, integrate with payment service
+      // await paymentService.releaseWalletHold(hold.holdAmount, `Hold released for rejected request ${requestId}`);
+      
+      console.log(`Released wallet hold for rejected request ${requestId}`);
+    } catch (error) {
+      console.error('Error processing wallet rejection:', error);
+    }
+  }
+
+  async getWalletHoldSummary() {
+    try {
+      const activeHolds = Array.from(this.walletHolds.values());
+      const totalHolding = activeHolds.reduce((sum, hold) => sum + hold.holdAmount, 0);
+      
+      return {
+        activeHolds: activeHolds.length,
+        totalHolding,
+        holds: activeHolds,
+        adjustmentHistory: this.walletAdjustments.slice(-10) // Last 10 adjustments
+      };
+    } catch (error) {
+      console.error('Error getting wallet hold summary:', error);
+      return { activeHolds: 0, totalHolding: 0, holds: [], adjustmentHistory: [] };
+    }
   }
 }
 

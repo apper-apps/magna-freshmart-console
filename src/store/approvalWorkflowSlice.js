@@ -1,5 +1,5 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-
+import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { approvalWorkflowService } from "@/services/api/approvalWorkflowService";
 // Async thunks for approval workflow operations
 export const fetchPendingApprovals = createAsyncThunk(
   'approvalWorkflow/fetchPending',
@@ -71,6 +71,13 @@ const initialState = {
     currentPage: 1,
     itemsPerPage: 10,
     totalItems: 0
+  },
+  walletIntegration: {
+    holdingBalance: 0,
+    pendingAdjustments: [],
+    walletTransactions: [],
+    autoAdjustEnabled: true,
+    lastBalanceUpdate: null
   }
 };
 
@@ -130,9 +137,20 @@ const approvalWorkflowSlice = createSlice({
       state.realTimeUpdates.lastUpdate = new Date().toISOString();
     },
     
-    addNewApprovalRequest: (state, action) => {
+addNewApprovalRequest: (state, action) => {
       state.pendingApprovals.unshift(action.payload);
       state.realTimeUpdates.lastUpdate = new Date().toISOString();
+      
+      // Add wallet hold for price change requests
+      if (action.payload.type === 'price_change' && action.payload.walletImpact) {
+        state.walletIntegration.holdingBalance += action.payload.walletImpact.holdAmount || 0;
+        state.walletIntegration.pendingAdjustments.push({
+          requestId: action.payload.Id,
+          holdAmount: action.payload.walletImpact.holdAmount,
+          adjustmentType: action.payload.walletImpact.adjustmentType,
+          createdAt: new Date().toISOString()
+        });
+      }
     },
     
     setSelectedRequest: (state, action) => {
@@ -157,6 +175,68 @@ const approvalWorkflowSlice = createSlice({
     
     clearNotifications: (state) => {
       state.realTimeUpdates.notifications = [];
+    },
+    
+    // Wallet integration reducers
+    holdWalletBalance: (state, action) => {
+      const { requestId, amount, reason } = action.payload;
+      state.walletIntegration.holdingBalance += amount;
+      state.walletIntegration.pendingAdjustments.push({
+        requestId,
+        holdAmount: amount,
+        reason,
+        createdAt: new Date().toISOString(),
+        status: 'holding'
+      });
+      state.walletIntegration.lastBalanceUpdate = new Date().toISOString();
+    },
+    
+    releaseWalletHold: (state, action) => {
+      const { requestId } = action.payload;
+      const adjustmentIndex = state.walletIntegration.pendingAdjustments.findIndex(
+        adj => adj.requestId === requestId
+      );
+      
+      if (adjustmentIndex !== -1) {
+        const adjustment = state.walletIntegration.pendingAdjustments[adjustmentIndex];
+        state.walletIntegration.holdingBalance -= adjustment.holdAmount;
+        state.walletIntegration.pendingAdjustments.splice(adjustmentIndex, 1);
+        state.walletIntegration.lastBalanceUpdate = new Date().toISOString();
+      }
+    },
+    
+    adjustWalletBalance: (state, action) => {
+      const { requestId, finalAdjustment, transactionId } = action.payload;
+      
+      // Remove from pending adjustments
+      const adjustmentIndex = state.walletIntegration.pendingAdjustments.findIndex(
+        adj => adj.requestId === requestId
+      );
+      
+      if (adjustmentIndex !== -1) {
+        const adjustment = state.walletIntegration.pendingAdjustments[adjustmentIndex];
+        state.walletIntegration.holdingBalance -= adjustment.holdAmount;
+        state.walletIntegration.pendingAdjustments.splice(adjustmentIndex, 1);
+      }
+      
+      // Add transaction record
+      state.walletIntegration.walletTransactions.unshift({
+        requestId,
+        transactionId,
+        adjustmentAmount: finalAdjustment,
+        processedAt: new Date().toISOString(),
+        type: 'approval_adjustment'
+      });
+      
+      state.walletIntegration.lastBalanceUpdate = new Date().toISOString();
+    },
+    
+    updateWalletIntegrationSettings: (state, action) => {
+      state.walletIntegration = { 
+        ...state.walletIntegration, 
+        ...action.payload,
+        lastBalanceUpdate: new Date().toISOString()
+      };
     }
   },
   
@@ -192,6 +272,7 @@ const approvalWorkflowSlice = createSlice({
       })
       
       // Approve request
+// Approve request
       .addCase(approveRequest.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -205,8 +286,33 @@ const approvalWorkflowSlice = createSlice({
         
         // Add to history
         state.approvalHistory.unshift(action.payload);
+        
+        // Process wallet adjustment for approved request
+        if (action.payload.walletAdjustment) {
+          const adjustmentIndex = state.walletIntegration.pendingAdjustments.findIndex(
+            adj => adj.requestId === requestId
+          );
+          
+          if (adjustmentIndex !== -1) {
+            const adjustment = state.walletIntegration.pendingAdjustments[adjustmentIndex];
+            state.walletIntegration.holdingBalance -= adjustment.holdAmount;
+            state.walletIntegration.pendingAdjustments.splice(adjustmentIndex, 1);
+            
+            // Record wallet transaction
+            state.walletIntegration.walletTransactions.unshift({
+              requestId,
+              transactionId: action.payload.walletAdjustment.transactionId,
+              adjustmentAmount: action.payload.walletAdjustment.amount,
+              processedAt: new Date().toISOString(),
+              type: 'approval_adjustment',
+              status: 'completed'
+            });
+            
+            state.walletIntegration.lastBalanceUpdate = new Date().toISOString();
+          }
+        }
       })
-      .addCase(approveRequest.rejected, (state, action) => {
+.addCase(approveRequest.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
@@ -225,8 +331,32 @@ const approvalWorkflowSlice = createSlice({
         
         // Add to history
         state.approvalHistory.unshift(action.payload);
+        
+        // Release wallet hold for rejected request
+        const adjustmentIndex = state.walletIntegration.pendingAdjustments.findIndex(
+          adj => adj.requestId === requestId
+        );
+        
+        if (adjustmentIndex !== -1) {
+          const adjustment = state.walletIntegration.pendingAdjustments[adjustmentIndex];
+          state.walletIntegration.holdingBalance -= adjustment.holdAmount;
+          state.walletIntegration.pendingAdjustments.splice(adjustmentIndex, 1);
+          
+          // Record wallet transaction for rejection
+          state.walletIntegration.walletTransactions.unshift({
+            requestId,
+            transactionId: `REJ_${Date.now()}`,
+            adjustmentAmount: 0,
+            processedAt: new Date().toISOString(),
+            type: 'rejection_release',
+            status: 'completed',
+            note: 'Hold released due to rejection'
+          });
+          
+          state.walletIntegration.lastBalanceUpdate = new Date().toISOString();
+        }
       })
-      .addCase(rejectRequest.rejected, (state, action) => {
+.addCase(rejectRequest.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });
@@ -244,9 +374,12 @@ export const {
   updateFilters,
   updatePagination,
   clearError,
-  clearNotifications
+  clearNotifications,
+  holdWalletBalance,
+  releaseWalletHold,
+  adjustWalletBalance,
+  updateWalletIntegrationSettings
 } = approvalWorkflowSlice.actions;
-
 // Selectors
 export const selectPendingApprovals = (state) => state.approvalWorkflow.pendingApprovals;
 export const selectMySubmissions = (state) => state.approvalWorkflow.mySubmissions;
@@ -270,5 +403,11 @@ export const selectFilteredApprovals = (state) => {
     return true;
   });
 };
+
+// Wallet integration selectors
+export const selectWalletIntegration = (state) => state.approvalWorkflow.walletIntegration;
+export const selectWalletHoldingBalance = (state) => state.approvalWorkflow.walletIntegration.holdingBalance;
+export const selectPendingWalletAdjustments = (state) => state.approvalWorkflow.walletIntegration.pendingAdjustments;
+export const selectWalletTransactionHistory = (state) => state.approvalWorkflow.walletIntegration.walletTransactions;
 
 export default approvalWorkflowSlice.reducer;
