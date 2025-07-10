@@ -1,5 +1,3 @@
-import React from "react";
-import Error from "@/components/ui/Error";
 // Payment Service - Pure JavaScript implementation
 // Handles all payment processing operations
 class PaymentService {
@@ -394,7 +392,9 @@ generateTransactionId() {
     console.log(`Wallet hold created: Rs. ${amount} for ${reason}`);
     
 return holdTransaction;
-  }
+}
+
+  async releaseWalletHold(amount, reason, requestId = null) {
     await this.delay(300);
     
     if (amount <= 0) {
@@ -419,7 +419,6 @@ return holdTransaction;
     
     return releaseTransaction;
   }
-
 async processApprovalAdjustment(adjustmentData) {
     await this.delay(500);
     
