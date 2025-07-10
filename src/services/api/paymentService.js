@@ -1148,11 +1148,10 @@ delay(ms = 300) {
     return dueDate.toISOString();
   }
 
-  generateFileUrl(fileName) {
+generateFileUrl(fileName) {
     // Simulate file URL generation
     return `https://storage.example.com/proofs/${Date.now()}-${fileName}`;
-}
-}
+  }
 
   // Recurring Payment Automation Methods
   async createRecurringPayment(recurringData) {
