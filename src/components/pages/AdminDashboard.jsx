@@ -12,13 +12,13 @@ import Button from "@/components/atoms/Button";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import Orders from "@/components/pages/Orders";
+import Orders from "@/components/pages/Orders";
 import { orderService } from "@/services/api/orderService";
 import { approvalWorkflowService } from "@/services/api/approvalWorkflowService";
 import webSocketService from "@/services/api/websocketService";
 import { productService } from "@/services/api/productService";
 import { notificationService } from "@/services/api/notificationService";
 import { paymentService } from "@/services/api/paymentService";
-
 const AdminDashboard = () => {
   const dispatch = useDispatch();
   const notificationCounts = useSelector(state => state.notifications.counts);
@@ -541,7 +541,6 @@ const quickActions = [
           )}
 </div>
       </div>
-    </div>
 
       {/* Approval Workflow Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
@@ -826,6 +825,7 @@ const quickActions = [
           </div>
         </div>
       )}
+</div>
   );
 };
 
