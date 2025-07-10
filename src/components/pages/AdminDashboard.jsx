@@ -51,17 +51,16 @@ const AdminDashboard = () => {
   const pollingRef = useRef(null);
   const wsUnsubscribeRef = useRef(null);
 
-  const loadDashboardData = async () => {
+const loadDashboardData = async () => {
     setLoading(true);
     try {
       // Load products and check for low stock
-      const products = await productService.getAll()
-      const orders = await orderService.getAll()
+      const products = await productService.getAll();
+      const orders = await orderService.getAll();
       
       // Calculate low stock products (stock < 10)
-      const lowStock = products.filter(product => (product?.stock || 0) < 10)
-      setLowStockProducts(lowStock || [])
-
+      const lowStock = products.filter(product => (product?.stock || 0) < 10);
+      setLowStockProducts(lowStock || []);
       // Get today's orders
       const today = new Date()
       const todayOrdersData = orders.filter(order => {
