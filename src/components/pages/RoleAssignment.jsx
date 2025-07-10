@@ -64,14 +64,13 @@ const RoleAssignment = () => {
     { value: 'user', label: 'User', color: 'text-gray-600 bg-gray-50' }
   ];
 
-  const fetchUsers = useCallback(async () => {
+const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Simulate API call with mock data
-      const response = await employeeService.getAllEmployees();
-      const usersData = response.data || [];
+      // Fetch all employees using the correct method name
+      const usersData = await employeeService.getAll();
       
       // Add role information to users if not present
       const usersWithRoles = usersData.map(user => ({
