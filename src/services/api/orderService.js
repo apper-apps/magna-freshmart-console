@@ -40,6 +40,10 @@ const newOrder = {
       // Ensure both total and totalAmount fields are set for compatibility
       total: orderData.total || orderData.totalAmount || 0,
       totalAmount: orderData.totalAmount || orderData.total || 0,
+      // Enhanced approval workflow integration
+      approvalStatus: orderData.approvalStatus || 'pending',
+      approvalRequestId: orderData.approvalRequestId || null,
+      priceApprovalRequired: orderData.priceApprovalRequired || false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -293,7 +297,11 @@ customerName: order?.deliveryAddress?.name || 'Unknown',
         paymentProof: order?.paymentProof?.dataUrl || `/api/uploads/${order?.paymentProof?.fileName || order?.paymentProofFileName || 'default.jpg'}`,
         paymentProofFileName: order?.paymentProof?.fileName || order?.paymentProofFileName || 'unknown',
         submittedAt: order?.paymentProof?.uploadedAt || order?.paymentProofSubmittedAt || order?.createdAt,
-        verificationStatus: order?.verificationStatus || 'pending'
+        verificationStatus: order?.verificationStatus || 'pending',
+        // Enhanced approval workflow fields
+        approvalStatus: order?.approvalStatus || 'pending',
+        approvalRequestId: order?.approvalRequestId || null,
+        priceApprovalRequired: order?.priceApprovalRequired || false
 }));
   }
 
@@ -321,11 +329,12 @@ async updateVerificationStatus(orderId, status, notes = '') {
       updatedAt: new Date().toISOString()
     };
 
-    // Update order status based on verification result - aligned with delivery tracking
+// Update order status based on verification result - aligned with delivery tracking
     if (status === 'verified') {
       // When payment is verified by admin, set to pending first, then confirmed
       updatedOrder.status = 'pending'; // Order Placed
       updatedOrder.paymentVerifiedAt = new Date().toISOString();
+      updatedOrder.approvalStatus = 'approved'; // Update approval status
       
       // Immediately update to confirmed status
       setTimeout(async () => {
@@ -338,6 +347,7 @@ async updateVerificationStatus(orderId, status, notes = '') {
     } else {
       updatedOrder.status = 'payment_rejected';
       updatedOrder.paymentRejectedAt = new Date().toISOString();
+      updatedOrder.approvalStatus = 'rejected'; // Update approval status
     }
 
     this.orders[orderIndex] = updatedOrder;

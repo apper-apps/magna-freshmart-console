@@ -1,16 +1,23 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { formatCurrency } from "@/utils/currency";
+import { selectPendingApprovalCount, selectRealTimeUpdates } from "@/store/approvalWorkflowSlice";
 import ApperIcon from "@/components/ApperIcon";
 import ProductGrid from "@/components/organisms/ProductGrid";
+import Badge from "@/components/atoms/Badge";
 import Button from "@/components/atoms/Button";
+import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
 import { productService } from "@/services/api/productService";
-
 const Home = () => {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
+  
+  // Real-time approval workflow data
+  const pendingApprovalCount = useSelector(selectPendingApprovalCount);
+  const realTimeUpdates = useSelector(selectRealTimeUpdates);
 useEffect(() => {
     loadFeaturedProducts();
     
@@ -173,14 +180,66 @@ useEffect(() => {
           ))}
         </div>
       </section>
+{/* Real-time Dashboard Stats */}
+      {realTimeUpdates.connected && (
+        <section className="mb-8">
+          <div className="card p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <ApperIcon name="Activity" size={20} className="text-blue-600" />
+                <h3 className="text-lg font-semibold text-gray-900">Live Updates</h3>
+                <Badge variant="success" className="text-xs animate-pulse">Connected</Badge>
+              </div>
+              <span className="text-xs text-gray-500">
+                Last update: {realTimeUpdates.lastUpdate ? new Date(realTimeUpdates.lastUpdate).toLocaleTimeString() : 'N/A'}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white rounded-lg p-4 border border-blue-100">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-orange-100 rounded-full">
+                    <ApperIcon name="Clock" size={16} className="text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Pending Approvals</p>
+                    <p className="text-xl font-bold text-orange-600">{pendingApprovalCount}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg p-4 border border-blue-100">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-green-100 rounded-full">
+                    <ApperIcon name="Wallet" size={16} className="text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Wallet Balance</p>
+                    <p className="text-xl font-bold text-green-600">{formatCurrency(25000)}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg p-4 border border-blue-100">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-purple-100 rounded-full">
+                    <ApperIcon name="TrendingUp" size={16} className="text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Recent Orders</p>
+                    <p className="text-xl font-bold text-purple-600">12</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Featured Products */}
       <section className="mb-12">
         <div className="flex items-center justify-between mb-8">
           <div>
             <h2 className="text-3xl font-bold text-gray-900 mb-2">Featured Products</h2>
-            <p className="text-gray-600">Fresh picks with updated prices</p>
-          </div>
+            <p className="text-gray-600">Fresh picks with updated prices in {formatCurrency(0).split(' ')[0]} format</p>
+</div>
           <Link to="/category/All">
             <Button variant="outline" icon="ArrowRight" iconPosition="right">
               View All

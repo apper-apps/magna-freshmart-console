@@ -2,12 +2,13 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import ApperIcon from "@/components/ApperIcon";
+import Badge from "@/components/atoms/Badge";
 import Empty from "@/components/ui/Empty";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
+import { formatCurrency } from "@/utils/currency";
 import { orderService } from "@/services/api/orderService";
-
 const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -93,9 +94,34 @@ const Orders = () => {
                   )}
                 </div>
 </div>
-              </div>
+</div>
               <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
                   <OrderStatusBadge status={order.status} />
+                  {/* Approval Status Badge */}
+                  {order.approvalStatus && (
+                    <div className="flex items-center space-x-1">
+                      {order.approvalStatus === 'approved' && (
+                        <Badge variant="success" className="text-xs">
+                          <ApperIcon name="CheckCircle" size={12} className="mr-1" />
+                          Approved
+                        </Badge>
+                      )}
+                      {order.approvalStatus === 'pending' && (
+                        <Badge variant="warning" className="text-xs animate-pulse">
+                          <ApperIcon name="Clock" size={12} className="mr-1" />
+                          Pending Approval
+                        </Badge>
+                      )}
+                      {order.approvalStatus === 'rejected' && (
+                        <Badge variant="danger" className="text-xs">
+                          <ApperIcon name="XCircle" size={12} className="mr-1" />
+                          Rejected
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                </div>
                   {(order.paymentMethod === 'jazzcash' || order.paymentMethod === 'easypaisa' || order.paymentMethod === 'bank') && (
                     <div className="flex items-center space-x-1">
                       {order.verificationStatus === 'verified' && (
@@ -118,18 +144,18 @@ const Orders = () => {
                       )}
                     </div>
                   )}
-                  <div className="text-right">
+<div className="text-right">
                   <p className="text-xl font-bold gradient-text">
-                    Rs. {(() => {
+                    {(() => {
                       // Calculate subtotal if order total is missing or zero
                       if (!order?.total || order.total === 0) {
                         const itemsSubtotal = order?.items?.reduce((sum, item) => {
                           return sum + ((item.price || 0) * (item.quantity || 0));
                         }, 0) || 0;
                         const deliveryCharge = order?.deliveryCharge || 0;
-                        return (itemsSubtotal + deliveryCharge).toLocaleString();
+                        return formatCurrency(itemsSubtotal + deliveryCharge);
                       }
-                      return order.total.toLocaleString();
+                      return formatCurrency(order.total);
                     })()}
                   </p>
                   <p className="text-sm text-gray-600">

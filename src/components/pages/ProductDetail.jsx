@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { toast } from 'react-toastify';
-import ApperIcon from '@/components/ApperIcon';
-import Button from '@/components/atoms/Button';
-import Badge from '@/components/atoms/Badge';
-import Loading from '@/components/ui/Loading';
-import Error from '@/components/ui/Error';
-import { productService } from '@/services/api/productService';
-import { useCart } from '@/hooks/useCart';
-
+import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "react-toastify";
+import { formatCurrency } from "@/utils/currency";
+import { useCart } from "@/hooks/useCart";
+import ApperIcon from "@/components/ApperIcon";
+import Badge from "@/components/atoms/Badge";
+import Button from "@/components/atoms/Button";
+import Error from "@/components/ui/Error";
+import Loading from "@/components/ui/Loading";
+import Cart from "@/components/pages/Cart";
+import { productService } from "@/services/api/productService";
 const ProductDetail = () => {
   const { productId } = useParams();
   const navigate = useNavigate();
@@ -242,18 +243,18 @@ const activeDeal = getActiveDeal();
             )}
             
 {/* Auto-Generated Offer Badge */}
-            {product.discountValue && product.discountValue > 0 && (
+{product.discountValue && product.discountValue > 0 && (
               <Badge 
                 variant="promotional" 
                 className="absolute top-4 left-4 text-sm font-bold"
               >
                 {product.discountType === 'Percentage' 
                   ? `${product.discountValue}% OFF` 
-                  : `Rs. ${product.discountValue} OFF`
+                  : `${formatCurrency(product.discountValue)} OFF`
                 }
               </Badge>
             )}
-
+             {/* Special Deal Badge */}
             {/* Special Deal Badge */}
             {activeDeal && (
               <Badge 
@@ -290,20 +291,20 @@ const activeDeal = getActiveDeal();
             {/* Legacy Price Change Information */}
             {product.previousPrice && product.previousPrice !== product.price && (
               <div className="space-y-2">
-                <div className="flex items-center space-x-3">
+<div className="flex items-center space-x-3">
                   <Badge variant="strikethrough" className="text-base px-3 py-1">
-                    Rs. {product.previousPrice.toLocaleString()}
+                    {formatCurrency(product.previousPrice)}
                   </Badge>
-                  <Badge 
+                  <Badge
                     variant={priceChange > 0 ? 'danger' : 'sale'} 
                     className="text-sm font-bold animate-pulse"
                   >
                     {priceChange > 0 ? 'PRICE UP!' : `SAVE ${Math.abs(priceChange).toFixed(1)}%`}
                   </Badge>
                 </div>
-                <div className="flex items-center space-x-2">
+<div className="flex items-center space-x-2">
                   <span className={`text-sm font-medium ${priceChange > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {priceChange > 0 ? 'Price increased' : 'You save'} Rs. {Math.abs(product.price - product.previousPrice).toLocaleString()}
+                    {priceChange > 0 ? 'Price increased' : 'You save'} {formatCurrency(Math.abs(product.price - product.previousPrice))}
                   </span>
                 </div>
               </div>
@@ -327,12 +328,12 @@ const activeDeal = getActiveDeal();
                 </div>
                 <p className="text-sm text-green-700">{activeDeal.description}</p>
                 
-                {quantity >= activeDeal.minQuantity && (
+{quantity >= activeDeal.minQuantity && (
                   <div className="bg-white rounded-lg p-3 border border-green-200">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium text-green-800">Your Deal Savings:</span>
                       <span className="text-lg font-bold text-green-600">
-                        Rs. {calculateDealSavings(quantity).toLocaleString()}
+                        {formatCurrency(calculateDealSavings(quantity))}
                       </span>
                     </div>
                     <p className="text-xs text-green-600 mt-1">
@@ -431,7 +432,7 @@ const activeDeal = getActiveDeal();
           <div className="space-y-3">
             {product.stock > 0 ? (
               <>
-                <Button
+<Button
                   variant="primary"
                   size="large"
                   icon="ShoppingCart"
@@ -439,10 +440,10 @@ const activeDeal = getActiveDeal();
                   loading={cartLoading}
                   className="w-full"
                 >
-Add to Cart - Rs. {(calculateEffectivePrice(product, quantity) - calculateDealSavings(quantity)).toLocaleString()}
+                  Add to Cart - {formatCurrency(calculateEffectivePrice(product, quantity) - calculateDealSavings(quantity))}
                   {calculateDealSavings(quantity) > 0 && (
                     <span className="text-xs block text-green-600 font-normal">
-                      Save Rs. {calculateDealSavings(quantity).toLocaleString()} with {activeDeal?.title}!
+                      Save {formatCurrency(calculateDealSavings(quantity))} with {activeDeal?.title}!
                     </span>
                   )}
                 </Button>
@@ -581,10 +582,10 @@ const PricingHierarchyDisplay = ({ product, quantity, onPriceUpdate }) => {
 
   return (
     <div className="space-y-4">
-      {/* Main Price Display */}
+{/* Main Price Display */}
       <div className="flex items-center space-x-4">
         <span className="text-4xl font-bold gradient-text">
-          Rs. {finalPrice.toLocaleString()}
+          {formatCurrency(finalPrice)}
         </span>
         <span className="text-lg text-gray-500">
           /{product.unit}
@@ -605,14 +606,13 @@ const PricingHierarchyDisplay = ({ product, quantity, onPriceUpdate }) => {
         
         <div className="space-y-3">
           {/* Base Price */}
-          <div className="flex items-center justify-between">
+<div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
               <span className="text-sm text-gray-700">Base Price</span>
             </div>
-            <span className="font-medium text-gray-900">Rs. {basePrice.toLocaleString()}</span>
+            <span className="font-medium text-gray-900">{formatCurrency(basePrice)}</span>
           </div>
-
           {/* Variation Override */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
@@ -621,12 +621,11 @@ const PricingHierarchyDisplay = ({ product, quantity, onPriceUpdate }) => {
               {variationPrice && (
                 <Badge variant="primary" className="text-xs">Active</Badge>
               )}
-            </div>
+</div>
             <span className="font-medium text-gray-900">
-              {variationPrice ? `Rs. ${variationPrice.toLocaleString()}` : 'None'}
+              {variationPrice ? formatCurrency(variationPrice) : 'None'}
             </span>
           </div>
-
           {/* Seasonal Discount */}
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
@@ -635,20 +634,19 @@ const PricingHierarchyDisplay = ({ product, quantity, onPriceUpdate }) => {
               {seasonalDiscount > 0 && (
                 <Badge variant="success" className="text-xs">Active</Badge>
               )}
-            </div>
+</div>
             <span className="font-medium text-gray-900">
               {seasonalDiscount > 0 
-                ? `${seasonalDiscountType === 'Percentage' ? `${seasonalDiscount}%` : `Rs. ${seasonalDiscount}`} OFF`
+                ? `${seasonalDiscountType === 'Percentage' ? `${seasonalDiscount}%` : `${formatCurrency(seasonalDiscount)}`} OFF`
                 : 'None'
               }
             </span>
           </div>
-
           {/* Final Price */}
-          <div className="pt-2 border-t border-blue-200">
+<div className="pt-2 border-t border-blue-200">
             <div className="flex items-center justify-between">
-              <span className="font-semibold text-gray-900">Final Price</span>
-              <span className="text-lg font-bold text-green-600">Rs. {finalPrice.toLocaleString()}</span>
+              <span className="text-sm font-medium text-gray-700">Final Price</span>
+              <span className="text-lg font-bold text-green-600">{formatCurrency(finalPrice)}</span>
             </div>
           </div>
         </div>
@@ -679,12 +677,12 @@ const PricingHierarchyDisplay = ({ product, quantity, onPriceUpdate }) => {
                   )}
                   {variation.bulk && (
                     <Badge variant="warning" className="text-xs">Bulk</Badge>
-                  )}
+)}
                 </div>
-                <div className="text-sm text-gray-600">Rs. {variation.price.toLocaleString()}</div>
+                <div className="text-sm text-gray-600">{formatCurrency(variation.price)}</div>
                 {variation.savings && (
                   <div className="text-xs text-green-600 font-medium">
-                    Save Rs. {variation.savings.toLocaleString()}
+                    Save {formatCurrency(variation.savings)}
                   </div>
                 )}
               </div>
@@ -702,9 +700,9 @@ const PricingHierarchyDisplay = ({ product, quantity, onPriceUpdate }) => {
               <div>
                 <h4 className="font-medium text-green-800">Seasonal Offer Available</h4>
                 <p className="text-sm text-green-600">
-                  {seasonalDiscountType === 'Percentage' 
+{seasonalDiscountType === 'Percentage' 
                     ? `${seasonalDiscount}% discount` 
-                    : `Rs. ${seasonalDiscount} off`
+                    : `${formatCurrency(seasonalDiscount)} off`
                   } on this product
                 </p>
               </div>
@@ -1002,13 +1000,13 @@ const DiscountSection = ({ product, quantity, onDiscountChange }) => {
                         {offer.conditions.minAmount && ` • Min amount: Rs. ${offer.conditions.minAmount}`}
                       </p>
                     </div>
-                  </div>
+</div>
                   <div className="text-right">
                     <div className="text-lg font-bold text-green-600">
-                      Save Rs. {calculateDiscount(offer).toLocaleString()}
+                      Save {formatCurrency(calculateDiscount(offer))}
                     </div>
                     <div className="text-sm text-gray-500">
-                      Final: Rs. {calculateFinalPrice(offer).toLocaleString()}
+                      Final: {formatCurrency(calculateFinalPrice(offer))}
                     </div>
                   </div>
                 </div>
@@ -1047,22 +1045,22 @@ const DiscountSection = ({ product, quantity, onDiscountChange }) => {
               </button>
             </div>
             <div className="mt-2 grid grid-cols-3 gap-4 text-sm">
-              <div>
-                <span className="text-gray-600">Original:</span>
+<div>
+                <span className="text-xs text-gray-500">Original:</span>
                 <span className="ml-2 line-through text-gray-500">
-                  Rs. {(product.price * quantity).toLocaleString()}
+                  {formatCurrency(product.price * quantity)}
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">Discount:</span>
+                <span className="text-xs text-gray-500">Discount:</span>
                 <span className="ml-2 font-medium text-red-600">
-                  -Rs. {calculateDiscount(selectedOffer).toLocaleString()}
+                  -{formatCurrency(calculateDiscount(selectedOffer))}
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">Final Price:</span>
+                <span className="text-xs text-gray-500">Final:</span>
                 <span className="ml-2 font-bold text-green-600">
-                  Rs. {calculateFinalPrice(selectedOffer).toLocaleString()}
+                  {formatCurrency(calculateFinalPrice(selectedOffer))}
                 </span>
               </div>
             </div>
@@ -1081,26 +1079,24 @@ const DiscountSection = ({ product, quantity, onDiscountChange }) => {
           <div className="space-y-2">
             {appliedDiscounts.map((discount, index) => (
               <div key={discount.id} className="flex items-center justify-between text-sm">
-                <span className="text-gray-700">{discount.title}</span>
-                <div className="flex items-center space-x-2">
-                  <span className="text-green-600 font-medium">
-                    -Rs. {calculateDiscount(discount).toLocaleString()}
-                  </span>
-                  <button
-                    onClick={() => removeOffer(discount.id)}
-                    className="text-gray-400 hover:text-red-500"
-                  >
-                    <ApperIcon name="X" size={12} />
-                  </button>
-                </div>
+<span className="text-gray-700">{discount.title}</span>
+                <span className="text-green-600 font-medium">
+                  -{formatCurrency(calculateDiscount(discount))}
+                </span>
+                <button
+                  onClick={() => removeOffer(discount.id)}
+                  className="text-gray-400 hover:text-red-500"
+                >
+                  <ApperIcon name="X" size={12} />
+                </button>
               </div>
             ))}
             <div className="pt-2 border-t border-purple-200">
               <div className="flex items-center justify-between font-bold">
-                <span>Total Savings:</span>
+                <span className="text-gray-700">Total Savings:</span>
                 <span className="text-green-600">
-                  -Rs. {appliedDiscounts.reduce((total, discount) => 
-                    total + calculateDiscount(discount), 0).toLocaleString()}
+                  -{formatCurrency(appliedDiscounts.reduce((total, discount) => 
+                    total + calculateDiscount(discount), 0))}
                 </span>
               </div>
             </div>

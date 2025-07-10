@@ -2,9 +2,11 @@ import 'react-toastify/dist/ReactToastify.css';
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
-import { Provider } from "react-redux";
+import { Provider, useDispatch } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
 import { persistor, store } from "@/store/index";
+import { webSocketService } from "@/services/api/websocketService";
+import { setConnectionStatus, updateApprovalStatus, addRealTimeNotification } from "@/store/approvalWorkflowSlice";
 import Layout from "@/components/organisms/Layout";
 import Loading from "@/components/ui/Loading";
 // Direct imports for core components
@@ -29,6 +31,61 @@ const OrderTracking = React.lazy(() => import('@/components/pages/OrderTracking'
 const Account = React.lazy(() => import('@/components/pages/Account'));
 const VendorPortal = React.lazy(() => import('@/components/pages/VendorPortal'));
 const RoleAssignment = React.lazy(() => import('@/components/pages/RoleAssignment'));
+// WebSocket Integration Component
+const WebSocketProvider = ({ children }) => {
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+    // Initialize WebSocket connection for price approvals
+    const initializeWebSocket = async () => {
+      try {
+        await webSocketService.connect();
+        dispatch(setConnectionStatus(true));
+
+        // Subscribe to price approval updates
+        const unsubscribeApprovals = webSocketService.subscribe('price-approvals', (data) => {
+          dispatch(updateApprovalStatus(data));
+          dispatch(addRealTimeNotification({
+            id: Date.now(),
+            type: 'approval_update',
+            message: `Price approval ${data.status} for order #${data.orderId}`,
+            timestamp: new Date().toISOString()
+          }));
+        });
+
+        // Handle approval update events
+        const handleApprovalUpdate = (data) => {
+          dispatch(updateApprovalStatus({
+            requestId: data.requestId || data.orderId,
+            status: data.status,
+            approvedBy: data.approvedBy,
+            comments: data.comments
+          }));
+        };
+
+        const unsubscribeStatusChanges = webSocketService.subscribe('approval_status_changed', handleApprovalUpdate);
+
+        return () => {
+          unsubscribeApprovals();
+          unsubscribeStatusChanges();
+          webSocketService.disconnect();
+        };
+      } catch (error) {
+        console.warn('WebSocket connection failed:', error);
+        dispatch(setConnectionStatus(false));
+      }
+    };
+
+    const cleanup = initializeWebSocket();
+    
+    return () => {
+      cleanup.then(cleanupFn => cleanupFn && cleanupFn());
+    };
+  }, [dispatch]);
+
+  return children;
+};
+
 // Import components
 function App() {
   const [sdkReady, setSdkReady] = useState(false);
@@ -123,6 +180,7 @@ function App() {
 return (
     <Provider store={store}>
       <PersistGate loading={<Loading type="page" />} persistor={persistor}>
+        <WebSocketProvider>
         <BrowserRouter>
           <div className="min-h-screen bg-background">
             {/* Minimal SDK Status Indicator (only in development) */}
@@ -241,8 +299,9 @@ return (
               style={{ zIndex: 9999 }}
               limit={3}
             />
-          </div>
+</div>
         </BrowserRouter>
+        </WebSocketProvider>
       </PersistGate>
     </Provider>
   );

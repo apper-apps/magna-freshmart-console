@@ -104,12 +104,13 @@ async connect(url = 'ws://localhost:8080/api/ws') {
     return mockWS;
   }
 
-  // Start mock message simulation
+// Start mock message simulation
   startMockMessages(mockWS) {
     const messageTypes = [
       'approval_request_submitted',
       'approval_status_changed',
       'approval_comment_added',
+      'price-approvals',
       'system_notification'
     ];
 
@@ -152,6 +153,19 @@ async connect(url = 'ws://localhost:8080/api/ws') {
             requestId: Math.floor(Math.random() * 10) + 1,
             status: ['approved', 'rejected'][Math.floor(Math.random() * 2)],
             actionBy: 'admin_user'
+}
+        };
+
+      case 'price-approvals':
+        return {
+          ...baseMessage,
+          data: {
+            orderId: Math.floor(Math.random() * 100) + 1,
+            requestId: Math.floor(Math.random() * 1000) + 100,
+            status: ['approved', 'pending', 'rejected'][Math.floor(Math.random() * 3)],
+            approvedBy: 'price_admin',
+            priceChange: Math.floor(Math.random() * 1000) + 100,
+            comments: 'Price approval processed automatically'
           }
         };
 
@@ -311,18 +325,24 @@ async connect(url = 'ws://localhost:8080/api/ws') {
     };
   }
 
-  // Specific methods for approval workflow
+// Specific methods for approval workflow
   subscribeToApprovalUpdates(callback) {
     const unsubscribers = [
       this.subscribe('approval_request_submitted', callback),
       this.subscribe('approval_status_changed', callback),
-      this.subscribe('approval_comment_added', callback)
+      this.subscribe('approval_comment_added', callback),
+      this.subscribe('price-approvals', callback)
     ];
     
     // Return function to unsubscribe from all approval events
     return () => {
       unsubscribers.forEach(unsub => unsub());
     };
+  }
+
+  // Price approval specific subscription
+  subscribeToPriceApprovals(callback) {
+    return this.subscribe('price-approvals', callback);
   }
 
   // Send approval-specific messages
