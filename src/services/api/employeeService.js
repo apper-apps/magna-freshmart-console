@@ -72,6 +72,22 @@ const employeeService = {
     return employeeData
       .filter(emp => emp.status === 'active')
       .map(emp => ({ ...emp }));
+},
+
+  async updateRole(userId, newRole) {
+    await delay(300);
+    const index = employeeData.findIndex(emp => emp.Id === parseInt(userId));
+    if (index === -1) {
+      throw new Error('Employee not found');
+    }
+    
+    employeeData[index] = {
+      ...employeeData[index],
+      role: newRole,
+      updatedAt: new Date().toISOString()
+    };
+    
+    return { ...employeeData[index] };
   }
 };
 

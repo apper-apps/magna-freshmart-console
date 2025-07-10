@@ -57,13 +57,15 @@ const RoleAssignment = () => {
   const [updatingUserId, setUpdatingUserId] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
 
-  const availableRoles = [
+const availableRoles = [
     { value: 'admin', label: 'Administrator', color: 'text-red-600 bg-red-50' },
     { value: 'moderator', label: 'Moderator', color: 'text-blue-600 bg-blue-50' },
     { value: 'employee', label: 'Employee', color: 'text-green-600 bg-green-50' },
+    { value: 'vendor', label: 'Vendor', color: 'text-purple-600 bg-purple-50' },
+    { value: 'purchaser', label: 'Purchaser', color: 'text-orange-600 bg-orange-50' },
+    { value: 'delivery', label: 'Delivery', color: 'text-teal-600 bg-teal-50' },
     { value: 'user', label: 'User', color: 'text-gray-600 bg-gray-50' }
   ];
-
 const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
@@ -116,20 +118,21 @@ const fetchUsers = useCallback(async () => {
     setFilteredUsers(filtered);
   }, [searchTerm, users]);
 
-  const handleRoleUpdate = async (userId, newRole) => {
+const handleRoleUpdate = async (userId, newRole) => {
     try {
       setUpdatingUserId(userId);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Use the new updateRole service method
+      await employeeService.updateRole(userId, newRole);
       
-      // Update local state
+      // Update local state with correct Id field (capital I)
       const updatedUsers = users.map(user =>
-        user.id === userId ? { ...user, role: newRole } : user
+        user.Id === userId ? { ...user, role: newRole } : user
       );
       setUsers(updatedUsers);
       
-      toast.success(`Role updated successfully to ${newRole}`);
+      const roleLabel = availableRoles.find(r => r.value === newRole)?.label || newRole;
+      toast.success(`Role updated successfully to ${roleLabel}`);
     } catch (err) {
       console.error('Failed to update role:', err);
       toast.error('Failed to update role. Please try again.');
@@ -287,10 +290,10 @@ const fetchUsers = useCallback(async () => {
                   </div>
                   
                   <div className="flex items-center space-x-3">
-                    <select
+<select
                       value={user.role}
-                      onChange={(e) => handleRoleUpdate(user.id, e.target.value)}
-                      disabled={updatingUserId === user.id}
+                      onChange={(e) => handleRoleUpdate(user.Id, e.target.value)}
+                      disabled={updatingUserId === user.Id}
                       className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-accent disabled:opacity-50"
                     >
                       {availableRoles.map(role => (
@@ -300,7 +303,7 @@ const fetchUsers = useCallback(async () => {
                       ))}
                     </select>
                     
-                    {updatingUserId === user.id && (
+{updatingUserId === user.Id && (
                       <div className="flex items-center space-x-2">
                         <Loading type="spinner" size="sm" />
                         <span className="text-sm text-gray-500">Updating...</span>
