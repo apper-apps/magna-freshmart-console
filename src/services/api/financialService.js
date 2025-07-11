@@ -173,8 +173,8 @@ const expenseCategories = [
 
 class FinancialService {
   constructor() {
-    this.financialData = [];
     this.expenses = [...mockExpenses];
+    this.expenseCategories = [...expenseCategories];
     this.expenseIdCounter = Math.max(...mockExpenses.map(e => e.Id), 0) + 1;
     this.vendors = [...mockVendors];
     this.vendorIdCounter = Math.max(...mockVendors.map(v => v.Id), 0) + 1;
@@ -609,7 +609,7 @@ class FinancialService {
     }
   }
 
-  async getExpenseById(id) {
+async getExpenseById(id) {
     await this.delay();
     
     try {
@@ -645,7 +645,7 @@ class FinancialService {
     }
   }
 
-  async updateExpense(id, expenseData) {
+async updateExpense(id, expenseData) {
     await this.delay();
     
     try {
@@ -671,7 +671,7 @@ class FinancialService {
     }
   }
 
-  async deleteExpense(id) {
+async deleteExpense(id) {
     await this.delay();
     
     try {
@@ -855,7 +855,7 @@ class FinancialService {
     }
   }
 
-  async deleteVendor(id) {
+async deleteVendor(id) {
     await this.delay();
     
     try {
@@ -864,7 +864,7 @@ class FinancialService {
         throw new Error('Vendor not found');
       }
 
-      // Check for existing payments
+      // Check if vendor has any payments
       const hasPayments = this.vendorPayments.some(p => p.vendorId === parseInt(id));
       if (hasPayments) {
         throw new Error('Cannot delete vendor with existing payments');
@@ -966,14 +966,14 @@ class FinancialService {
         .filter(p => p.status === 'overdue' || (p.status === 'pending' && new Date(p.dueDate) < new Date()))
         .reduce((sum, p) => sum + p.amount, 0);
 
-      // Vendor payment breakdown
+// Vendor payment breakdown
       const vendorBreakdown = {};
       payments.forEach(payment => {
         const vendorId = payment.vendorId;
-        if (!vendorBreakdown[vendorId]) {
-          const vendor = this.vendors.find(v => v.Id === vendorId);
+        const vendor = this.vendors.find(v => v.Id === parseInt(vendorId));
+        if (vendor && !vendorBreakdown[vendorId]) {
           vendorBreakdown[vendorId] = {
-            vendorName: vendor?.name || 'Unknown',
+            name: vendor.name,
             totalAmount: 0,
             paidAmount: 0,
             pendingAmount: 0,
@@ -981,16 +981,17 @@ class FinancialService {
           };
         }
         
-        vendorBreakdown[vendorId].totalAmount += payment.amount;
-        vendorBreakdown[vendorId].paymentCount++;
-        
-        if (payment.status === 'paid') {
-          vendorBreakdown[vendorId].paidAmount += payment.amount;
-        } else {
-          vendorBreakdown[vendorId].pendingAmount += payment.amount;
+        if (vendorBreakdown[vendorId]) {
+          vendorBreakdown[vendorId].totalAmount += payment.amount;
+          vendorBreakdown[vendorId].paymentCount++;
+          
+          if (payment.status === 'paid') {
+            vendorBreakdown[vendorId].paidAmount += payment.amount;
+          } else {
+            vendorBreakdown[vendorId].pendingAmount += payment.amount;
+          }
         }
       });
-
       // Payment trends (daily breakdown)
       const trendData = [];
       for (let i = days - 1; i >= 0; i--) {
@@ -1022,14 +1023,16 @@ class FinancialService {
         overdueCount: payments.filter(p => 
           p.status === 'overdue' || (p.status === 'pending' && new Date(p.dueDate) < new Date())
         ).length
-      };
-} catch (error) {
+};
+    } catch (error) {
       throw new Error('Failed to get vendor payment analytics: ' + error.message);
     }
   }
-delay(ms = 300) {
+
+  delay(ms = 300) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
+
   // Cash Flow Analysis Methods
   async getCashFlowAnalytics(days = 30) {
     await this.delay();
@@ -1407,8 +1410,9 @@ delay(ms = 300) {
           cumulativeCashFlow,
           scheduledPayments: scheduledPayments.length > 0 ? scheduledPayments : null
         });
-      }
-return projections;
+}
+
+      return projections;
     } catch (error) {
       throw new Error('Failed to get cash flow projections: ' + error.message);
     }

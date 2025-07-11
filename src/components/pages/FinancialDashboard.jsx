@@ -947,9 +947,9 @@ const [selectedView, setSelectedView] = useState('overview');
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="card p-6 bg-gradient-to-r from-emerald-500 to-green-500 text-white">
               <div className="flex items-center justify-between">
-                <div>
+<div>
                   <p className="text-emerald-100 text-sm font-medium">Cash Inflows</p>
-                  <p className="text-3xl font-bold">Rs. {cashFlowData.analysis.totalInflows?.toLocaleString() || 0}</p>
+                  <p className="text-3xl font-bold">Rs. {cashFlowData.analysis?.totalInflows?.toLocaleString() || 0}</p>
                   <div className="flex items-center mt-2">
                     <ApperIcon name="ArrowDownToLine" size={12} className="mr-1" />
                     <span className="text-xs text-emerald-100">This period</span>
@@ -963,9 +963,9 @@ const [selectedView, setSelectedView] = useState('overview');
 
             <div className="card p-6 bg-gradient-to-r from-red-500 to-pink-500 text-white">
               <div className="flex items-center justify-between">
-                <div>
+<div>
                   <p className="text-red-100 text-sm font-medium">Cash Outflows</p>
-                  <p className="text-3xl font-bold">Rs. {cashFlowData.analysis.totalOutflows?.toLocaleString() || 0}</p>
+                  <p className="text-3xl font-bold">Rs. {cashFlowData.analysis?.totalOutflows?.toLocaleString() || 0}</p>
                   <div className="flex items-center mt-2">
                     <ApperIcon name="ArrowUpFromLine" size={12} className="mr-1" />
                     <span className="text-xs text-red-100">This period</span>
@@ -979,13 +979,13 @@ const [selectedView, setSelectedView] = useState('overview');
 
             <div className="card p-6 bg-gradient-to-r from-blue-500 to-cyan-500 text-white">
               <div className="flex items-center justify-between">
-                <div>
+<div>
                   <p className="text-blue-100 text-sm font-medium">Net Cash Flow</p>
-                  <p className="text-3xl font-bold">Rs. {cashFlowData.analysis.netCashFlow?.toLocaleString() || 0}</p>
+                  <p className="text-3xl font-bold">Rs. {cashFlowData.analysis?.netCashFlow?.toLocaleString() || 0}</p>
                   <div className="flex items-center mt-2">
-                    <ApperIcon name={cashFlowData.analysis.netCashFlow > 0 ? "TrendingUp" : "TrendingDown"} size={12} className="mr-1" />
+                    <ApperIcon name={(cashFlowData.analysis?.netCashFlow || 0) > 0 ? "TrendingUp" : "TrendingDown"} size={12} className="mr-1" />
                     <span className="text-xs text-blue-100">
-                      {cashFlowData.analysis.netCashFlow > 0 ? 'Positive' : 'Negative'}
+                      {(cashFlowData.analysis?.netCashFlow || 0) > 0 ? 'Positive' : 'Negative'}
                     </span>
                   </div>
                 </div>
@@ -997,14 +997,14 @@ const [selectedView, setSelectedView] = useState('overview');
 
             <div className="card p-6 bg-gradient-to-r from-purple-500 to-indigo-500 text-white">
               <div className="flex items-center justify-between">
-                <div>
+<div>
                   <p className="text-purple-100 text-sm font-medium">Working Capital</p>
-                  <p className="text-3xl font-bold">Rs. {cashFlowData.workingCapital.amount?.toLocaleString() || 0}</p>
+                  <p className="text-3xl font-bold">Rs. {cashFlowData.workingCapital?.amount?.toLocaleString() || 0}</p>
                   <div className="flex items-center mt-2">
                     <ApperIcon name="Coins" size={12} className="mr-1" />
                     <span className="text-xs text-purple-100">
-                      {cashFlowData.workingCapital.ratio > 1.5 ? 'Strong' : 
-                       cashFlowData.workingCapital.ratio > 1 ? 'Adequate' : 'Weak'}
+                      {(cashFlowData.workingCapital?.ratio || 0) > 1.5 ? 'Strong' : 
+                       (cashFlowData.workingCapital?.ratio || 0) > 1 ? 'Adequate' : 'Weak'}
                     </span>
                   </div>
                 </div>
@@ -1044,7 +1044,7 @@ const [selectedView, setSelectedView] = useState('overview');
                   },
                   colors: ['#10B981', '#EF4444', '#3B82F6'],
                   xaxis: {
-                    categories: cashFlowData.analysis.trendData?.map(d => d.date) || []
+categories: cashFlowData.analysis?.trendData?.map(d => d.date) || []
                   },
                   yaxis: {
                     labels: {
@@ -1063,15 +1063,15 @@ const [selectedView, setSelectedView] = useState('overview');
                 series={[
                   {
                     name: 'Cash Inflows',
-                    data: cashFlowData.analysis.trendData?.map(d => d.inflows) || []
+data: cashFlowData.analysis?.trendData?.map(d => d.inflows) || []
                   },
                   {
                     name: 'Cash Outflows',
-                    data: cashFlowData.analysis.trendData?.map(d => d.outflows) || []
+                    data: cashFlowData.analysis?.trendData?.map(d => d.outflows) || []
                   },
                   {
                     name: 'Net Cash Flow',
-                    data: cashFlowData.analysis.trendData?.map(d => d.netFlow) || []
+                    data: cashFlowData.analysis?.trendData?.map(d => d.netFlow) || []
                   }
                 ]}
                 type="area"
@@ -1087,18 +1087,18 @@ const [selectedView, setSelectedView] = useState('overview');
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-blue-900">Current Ratio</span>
                     <span className="text-lg font-bold text-blue-700">
-                      {cashFlowData.liquidity.currentRatio?.toFixed(2) || '0.00'}
+{cashFlowData.liquidity?.currentRatio?.toFixed(2) || '0.00'}
                     </span>
                   </div>
                   <div className="w-full bg-blue-200 rounded-full h-2">
                     <div 
                       className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min((cashFlowData.liquidity.currentRatio || 0) * 50, 100)}%` }}
+                      style={{ width: `${Math.min((cashFlowData.liquidity?.currentRatio || 0) * 50, 100)}%` }}
                     ></div>
                   </div>
                   <p className="text-xs text-blue-600 mt-2">
-                    {(cashFlowData.liquidity.currentRatio || 0) > 1.5 ? 'Excellent liquidity' : 
-                     (cashFlowData.liquidity.currentRatio || 0) > 1 ? 'Good liquidity' : 'Low liquidity'}
+                    {(cashFlowData.liquidity?.currentRatio || 0) > 1.5 ? 'Excellent liquidity' : 
+                     (cashFlowData.liquidity?.currentRatio || 0) > 1 ? 'Good liquidity' : 'Low liquidity'}
                   </p>
                 </div>
 
@@ -1106,17 +1106,17 @@ const [selectedView, setSelectedView] = useState('overview');
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-green-900">Quick Ratio</span>
                     <span className="text-lg font-bold text-green-700">
-                      {cashFlowData.liquidity.quickRatio?.toFixed(2) || '0.00'}
+                      {cashFlowData.liquidity?.quickRatio?.toFixed(2) || '0.00'}
                     </span>
                   </div>
                   <div className="w-full bg-green-200 rounded-full h-2">
                     <div 
                       className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min((cashFlowData.liquidity.quickRatio || 0) * 100, 100)}%` }}
+                      style={{ width: `${Math.min((cashFlowData.liquidity?.quickRatio || 0) * 100, 100)}%` }}
                     ></div>
                   </div>
                   <p className="text-xs text-green-600 mt-2">
-                    {(cashFlowData.liquidity.quickRatio || 0) > 1 ? 'Strong quick liquidity' : 'Monitor quick assets'}
+                    {(cashFlowData.liquidity?.quickRatio || 0) > 1 ? 'Strong quick liquidity' : 'Monitor quick assets'}
                   </p>
                 </div>
 
@@ -1124,17 +1124,17 @@ const [selectedView, setSelectedView] = useState('overview');
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-purple-900">Cash Ratio</span>
                     <span className="text-lg font-bold text-purple-700">
-                      {cashFlowData.liquidity.cashRatio?.toFixed(2) || '0.00'}
+                      {cashFlowData.liquidity?.cashRatio?.toFixed(2) || '0.00'}
                     </span>
                   </div>
                   <div className="w-full bg-purple-200 rounded-full h-2">
-                    <div 
+<div 
                       className="bg-purple-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min((cashFlowData.liquidity.cashRatio || 0) * 200, 100)}%` }}
+                      style={{ width: `${Math.min((cashFlowData.liquidity?.cashRatio || 0) * 200, 100)}%` }}
                     ></div>
                   </div>
                   <p className="text-xs text-purple-600 mt-2">
-                    {(cashFlowData.liquidity.cashRatio || 0) > 0.5 ? 'Strong cash position' : 'Adequate cash reserves'}
+                    {(cashFlowData.liquidity?.cashRatio || 0) > 0.5 ? 'Strong cash position' : 'Adequate cash reserves'}
                   </p>
                 </div>
 
@@ -1142,13 +1142,13 @@ const [selectedView, setSelectedView] = useState('overview');
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium text-orange-900">Operating Cash Flow Ratio</span>
                     <span className="text-lg font-bold text-orange-700">
-                      {cashFlowData.liquidity.operatingCashFlowRatio?.toFixed(2) || '0.00'}
+                      {cashFlowData.liquidity?.operatingCashFlowRatio?.toFixed(2) || '0.00'}
                     </span>
                   </div>
                   <div className="w-full bg-orange-200 rounded-full h-2">
-                    <div 
+<div 
                       className="bg-orange-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${Math.min((cashFlowData.liquidity.operatingCashFlowRatio || 0) * 100, 100)}%` }}
+                      style={{ width: `${Math.min((cashFlowData.liquidity?.operatingCashFlowRatio || 0) * 100, 100)}%` }}
                     ></div>
                   </div>
                   <p className="text-xs text-orange-600 mt-2">
@@ -1241,25 +1241,25 @@ const [selectedView, setSelectedView] = useState('overview');
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-medium text-green-900">Current Assets</h3>
                     <span className="text-lg font-bold text-green-700">
-                      Rs. {cashFlowData.workingCapital.currentAssets?.toLocaleString() || 0}
+Rs. {cashFlowData.workingCapital?.currentAssets?.toLocaleString() || 0}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
                       <span className="text-green-600">Cash & Equivalents:</span>
-                      <p className="font-medium">Rs. {cashFlowData.workingCapital.cash?.toLocaleString() || 0}</p>
+                      <p className="font-medium">Rs. {cashFlowData.workingCapital?.cash?.toLocaleString() || 0}</p>
                     </div>
                     <div>
                       <span className="text-green-600">Accounts Receivable:</span>
-                      <p className="font-medium">Rs. {cashFlowData.workingCapital.receivables?.toLocaleString() || 0}</p>
+                      <p className="font-medium">Rs. {cashFlowData.workingCapital?.receivables?.toLocaleString() || 0}</p>
                     </div>
                     <div>
                       <span className="text-green-600">Inventory:</span>
-                      <p className="font-medium">Rs. {cashFlowData.workingCapital.inventory?.toLocaleString() || 0}</p>
+                      <p className="font-medium">Rs. {cashFlowData.workingCapital?.inventory?.toLocaleString() || 0}</p>
                     </div>
                     <div>
                       <span className="text-green-600">Other Current:</span>
-                      <p className="font-medium">Rs. {cashFlowData.workingCapital.otherCurrentAssets?.toLocaleString() || 0}</p>
+                      <p className="font-medium">Rs. {cashFlowData.workingCapital?.otherCurrentAssets?.toLocaleString() || 0}</p>
                     </div>
                   </div>
                 </div>
@@ -1268,25 +1268,25 @@ const [selectedView, setSelectedView] = useState('overview');
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-medium text-red-900">Current Liabilities</h3>
                     <span className="text-lg font-bold text-red-700">
-                      Rs. {cashFlowData.workingCapital.currentLiabilities?.toLocaleString() || 0}
+                      Rs. {cashFlowData.workingCapital?.currentLiabilities?.toLocaleString() || 0}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div>
                       <span className="text-red-600">Accounts Payable:</span>
-                      <p className="font-medium">Rs. {cashFlowData.workingCapital.payables?.toLocaleString() || 0}</p>
+                      <p className="font-medium">Rs. {cashFlowData.workingCapital?.payables?.toLocaleString() || 0}</p>
                     </div>
                     <div>
                       <span className="text-red-600">Short-term Debt:</span>
-                      <p className="font-medium">Rs. {cashFlowData.workingCapital.shortTermDebt?.toLocaleString() || 0}</p>
+                      <p className="font-medium">Rs. {cashFlowData.workingCapital?.shortTermDebt?.toLocaleString() || 0}</p>
                     </div>
                     <div>
                       <span className="text-red-600">Accrued Expenses:</span>
-                      <p className="font-medium">Rs. {cashFlowData.workingCapital.accruedExpenses?.toLocaleString() || 0}</p>
+                      <p className="font-medium">Rs. {cashFlowData.workingCapital?.accruedExpenses?.toLocaleString() || 0}</p>
                     </div>
                     <div>
                       <span className="text-red-600">Other Current:</span>
-                      <p className="font-medium">Rs. {cashFlowData.workingCapital.otherCurrentLiabilities?.toLocaleString() || 0}</p>
+                      <p className="font-medium">Rs. {cashFlowData.workingCapital?.otherCurrentLiabilities?.toLocaleString() || 0}</p>
                     </div>
                   </div>
                 </div>
@@ -1295,25 +1295,25 @@ const [selectedView, setSelectedView] = useState('overview');
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-medium text-blue-900">Net Working Capital</h3>
                     <span className="text-2xl font-bold text-blue-700">
-                      Rs. {cashFlowData.workingCapital.amount?.toLocaleString() || 0}
+                      Rs. {cashFlowData.workingCapital?.amount?.toLocaleString() || 0}
                     </span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-blue-600">Working Capital Ratio:</span>
                     <span className="font-medium text-blue-800">
-                      {cashFlowData.workingCapital.ratio?.toFixed(2) || '0.00'}
+                      {cashFlowData.workingCapital?.ratio?.toFixed(2) || '0.00'}
                     </span>
                   </div>
                   <div className="mt-2">
                     <div className="w-full bg-blue-200 rounded-full h-2">
                       <div 
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${Math.min((cashFlowData.workingCapital.ratio || 0) * 50, 100)}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-xs text-blue-600 mt-1">
-                      {(cashFlowData.workingCapital.ratio || 0) > 1.5 ? 'Strong liquidity position' : 
-                       (cashFlowData.workingCapital.ratio || 0) > 1 ? 'Adequate working capital' : 'Monitor liquidity closely'}
+className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min((cashFlowData.workingCapital?.ratio || 0) * 50, 100)}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-xs text-blue-600 mt-1">
+                    {(cashFlowData.workingCapital?.ratio || 0) > 1.5 ? 'Strong liquidity position' : 
+                     (cashFlowData.workingCapital?.ratio || 0) > 1 ? 'Adequate working capital' : 'Monitor liquidity closely'}
                     </p>
                   </div>
                 </div>
@@ -1329,7 +1329,7 @@ const [selectedView, setSelectedView] = useState('overview');
               <div>
                 <h3 className="font-medium text-gray-900 mb-4">Current Financial Health</h3>
                 <div className="space-y-3">
-                  {cashFlowData.analysis.netCashFlow > 0 && (
+{(cashFlowData.analysis?.netCashFlow || 0) > 0 && (
                     <div className="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
                       <ApperIcon name="CheckCircle" size={16} className="text-green-600 mt-0.5" />
                       <div>
@@ -1339,7 +1339,7 @@ const [selectedView, setSelectedView] = useState('overview');
                     </div>
                   )}
                   
-                  {cashFlowData.analysis.netCashFlow < 0 && (
+                  {(cashFlowData.analysis?.netCashFlow || 0) < 0 && (
                     <div className="flex items-start space-x-3 p-3 bg-red-50 rounded-lg">
                       <ApperIcon name="AlertTriangle" size={16} className="text-red-600 mt-0.5" />
                       <div>
@@ -1349,7 +1349,7 @@ const [selectedView, setSelectedView] = useState('overview');
                     </div>
                   )}
 
-                  {(cashFlowData.workingCapital.ratio || 0) > 1.5 && (
+{(cashFlowData.workingCapital?.ratio || 0) > 1.5 && (
                     <div className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
                       <ApperIcon name="Shield" size={16} className="text-blue-600 mt-0.5" />
                       <div>
@@ -1359,7 +1359,7 @@ const [selectedView, setSelectedView] = useState('overview');
                     </div>
                   )}
 
-                  {(cashFlowData.workingCapital.ratio || 0) < 1 && (
+                  {(cashFlowData.workingCapital?.ratio || 0) < 1 && (
                     <div className="flex items-start space-x-3 p-3 bg-yellow-50 rounded-lg">
                       <ApperIcon name="AlertCircle" size={16} className="text-yellow-600 mt-0.5" />
                       <div>
@@ -1374,7 +1374,7 @@ const [selectedView, setSelectedView] = useState('overview');
               <div>
                 <h3 className="font-medium text-gray-900 mb-4">Action Recommendations</h3>
                 <div className="space-y-3">
-                  {cashFlowData.analysis.netCashFlow < 0 && (
+{(cashFlowData.analysis?.netCashFlow || 0) < 0 && (
                     <div className="flex items-start space-x-3 p-3 bg-orange-50 rounded-lg">
                       <ApperIcon name="Lightbulb" size={16} className="text-orange-600 mt-0.5" />
                       <div>
@@ -1419,9 +1419,9 @@ const [selectedView, setSelectedView] = useState('overview');
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="card p-6 bg-gradient-to-r from-red-500 to-pink-500 text-white">
               <div className="flex items-center justify-between">
-                <div>
+<div>
                   <p className="text-red-100 text-sm font-medium">Total Expenses</p>
-                  <p className="text-3xl font-bold">Rs. {expenseData.analytics.totalExpenses?.toLocaleString() || 0}</p>
+                  <p className="text-3xl font-bold">Rs. {expenseData.analytics?.totalExpenses?.toLocaleString() || 0}</p>
                 </div>
                 <div className="bg-white/20 p-3 rounded-lg">
                   <ApperIcon name="Receipt" size={24} />
@@ -1433,7 +1433,7 @@ const [selectedView, setSelectedView] = useState('overview');
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-orange-100 text-sm font-medium">Monthly Average</p>
-                  <p className="text-3xl font-bold">Rs. {expenseData.analytics.monthlyAverage?.toLocaleString() || 0}</p>
+                  <p className="text-3xl font-bold">Rs. {expenseData.analytics?.monthlyAverage?.toLocaleString() || 0}</p>
                 </div>
                 <div className="bg-white/20 p-3 rounded-lg">
                   <ApperIcon name="Calendar" size={24} />
@@ -1445,7 +1445,7 @@ const [selectedView, setSelectedView] = useState('overview');
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-indigo-100 text-sm font-medium">Top Category</p>
-                  <p className="text-xl font-bold">{expenseData.analytics.topCategory || 'N/A'}</p>
+                  <p className="text-xl font-bold">{expenseData.analytics?.topCategory || 'N/A'}</p>
                 </div>
                 <div className="bg-white/20 p-3 rounded-lg">
                   <ApperIcon name="PieChart" size={24} />
@@ -1515,7 +1515,7 @@ const [selectedView, setSelectedView] = useState('overview');
                     }
                   },
                   xaxis: {
-                    categories: expenseData.analytics.trendData?.map(d => d.date) || []
+categories: expenseData.analytics?.trendData?.map(d => d.date) || []
                   },
                   yaxis: {
                     labels: {
@@ -1525,7 +1525,7 @@ const [selectedView, setSelectedView] = useState('overview');
                 }}
                 series={[{
                   name: 'Expenses',
-                  data: expenseData.analytics.trendData?.map(d => d.amount) || []
+                  data: expenseData.analytics?.trendData?.map(d => d.amount) || []
                 }]}
                 type="area"
                 height={300}
@@ -1537,11 +1537,11 @@ const [selectedView, setSelectedView] = useState('overview');
               <Chart
                 options={{
                   chart: { type: 'donut' },
-                  labels: expenseData.analytics.categoryBreakdown?.map(c => c.category) || [],
+                  labels: expenseData.analytics?.categoryBreakdown?.map(c => c.category) || [],
                   colors: ['#EF4444', '#F97316', '#EAB308', '#22C55E', '#3B82F6', '#8B5CF6', '#EC4899'],
                   legend: { position: 'bottom' }
                 }}
-                series={expenseData.analytics.categoryBreakdown?.map(c => c.amount) || []}
+                series={expenseData.analytics?.categoryBreakdown?.map(c => c.amount) || []}
                 type="donut"
                 height={300}
               />
@@ -1629,9 +1629,9 @@ const [selectedView, setSelectedView] = useState('overview');
 
             <div className="card p-6 bg-gradient-to-r from-green-500 to-emerald-500 text-white">
               <div className="flex items-center justify-between">
-                <div>
+<div>
                   <p className="text-green-100 text-sm font-medium">Paid This Month</p>
-                  <p className="text-3xl font-bold">Rs. {vendorData.analytics.totalPaid?.toLocaleString() || 0}</p>
+                  <p className="text-3xl font-bold">Rs. {vendorData.analytics?.totalPaid?.toLocaleString() || 0}</p>
                 </div>
                 <div className="bg-white/20 p-3 rounded-lg">
                   <ApperIcon name="CheckCircle" size={24} />
@@ -1643,7 +1643,7 @@ const [selectedView, setSelectedView] = useState('overview');
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-orange-100 text-sm font-medium">Pending Payments</p>
-                  <p className="text-3xl font-bold">Rs. {vendorData.analytics.totalPending?.toLocaleString() || 0}</p>
+                  <p className="text-3xl font-bold">Rs. {vendorData.analytics?.totalPending?.toLocaleString() || 0}</p>
                 </div>
                 <div className="bg-white/20 p-3 rounded-lg">
                   <ApperIcon name="Clock" size={24} />
