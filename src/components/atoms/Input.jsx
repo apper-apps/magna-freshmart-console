@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import ApperIcon from '@/components/ApperIcon';
+import React, { useState } from "react";
+import ApperIcon from "@/components/ApperIcon";
 
 const Input = ({
   type = 'text',
@@ -117,3 +117,4 @@ const inputClasses = `
 };
 
 export default Input;
+export { Input };
