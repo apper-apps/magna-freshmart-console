@@ -1,15 +1,58 @@
-import '@/index.css';
+import './index.css'
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
+import { Provider } from "react-redux";
+import { ToastContainer } from "react-toastify";
 import App from "@/App";
+import { store } from "@/store/index";
 import Error from "@/components/ui/Error";
+// Global error handlers for external script errors
+window.addEventListener('error', (event) => {
+  // Handle errors from external scripts like Apper CDN
+  if (event.filename && event.filename.includes('apper.io')) {
+    console.warn('External Apper script error:', {
+      message: event.message,
+      filename: event.filename,
+      lineno: event.lineno,
+      colno: event.colno
+    });
+    // Prevent the error from breaking the application
+    event.preventDefault();
+    return false;
+  }
+});
 
-// Performance monitoring
+// Handle unhandled promise rejections from external scripts
+window.addEventListener('unhandledrejection', (event) => {
+  if (event.reason && event.reason.message && 
+      (event.reason.message.includes('DataCloneError') || 
+       event.reason.message.includes('postMessage'))) {
+    console.warn('External script postMessage error:', {
+      reason: event.reason.message,
+      stack: event.reason.stack
+    });
+    // Prevent the error from breaking the application
+    event.preventDefault();
+    return false;
+  }
+});
+
+// Handle postMessage errors specifically
+window.addEventListener('message', (event) => {
+  try {
+    // Safely handle messages from external origins
+    if (event.origin && event.origin.includes('apper.io')) {
+      console.log('Message from Apper script:', event.data);
+    }
+  } catch (error) {
+    console.warn('Error handling postMessage from external script:', error);
+  }
+});
+
+// Performance monitoring utility
 const performanceMonitor = {
-  start: performance.now(),
   marks: {}
 };
-
 // Data serialization utility to prevent DataCloneError
 const serializeForPostMessage = (data) => {
   try {
@@ -268,7 +311,10 @@ async function initializeApp() {
     // Render app with error boundary
 root.render(
       <FastErrorBoundary>
-        <App />
+        <Provider store={store}>
+          <App />
+          <ToastContainer />
+        </Provider>
       </FastErrorBoundary>
     );
 
