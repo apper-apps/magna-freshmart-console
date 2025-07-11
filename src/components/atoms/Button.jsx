@@ -1,5 +1,5 @@
-import React from 'react';
-import ApperIcon from '@/components/ApperIcon';
+import React from "react";
+import ApperIcon from "@/components/ApperIcon";
 
 const Button = ({ 
   variant = 'primary', 
@@ -66,7 +66,7 @@ const Button = ({
         <ApperIcon name={icon} size={iconSize} className="ml-2" />
       )}
     </button>
-  );
+);
 };
 
 export default Button;
