@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { ApperIcon } from '@/components/ApperIcon';
+import ApperIcon from '@/components/ApperIcon';
 import { Button } from '@/components/atoms/Button';
 import { Input } from '@/components/atoms/Input';
 import { Badge } from '@/components/atoms/Badge';
