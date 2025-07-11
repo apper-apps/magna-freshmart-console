@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { toast } from 'react-toastify';
-import ApperIcon from '@/components/ApperIcon';
-import Button from '@/components/atoms/Button';
-import Input from '@/components/atoms/Input';
-import Loading from '@/components/ui/Loading';
-import Error from '@/components/ui/Error';
-import { vendorService } from '@/services/api/vendorService';
-import { productService } from '@/services/api/productService';
+import React, { useEffect, useState } from "react";
+import { toast } from "react-toastify";
+import { formatCurrency } from "@/utils/currency";
+import ApperIcon from "@/components/ApperIcon";
+import Button from "@/components/atoms/Button";
+import Input from "@/components/atoms/Input";
+import Error from "@/components/ui/Error";
+import Loading from "@/components/ui/Loading";
+import Category from "@/components/pages/Category";
+import { vendorService } from "@/services/api/vendorService";
+import { productService } from "@/services/api/productService";
 
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -299,14 +301,14 @@ const VendorDashboard = ({ vendor, onLogout, onProfileUpdate }) => {
               </div>
             </div>
             
-            <div className="bg-white rounded-lg shadow p-6">
+<div className="bg-white rounded-lg shadow p-6">
               <div className="flex items-center">
                 <div className="p-2 bg-yellow-100 rounded-lg">
                   <ApperIcon name="DollarSign" size={24} className="text-yellow-600" />
                 </div>
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Total Value</p>
-                  <p className="text-2xl font-semibold text-gray-900">₹{stats.totalValue.toLocaleString()}</p>
+                  <p className="text-2xl font-semibold text-gray-900">{formatCurrency(stats.totalValue)}</p>
                 </div>
               </div>
             </div>
@@ -478,18 +480,18 @@ const VendorProductsTab = ({ products, vendor, onProductUpdate }) => {
                       </div>
                     </div>
                   </div>
-                </td>
+</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   {product.category}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  ₹{product.price.toLocaleString()}
+                  {formatCurrency(product.price)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  ₹{product.purchasePrice?.toLocaleString() || 'N/A'}
+                  {product.purchasePrice ? formatCurrency(product.purchasePrice) : 'N/A'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                     product.profitMargin >= 20 
                       ? 'bg-green-100 text-green-800'
                       : product.profitMargin >= 10
@@ -643,11 +645,11 @@ const EditPriceModal = ({ product, vendor, onSave, onClose }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
+<div>
             <Input
               type="number"
               name="price"
-              label="Selling Price (₹)"
+              label="Selling Price (Rs.)"
               value={formData.price}
               onChange={handleInputChange}
               step="0.01"
@@ -656,13 +658,19 @@ const EditPriceModal = ({ product, vendor, onSave, onClose }) => {
               error={errors.price}
               disabled={!product.vendorInfo?.canEditPrice}
             />
+            {!product.vendorInfo?.canEditPrice && (
+              <p className="text-xs text-amber-600 mt-1">
+                <ApperIcon name="Lock" size={12} className="inline mr-1" />
+                Selling price editing restricted for this product
+              </p>
+            )}
           </div>
 
           <div>
             <Input
               type="number"
               name="purchasePrice"
-              label="Cost Price (₹)"
+              label="Cost Price (Rs.)"
               value={formData.purchasePrice}
               onChange={handleInputChange}
               step="0.01"
@@ -670,6 +678,12 @@ const EditPriceModal = ({ product, vendor, onSave, onClose }) => {
               error={errors.purchasePrice}
               disabled={!product.vendorInfo?.canEditCost}
             />
+            {!product.vendorInfo?.canEditCost && (
+              <p className="text-xs text-amber-600 mt-1">
+                <ApperIcon name="Lock" size={12} className="inline mr-1" />
+                Cost price editing restricted - contact admin for changes
+              </p>
+            )}
           </div>
 
           {/* Calculated Margin */}
@@ -678,7 +692,7 @@ const EditPriceModal = ({ product, vendor, onSave, onClose }) => {
               <span className="text-sm font-medium text-gray-700">
                 Profit Margin:
               </span>
-              <span className={`text-sm font-semibold ${
+<span className={`text-sm font-semibold ${
                 calculateMargin() >= (product.vendorInfo?.minMargin || 5)
                   ? 'text-green-600'
                   : 'text-red-600'
@@ -687,10 +701,12 @@ const EditPriceModal = ({ product, vendor, onSave, onClose }) => {
               </span>
             </div>
             <div className="text-xs text-gray-500 mt-1">
-              Minimum required: {product.vendorInfo?.minMargin || 5}%
+              Minimum required: {product.vendorInfo?.minMargin || 5}% • 
+              Profit: {formData.purchasePrice > 0 && formData.price > formData.purchasePrice ? 
+                formatCurrency(formData.price - formData.purchasePrice) : 'Rs. 0'}
             </div>
           </div>
-
+          
           <div className="flex space-x-3 pt-4">
             <Button
               type="button"

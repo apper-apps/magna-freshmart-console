@@ -1,13 +1,14 @@
 /**
- * Currency formatting utility for consistent "Rs. XX,XXX" display
- * Ensures comma separators and proper formatting across the application
+ * Currency formatting utility for Pakistani Rupees (Rs.) standardization
+ * Ensures consistent "Rs. XX,XXX" display format across vendor dashboard and order management
+ * Replaces all legacy ¥/₹ symbols with standardized "Rs." prefix
  */
 
 /**
- * Format currency value to "Rs. XX,XXX" format with comma separators
+ * Format currency value to standardized "Rs. XX,XXX" format with comma separators
  * @param {number} value - The numeric value to format
  * @param {object} options - Formatting options
- * @returns {string} Formatted currency string
+ * @returns {string} Formatted currency string in Pakistani Rupees
  */
 export const formatCurrency = (value, options = {}) => {
   const {

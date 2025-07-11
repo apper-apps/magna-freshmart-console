@@ -1644,7 +1644,124 @@ width = targetHeight * aspectRatio;
         totalProducts: 0,
         averageMargin: 0,
         totalValue: 0,
-        lowStockCount: 0
+lowStockCount: 0
+      };
+    }
+  }
+
+  // Enhanced vendor order management methods
+  async getVendorOrders(vendorId) {
+    await this.delay(300);
+    
+    try {
+      // Get orders containing products assigned to this vendor
+      const vendorProducts = await this.getVendorProducts(vendorId);
+      const vendorProductIds = vendorProducts.map(p => p.id);
+      
+      // Simulate getting orders from order service
+      // In real implementation, this would call orderService
+      const mockOrders = [
+        {
+          id: 10045,
+          customerId: "customer123",
+          items: [
+            {
+              productId: 1,
+              name: "Premium Carrots",
+              quantity: 5,
+              unit: "kg",
+              price: 80,
+              vendorId: vendorId
+            }
+          ],
+          total: 400,
+          status: "confirmed",
+          packingStatus: "pending",
+          vendorActions: {
+            canPack: true,
+            packingInstructions: "Handle with care - fresh produce"
+          },
+          deliveryAddress: {
+            name: "Ahmad Hassan",
+            city: "Lahore",
+            phone: "+92 300 1234567"
+          },
+          createdAt: new Date().toISOString(),
+          estimatedDelivery: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        }
+      ];
+      
+      // Filter orders that contain vendor's products
+      return mockOrders.filter(order => 
+        order.items.some(item => vendorProductIds.includes(item.productId))
+      );
+      
+    } catch (error) {
+      console.error('Error getting vendor orders:', error);
+      return [];
+    }
+  }
+
+  async updateOrderPackingStatus(vendorId, orderId, packingStatus, notes = '') {
+    await this.delay(400);
+    
+    try {
+      // Validate vendor has access to this order
+      const vendorOrders = await this.getVendorOrders(vendorId);
+      const order = vendorOrders.find(o => o.id === parseInt(orderId));
+      
+      if (!order) {
+        throw new Error('Order not found or access denied');
+      }
+      
+      if (!order.vendorActions?.canPack) {
+        throw new Error('Packing not allowed for this order');
+      }
+      
+      // Update packing status
+      const updatedOrder = {
+        ...order,
+        packingStatus: packingStatus,
+        packingNotes: notes,
+        packedAt: packingStatus === 'packed' ? new Date().toISOString() : null,
+        packedBy: `vendor_${vendorId}`,
+        lastUpdated: new Date().toISOString()
+      };
+      
+      return updatedOrder;
+      
+    } catch (error) {
+      console.error('Error updating packing status:', error);
+      throw error;
+    }
+  }
+
+  async getVendorOrdersStats(vendorId) {
+    await this.delay(200);
+    
+    try {
+      const vendorOrders = await this.getVendorOrders(vendorId);
+      
+      const stats = {
+        totalOrders: vendorOrders.length,
+        pendingPacking: vendorOrders.filter(o => o.packingStatus === 'pending').length,
+        packedOrders: vendorOrders.filter(o => o.packingStatus === 'packed').length,
+        totalValue: vendorOrders.reduce((sum, order) => sum + (order.total || 0), 0),
+        averageOrderValue: vendorOrders.length > 0 
+          ? vendorOrders.reduce((sum, order) => sum + (order.total || 0), 0) / vendorOrders.length 
+          : 0
+      };
+      
+      return stats;
+      
+    } catch (error) {
+      console.error('Error getting vendor order stats:', error);
+      return {
+        totalOrders: 0,
+        pendingPacking: 0,
+        packedOrders: 0,
+        totalValue: 0,
+        averageOrderValue: 0
       };
     }
   }

@@ -315,10 +315,10 @@ const Orders = () => {
                         {order.walletTransaction.type.replace('_', ' ')}
                       </span>
                     </div>
-                    <div className="flex justify-between">
+<div className="flex justify-between">
                       <span className="text-purple-700">Amount:</span>
                       <span className="font-semibold text-purple-900">
-                        Rs. {order.walletTransaction.amount.toLocaleString()}
+                        {formatCurrency(order.walletTransaction.amount)}
                       </span>
                     </div>
                   </div>
