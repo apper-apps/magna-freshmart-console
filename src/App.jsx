@@ -14,23 +14,85 @@ import ProductDetail from "@/components/pages/ProductDetail";
 import Cart from "@/components/pages/Cart";
 import Checkout from "@/components/pages/Checkout";
 import Home from "@/components/pages/Home";
+// Error boundary for lazy-loaded components
+class LazyErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
-// Lazy load heavy components for better performance
-const AdminDashboard = React.lazy(() => import('@/components/pages/AdminDashboard'));
-const ProductManagement = React.lazy(() => import('@/components/pages/ProductManagement'));
-const Analytics = React.lazy(() => import('@/components/pages/Analytics'));
-const FinancialDashboard = React.lazy(() => import('@/components/pages/FinancialDashboard'));
-const POS = React.lazy(() => import('@/components/pages/POS'));
-const PaymentManagement = React.lazy(() => import('@/components/pages/PaymentManagement'));
-const PayrollManagement = React.lazy(() => import('@/components/pages/PayrollManagement'));
-const DeliveryTracking = React.lazy(() => import('@/components/pages/DeliveryTracking'));
-const AIGenerate = React.lazy(() => import('@/components/pages/AIGenerate'));
-const Category = React.lazy(() => import('@/components/pages/Category'));
-const Orders = React.lazy(() => import('@/components/pages/Orders'));
-const OrderTracking = React.lazy(() => import('@/components/pages/OrderTracking'));
-const Account = React.lazy(() => import('@/components/pages/Account'));
-const VendorPortal = React.lazy(() => import('@/components/pages/VendorPortal'));
-const RoleAssignment = React.lazy(() => import('@/components/pages/RoleAssignment'));
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('Lazy component failed to load:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center p-8">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">Failed to load component</h2>
+            <p className="text-gray-600 mb-4">There was an error loading this page.</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90"
+            >
+              Refresh Page
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Safe lazy loading with error handling
+const createLazyComponent = (importFn, componentName) => {
+  return React.lazy(() => 
+    importFn().catch(error => {
+      console.error(`Failed to load ${componentName}:`, error);
+      // Return a fallback component instead of failing
+      return {
+        default: () => (
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center p-8">
+              <h2 className="text-xl font-semibold text-gray-800 mb-4">Component Unavailable</h2>
+              <p className="text-gray-600 mb-4">The {componentName} component could not be loaded.</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90"
+              >
+                Refresh Page
+              </button>
+            </div>
+          </div>
+        )
+      };
+    })
+  );
+};
+
+// Lazy load heavy components for better performance with error handling
+const AdminDashboard = createLazyComponent(() => import('@/components/pages/AdminDashboard'), 'Admin Dashboard');
+const ProductManagement = createLazyComponent(() => import('@/components/pages/ProductManagement'), 'Product Management');
+const Analytics = createLazyComponent(() => import('@/components/pages/Analytics'), 'Analytics');
+const FinancialDashboard = createLazyComponent(() => import('@/components/pages/FinancialDashboard'), 'Financial Dashboard');
+const POS = createLazyComponent(() => import('@/components/pages/POS'), 'POS');
+const PaymentManagement = createLazyComponent(() => import('@/components/pages/PaymentManagement'), 'Payment Management');
+const PayrollManagement = createLazyComponent(() => import('@/components/pages/PayrollManagement'), 'Payroll Management');
+const DeliveryTracking = createLazyComponent(() => import('@/components/pages/DeliveryTracking'), 'Delivery Tracking');
+const AIGenerate = createLazyComponent(() => import('@/components/pages/AIGenerate'), 'AI Generate');
+const Category = createLazyComponent(() => import('@/components/pages/Category'), 'Category');
+const Orders = createLazyComponent(() => import('@/components/pages/Orders'), 'Orders');
+const OrderTracking = createLazyComponent(() => import('@/components/pages/OrderTracking'), 'Order Tracking');
+const Account = createLazyComponent(() => import('@/components/pages/Account'), 'Account');
+const VendorPortal = createLazyComponent(() => import('@/components/pages/VendorPortal'), 'Vendor Portal');
+const RoleAssignment = createLazyComponent(() => import('@/components/pages/RoleAssignment'), 'Role Assignment');
 // WebSocket Integration Component
 const WebSocketProvider = ({ children }) => {
   const dispatch = useDispatch();
@@ -215,87 +277,117 @@ return (
                   <Route path="cart" element={<Cart />} />
                   <Route path="checkout" element={<Checkout />} />
                   
-                  {/* Lazy loaded routes */}
+{/* Lazy loaded routes with error boundaries */}
                   <Route path="category/:categoryName" element={
-                    <Suspense fallback={<Loading type="page" />}>
-                      <Category />
-                    </Suspense>
+                    <LazyErrorBoundary>
+                      <Suspense fallback={<Loading type="page" />}>
+                        <Category />
+                      </Suspense>
+                    </LazyErrorBoundary>
                   } />
-                  <Route path="orders" element={
-                    <Suspense fallback={<Loading type="page" />}>
-                      <Orders />
-                    </Suspense>
+<Route path="orders" element={
+                    <LazyErrorBoundary>
+                      <Suspense fallback={<Loading type="page" />}>
+                        <Orders />
+                      </Suspense>
+                    </LazyErrorBoundary>
                   } />
                   <Route path="orders/:orderId" element={
-                    <Suspense fallback={<Loading type="page" />}>
-                      <OrderTracking />
-                    </Suspense>
+                    <LazyErrorBoundary>
+                      <Suspense fallback={<Loading type="page" />}>
+                        <OrderTracking />
+                      </Suspense>
+                    </LazyErrorBoundary>
                   } />
                   <Route path="account" element={
-                    <Suspense fallback={<Loading type="page" />}>
-                      <Account />
-                    </Suspense>
+                    <LazyErrorBoundary>
+                      <Suspense fallback={<Loading type="page" />}>
+                        <Account />
+                      </Suspense>
+                    </LazyErrorBoundary>
                   } />
                   
-                  {/* Heavy admin routes - lazy loaded */}
+                  {/* Heavy admin routes - lazy loaded with error boundaries */}
                   <Route path="admin" element={
-                    <Suspense fallback={<Loading type="page" />}>
-                      <AdminDashboard />
-                    </Suspense>
+                    <LazyErrorBoundary>
+                      <Suspense fallback={<Loading type="page" />}>
+                        <AdminDashboard />
+                      </Suspense>
+                    </LazyErrorBoundary>
                   } />
                   <Route path="admin/products" element={
-                    <Suspense fallback={<Loading type="page" />}>
-                      <ProductManagement />
-                    </Suspense>
+                    <LazyErrorBoundary>
+                      <Suspense fallback={<Loading type="page" />}>
+                        <ProductManagement />
+                      </Suspense>
+                    </LazyErrorBoundary>
                   } />
                   <Route path="admin/pos" element={
-                    <Suspense fallback={<Loading type="page" />}>
-                      <POS />
-                    </Suspense>
+                    <LazyErrorBoundary>
+                      <Suspense fallback={<Loading type="page" />}>
+                        <POS />
+                      </Suspense>
+                    </LazyErrorBoundary>
                   } />
                   <Route path="admin/delivery-dashboard" element={
-                    <Suspense fallback={<Loading type="page" />}>
-                      <DeliveryTracking />
-                    </Suspense>
+                    <LazyErrorBoundary>
+                      <Suspense fallback={<Loading type="page" />}>
+                        <DeliveryTracking />
+                      </Suspense>
+                    </LazyErrorBoundary>
                   } />
                   <Route path="admin/analytics" element={
-                    <Suspense fallback={<Loading type="page" />}>
-                      <Analytics />
-                    </Suspense>
+                    <LazyErrorBoundary>
+                      <Suspense fallback={<Loading type="page" />}>
+                        <Analytics />
+                      </Suspense>
+                    </LazyErrorBoundary>
                   } />
                   <Route path="admin/financial-dashboard" element={
-                    <Suspense fallback={<Loading type="page" />}>
-                      <FinancialDashboard />
-                    </Suspense>
+                    <LazyErrorBoundary>
+                      <Suspense fallback={<Loading type="page" />}>
+                        <FinancialDashboard />
+                      </Suspense>
+                    </LazyErrorBoundary>
                   } />
                   <Route path="admin/payments" element={
-                    <Suspense fallback={<Loading type="page" />}>
-                      <PaymentManagement />
-                    </Suspense>
+                    <LazyErrorBoundary>
+                      <Suspense fallback={<Loading type="page" />}>
+                        <PaymentManagement />
+                      </Suspense>
+                    </LazyErrorBoundary>
                   } />
-<Route path="admin/ai-generate" element={
-                    <Suspense fallback={<Loading type="page" />}>
-                      <AIGenerate />
-                    </Suspense>
+                  <Route path="admin/ai-generate" element={
+                    <LazyErrorBoundary>
+                      <Suspense fallback={<Loading type="page" />}>
+                        <AIGenerate />
+                      </Suspense>
+                    </LazyErrorBoundary>
                   } />
-<Route path="admin/payroll" element={
-                    <Suspense fallback={<Loading type="page" />}>
-                      <PayrollManagement />
-                    </Suspense>
+                  <Route path="admin/payroll" element={
+                    <LazyErrorBoundary>
+                      <Suspense fallback={<Loading type="page" />}>
+                        <PayrollManagement />
+                      </Suspense>
+                    </LazyErrorBoundary>
                   } />
                   
                   {/* Role Assignment Route - Admin Only */}
                   <Route path="role-management" element={
-                    <Suspense fallback={<Loading type="page" />}>
-                      <RoleAssignment />
-                    </Suspense>
+                    <LazyErrorBoundary>
+                      <Suspense fallback={<Loading type="page" />}>
+                        <RoleAssignment />
+                      </Suspense>
+                    </LazyErrorBoundary>
                   } />
                   
                   {/* Vendor Portal Route */}
                   <Route path="vendor-portal" element={
-                    <Suspense fallback={<Loading type="page" />}>
-                      <VendorPortal />
-                    </Suspense>
+                    <LazyErrorBoundary>
+                      <Suspense fallback={<Loading type="page" />}>
+                        <VendorPortal />
+                      </Suspense>
+                    </LazyErrorBoundary>
                   } />
                 </Route>
               </Routes>

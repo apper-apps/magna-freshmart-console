@@ -520,101 +520,146 @@ console.warn('Max SDK recovery attempts reached, using fallback mode');
 };
 
 // Enhanced error boundary component with recovery mechanisms
-function FastErrorBoundary({ children, fallback }) {
-  const [hasError, setHasError] = useState(false);
-  const [error, setError] = useState(null);
-  const [retryCount, setRetryCount] = useState(0);
-  const [isRecovering, setIsRecovering] = useState(false);
-  
-  const maxRetries = 3;
-  const retryDelay = 1000;
-  
-  const handleRetry = useCallback(() => {
-    if (retryCount < maxRetries) {
-      setIsRecovering(true);
-      setTimeout(() => {
-        setHasError(false);
-        setError(null);
-        setRetryCount(prev => prev + 1);
-        setIsRecovering(false);
-      }, retryDelay);
-    }
-  }, [retryCount]);
-  
-  const handleReset = useCallback(() => {
-    setHasError(false);
-    setError(null);
-    setRetryCount(0);
-    setIsRecovering(false);
-  }, []);
-  
-  useEffect(() => {
-    const handleError = (errorEvent) => {
-      // Only handle errors that haven't been handled by other mechanisms
-      if (errorEvent.filename?.includes('apper.io') && !errorHandlerState.processing.has(errorEvent.message)) {
-        setHasError(true);
-        setError({
-          message: errorEvent.message || errorEvent.reason?.message || 'Unknown error',
-          stack: errorEvent.error?.stack || errorEvent.reason?.stack,
-          filename: errorEvent.filename,
-          lineno: errorEvent.lineno,
-          colno: errorEvent.colno
-        });
-      }
+class FastErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      retryCount: 0,
+      isRecovering: false
     };
-    
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleError);
-    
-    return () => {
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleError);
-    };
-  }, []);
-  
-  // Auto-recovery after successful retries
-  useEffect(() => {
-    if (hasError && retryCount > 0 && !isRecovering) {
-      const timer = setTimeout(() => {
-        handleReset();
-      }, 5000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [hasError, retryCount, isRecovering, handleReset]);
-  
-  if (hasError) {
-    if (fallback) {
-      return fallback;
-    }
-    
-    return (
-      <div className="error-boundary-container p-4 bg-red-50 border border-red-200 rounded-lg">
-        <h2 className="text-red-800 font-semibold mb-2">Something went wrong</h2>
-        <p className="text-red-600 mb-4">
-          {error?.message || 'An unexpected error occurred'}
-        </p>
-        {retryCount < maxRetries && (
-          <button
-            onClick={handleRetry}
-            disabled={isRecovering}
-            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:opacity-50"
-          >
-            {isRecovering ? 'Retrying...' : `Retry (${retryCount}/${maxRetries})`}
-          </button>
-        )}
-        {retryCount >= maxRetries && (
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
-          >
-            Refresh Page
-          </button>
-        )}
-      </div>
-    );
+    this.maxRetries = 3;
+    this.retryDelay = 1000;
   }
-return children;
+
+  static getDerivedStateFromError(error) {
+    // Update state so the next render will show the fallback UI
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    // Log error for debugging
+    console.error('FastErrorBoundary caught an error:', error, errorInfo);
+    
+    // Update state with error details
+    this.setState({
+      error,
+      errorInfo,
+      hasError: true
+    });
+
+    // Report error to monitoring service if available
+    if (typeof window !== 'undefined' && window.reportError) {
+      window.reportError(error);
+    }
+  }
+
+  handleRetry = () => {
+    if (this.state.retryCount < this.maxRetries) {
+      this.setState({ isRecovering: true });
+      
+      setTimeout(() => {
+        this.setState({
+          hasError: false,
+          error: null,
+          errorInfo: null,
+          retryCount: this.state.retryCount + 1,
+          isRecovering: false
+        });
+      }, this.retryDelay);
+    }
+  };
+
+  handleReset = () => {
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      retryCount: 0,
+      isRecovering: false
+    });
+  };
+
+  render() {
+    if (this.state.hasError) {
+      // Custom fallback UI
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
+
+      return (
+        <div className="error-boundary-container p-4 bg-red-50 border border-red-200 rounded-lg">
+          <h2 className="text-red-800 font-semibold mb-2">Something went wrong</h2>
+          <p className="text-red-600 mb-4">
+            {this.state.error?.message || 'An unexpected error occurred'}
+          </p>
+          
+          {import.meta.env.DEV && this.state.errorInfo && (
+            <details className="mb-4 p-2 bg-red-100 rounded text-sm">
+              <summary className="cursor-pointer font-medium">Error Details (Development)</summary>
+              <pre className="mt-2 text-xs overflow-auto max-h-40">
+                {this.state.error?.stack}
+                {this.state.errorInfo.componentStack}
+              </pre>
+            </details>
+          )}
+          
+          {this.state.retryCount < this.maxRetries && (
+            <button
+              onClick={this.handleRetry}
+              disabled={this.state.isRecovering}
+              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:opacity-50 mr-2"
+            >
+              {this.state.isRecovering ? 'Retrying...' : `Retry (${this.state.retryCount}/${this.maxRetries})`}
+            </button>
+          )}
+          
+          {this.state.retryCount >= this.maxRetries && (
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 mr-2"
+            >
+              Refresh Page
+            </button>
+          )}
+          
+          <button
+            onClick={this.handleReset}
+            className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700"
+          >
+            Reset
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+// Global error handler for non-React errors
+function setupGlobalErrorHandler() {
+  const handleError = (errorEvent) => {
+    // Only handle errors that haven't been handled by other mechanisms
+    if (errorEvent.filename?.includes('apper.io') && !errorHandlerState.processing.has(errorEvent.message)) {
+      console.warn('Global error caught:', errorEvent);
+      // Let React Error Boundaries handle React component errors
+      if (errorEvent.error?.name !== 'ChunkLoadError' && !errorEvent.message?.includes('Loading chunk')) {
+        // Don't interfere with React's error handling
+        return;
+      }
+    }
+  };
+  
+  window.addEventListener('error', handleError);
+  window.addEventListener('unhandledrejection', handleError);
+  
+  return () => {
+    window.removeEventListener('error', handleError);
+    window.removeEventListener('unhandledrejection', handleError);
+  };
 }
 
 // Enhanced performance monitoring with error tracking
