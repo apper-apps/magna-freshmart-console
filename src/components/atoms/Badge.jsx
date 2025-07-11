@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 const Badge = ({ 
   variant = 'default', 
@@ -42,3 +42,4 @@ const variants = {
 };
 
 export default Badge;
+export { Badge };
