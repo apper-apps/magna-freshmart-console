@@ -65,8 +65,10 @@ const Button = ({
       {!loading && icon && iconPosition === 'right' && (
         <ApperIcon name={icon} size={iconSize} className="ml-2" />
       )}
-    </button>
-);
+</button>
+  );
 };
 
+// Support both import patterns for maximum compatibility
+export { Button };
 export default Button;
