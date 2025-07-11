@@ -47,7 +47,7 @@ const AdminDashboard = () => {
   const [recentOrders, setRecentOrders] = useState([]);
   const [revenueBreakdown, setRevenueBreakdown] = useState([]);
 const [selectedApproval, setSelectedApproval] = useState(null);
-const [approvalComments, setApprovalComments] = useState('');
+  const [approvalComments, setApprovalComments] = useState('');
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showVendorControl, setShowVendorControl] = useState(false);
   const [vendors, setVendors] = useState([]);
