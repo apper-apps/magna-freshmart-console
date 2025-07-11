@@ -213,7 +213,7 @@ class VendorService {
     return { success: true };
   }
 
-  async getAllVendors() {
+async getAllVendors() {
     await this.delay(200);
     
     return this.vendors.map(vendor => ({
@@ -228,7 +228,111 @@ class VendorService {
     }));
   }
 
-  async createVendor(vendorData) {
+  async getAll() {
+    await this.delay(200);
+    return [...this.vendors];
+  }
+
+  async getById(id) {
+    await this.delay(200);
+    
+    const vendor = this.vendors.find(v => v.Id === parseInt(id));
+    if (!vendor) {
+      throw new Error('Vendor not found');
+    }
+    
+    return { ...vendor };
+  }
+
+  async create(vendorData) {
+    await this.delay(400);
+    
+    // Validate required fields
+    if (!vendorData.name || !vendorData.email || !vendorData.password) {
+      throw new Error('Name, email, and password are required');
+    }
+    
+    if (!this.isValidEmail(vendorData.email)) {
+      throw new Error('Invalid email format');
+    }
+    
+    // Check for duplicate email
+    const existingVendor = this.vendors.find(v => 
+      v.email.toLowerCase() === vendorData.email.toLowerCase()
+    );
+    
+    if (existingVendor) {
+      throw new Error('Email already exists');
+    }
+    
+    const newVendor = {
+      Id: this.getNextId(),
+      name: vendorData.name,
+      email: vendorData.email,
+      password: vendorData.password,
+      company: vendorData.company || '',
+      phone: vendorData.phone || '',
+      address: vendorData.address || '',
+      joinDate: new Date().toISOString(),
+      isActive: vendorData.isActive !== undefined ? vendorData.isActive : true,
+      permissions: vendorData.permissions || ['view_products', 'edit_prices'],
+      createdAt: new Date().toISOString()
+    };
+    
+    this.vendors.push(newVendor);
+    return { ...newVendor };
+  }
+
+  async update(id, vendorData) {
+    await this.delay(300);
+    
+    const vendorIndex = this.vendors.findIndex(v => v.Id === parseInt(id));
+    
+    if (vendorIndex === -1) {
+      throw new Error('Vendor not found');
+    }
+    
+    // Validate email if provided
+    if (vendorData.email && !this.isValidEmail(vendorData.email)) {
+      throw new Error('Invalid email format');
+    }
+    
+    // Check for duplicate email
+    if (vendorData.email) {
+      const existingVendor = this.vendors.find(v => 
+        v.email.toLowerCase() === vendorData.email.toLowerCase() && 
+        v.Id !== parseInt(id)
+      );
+      
+      if (existingVendor) {
+        throw new Error('Email already exists');
+      }
+    }
+    
+    this.vendors[vendorIndex] = {
+      ...this.vendors[vendorIndex],
+      ...vendorData,
+      Id: this.vendors[vendorIndex].Id, // Preserve ID
+      lastUpdated: new Date().toISOString()
+    };
+    
+    return { ...this.vendors[vendorIndex] };
+  }
+
+  async delete(id) {
+    await this.delay(300);
+    
+    const vendorIndex = this.vendors.findIndex(v => v.Id === parseInt(id));
+    
+    if (vendorIndex === -1) {
+      throw new Error('Vendor not found');
+    }
+    
+    this.vendors.splice(vendorIndex, 1);
+    return { success: true };
+  }
+
+async createVendor(vendorData) {
     await this.delay(400);
     
     // Validate required fields
@@ -349,9 +453,9 @@ class VendorService {
   isValidPhone(phone) {
     const phoneRegex = /^[\+]?[\d\s\-\(\)]{10,}$/;
     return phoneRegex.test(phone);
-  }
+}
 
-delay(ms = 200) {
+  async delay(ms = 200) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 

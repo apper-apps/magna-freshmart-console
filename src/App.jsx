@@ -80,6 +80,7 @@ const createLazyComponent = (importFn, componentName) => {
 // Lazy load heavy components for better performance with error handling
 const AdminDashboard = createLazyComponent(() => import('@/components/pages/AdminDashboard'), 'Admin Dashboard');
 const ProductManagement = createLazyComponent(() => import('@/components/pages/ProductManagement'), 'Product Management');
+const VendorManagement = createLazyComponent(() => import('@/components/pages/VendorManagement'), 'Vendor Management');
 const Analytics = createLazyComponent(() => import('@/components/pages/Analytics'), 'Analytics');
 const FinancialDashboard = createLazyComponent(() => import('@/components/pages/FinancialDashboard'), 'Financial Dashboard');
 const POS = createLazyComponent(() => import('@/components/pages/POS'), 'POS');
@@ -319,6 +320,13 @@ return (
                     <LazyErrorBoundary>
                       <Suspense fallback={<Loading type="page" />}>
                         <ProductManagement />
+                      </Suspense>
+</LazyErrorBoundary>
+                  } />
+                  <Route path="admin/vendors" element={
+                    <LazyErrorBoundary>
+                      <Suspense fallback={<Loading type="page" />}>
+                        <VendorManagement />
                       </Suspense>
                     </LazyErrorBoundary>
                   } />
