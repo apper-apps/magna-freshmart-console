@@ -393,7 +393,8 @@ console.error('Error calculating financial health:', error);
 
   // Image validation and processing methods
   // Enhanced image validation with watermark/text detection and quality assessment
-  async validateImage(file) {
+async validateImage(file) {
+    let objectUrl = null;
     try {
       // Basic file validation
       if (!file || !file.type.startsWith('image/')) {
@@ -411,62 +412,90 @@ console.error('Error calculating financial health:', error);
       const ctx = canvas.getContext('2d');
       
       return new Promise((resolve) => {
+        const cleanup = () => {
+          if (objectUrl) {
+            URL.revokeObjectURL(objectUrl);
+            objectUrl = null;
+          }
+        };
+
         img.onload = async () => {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.drawImage(img, 0, 0);
-          
-          // Resolution validation
-          if (img.width < 200 || img.height < 200) {
-            resolve({ isValid: false, error: 'Image resolution too low. Minimum 200x200px required' });
-            return;
-          }
-          
-          // Get image data for analysis
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          
-          // Enhanced blur detection using image variance
-          const variance = this.calculateImageVariance(imageData.data);
-          if (variance < 150) {
-            resolve({ isValid: false, error: 'Image appears to be too blurry or low quality. Please use a sharper image' });
-            return;
-          }
-          
-          // Text/watermark detection using edge density analysis
-          const textDetection = this.detectTextWatermarks(imageData.data, canvas.width, canvas.height);
-          if (textDetection.hasText) {
+          try {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+            
+            // Resolution validation
+            if (img.width < 200 || img.height < 200) {
+              cleanup();
+              resolve({ isValid: false, error: 'Image resolution too low. Minimum 200x200px required' });
+              return;
+            }
+            
+            // Get image data for analysis
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            
+            // Enhanced blur detection using image variance
+            const variance = this.calculateImageVariance(imageData.data);
+            if (variance < 150) {
+              cleanup();
+              resolve({ isValid: false, error: 'Image appears to be too blurry or low quality. Please use a sharper image' });
+              return;
+            }
+            
+            // Text/watermark detection using edge density analysis
+            const textDetection = this.detectTextWatermarks(imageData.data, canvas.width, canvas.height);
+            if (textDetection.hasText) {
+              cleanup();
+              resolve({ 
+                isValid: false, 
+                error: `Watermarks or text detected in image. Confidence: ${textDetection.confidence}%. Please use a clean product image without text overlays` 
+              });
+              return;
+            }
+            
+            // Additional quality checks
+            const qualityAssessment = this.assessImageQuality(imageData.data, canvas.width, canvas.height);
+            if (qualityAssessment.score < 0.6) {
+              cleanup();
+              resolve({ 
+                isValid: false, 
+                error: `Image quality too low (Score: ${Math.round(qualityAssessment.score * 100)}%). Please use a higher quality image` 
+              });
+              return;
+            }
+            
+            cleanup();
             resolve({ 
-              isValid: false, 
-              error: `Watermarks or text detected in image. Confidence: ${textDetection.confidence}%. Please use a clean product image without text overlays` 
+              isValid: true, 
+              qualityScore: qualityAssessment.score,
+              variance: variance,
+              textConfidence: textDetection.confidence
             });
-            return;
+          } catch (error) {
+            cleanup();
+            resolve({ isValid: false, error: 'Failed to process image for validation' });
           }
-          
-          // Additional quality checks
-          const qualityAssessment = this.assessImageQuality(imageData.data, canvas.width, canvas.height);
-          if (qualityAssessment.score < 0.6) {
-            resolve({ 
-              isValid: false, 
-              error: `Image quality too low (Score: ${Math.round(qualityAssessment.score * 100)}%). Please use a higher quality image` 
-            });
-            return;
-          }
-          
-          resolve({ 
-            isValid: true, 
-            qualityScore: qualityAssessment.score,
-            variance: variance,
-            textConfidence: textDetection.confidence
-          });
         };
         
-img.onerror = () => {
+        img.onerror = () => {
+          cleanup();
           resolve({ isValid: false, error: 'Invalid or corrupted image file' });
         };
-        img.src = URL.createObjectURL(file);
+
+        try {
+          objectUrl = URL.createObjectURL(file);
+          img.src = objectUrl;
+        } catch (error) {
+          cleanup();
+          resolve({ isValid: false, error: 'Failed to create image URL for validation' });
+        }
       });
       
     } catch (error) {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
       return { isValid: false, error: 'Failed to validate image' };
     }
   }
@@ -600,7 +629,8 @@ img.onerror = () => {
   }
 
   // Process and optimize image
-  async processImage(file, options = {}) {
+async processImage(file, options = {}) {
+    let inputObjectUrl = null;
     try {
       const {
         targetSize = { width: 600, height: 600 },
@@ -613,44 +643,93 @@ img.onerror = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         
-        img.onload = () => {
-          // Calculate dimensions maintaining aspect ratio
-          let { width, height } = this.calculateOptimalDimensions(
-            img.width, 
-            img.height, 
-            targetSize.width, 
-            targetSize.height
-          );
-          
-          canvas.width = width;
-          canvas.height = height;
-          
-          // Draw and compress image
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(0, 0, width, height);
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          // Convert to blob with compression
-          canvas.toBlob((blob) => {
-            if (blob.size <= maxFileSize) {
-              const url = URL.createObjectURL(blob);
-              resolve({ url, blob, size: blob.size });
-            } else {
-              // Reduce quality if file is too large
-              const reducedQuality = Math.max(0.1, quality - 0.2);
-              canvas.toBlob((reducedBlob) => {
-                const url = URL.createObjectURL(reducedBlob);
-                resolve({ url, blob: reducedBlob, size: reducedBlob.size });
-              }, 'image/webp', reducedQuality);
-            }
-          }, 'image/webp', quality);
+        const cleanup = () => {
+          if (inputObjectUrl) {
+            URL.revokeObjectURL(inputObjectUrl);
+            inputObjectUrl = null;
+          }
         };
         
-        img.onerror = () => reject(new Error('Failed to process image'));
-        img.src = URL.createObjectURL(file);
+        img.onload = () => {
+          try {
+            // Calculate dimensions maintaining aspect ratio
+            let { width, height } = this.calculateOptimalDimensions(
+              img.width, 
+              img.height, 
+              targetSize.width, 
+              targetSize.height
+            );
+            
+            canvas.width = width;
+            canvas.height = height;
+            
+            // Draw and compress image
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Convert to blob with compression
+            canvas.toBlob((blob) => {
+              if (!blob) {
+                cleanup();
+                reject(new Error('Failed to create blob from canvas'));
+                return;
+              }
+
+              if (blob.size <= maxFileSize) {
+                try {
+                  const outputUrl = URL.createObjectURL(blob);
+                  cleanup();
+                  resolve({ url: outputUrl, blob, size: blob.size });
+                } catch (error) {
+                  cleanup();
+                  reject(new Error('Failed to create output URL'));
+                }
+              } else {
+                // Reduce quality if file is too large
+                const reducedQuality = Math.max(0.1, quality - 0.2);
+                canvas.toBlob((reducedBlob) => {
+                  if (!reducedBlob) {
+                    cleanup();
+                    reject(new Error('Failed to create reduced quality blob'));
+                    return;
+                  }
+
+                  try {
+                    const outputUrl = URL.createObjectURL(reducedBlob);
+                    cleanup();
+                    resolve({ url: outputUrl, blob: reducedBlob, size: reducedBlob.size });
+                  } catch (error) {
+                    cleanup();
+                    reject(new Error('Failed to create reduced quality URL'));
+                  }
+                }, 'image/webp', reducedQuality);
+              }
+            }, 'image/webp', quality);
+          } catch (error) {
+            cleanup();
+            reject(new Error(`Failed to process image: ${error.message}`));
+          }
+        };
+        
+        img.onerror = () => {
+          cleanup();
+          reject(new Error('Failed to load image for processing'));
+        };
+
+        try {
+          inputObjectUrl = URL.createObjectURL(file);
+          img.src = inputObjectUrl;
+        } catch (error) {
+          cleanup();
+          reject(new Error('Failed to create input URL for image processing'));
+        }
       });
       
     } catch (error) {
+      if (inputObjectUrl) {
+        URL.revokeObjectURL(inputObjectUrl);
+      }
       console.error('Error processing image:', error);
       throw new Error('Failed to process image');
     }

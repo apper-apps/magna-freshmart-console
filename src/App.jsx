@@ -148,16 +148,31 @@ function App() {
   }, [checkSDKStatus]);
 
 // Lightweight error handling - don't block the app for SDK errors
-  useEffect(() => {
+useEffect(() => {
     const handleError = (event) => {
       if (event.reason?.message?.includes('Apper') || event.error?.message?.includes('Apper')) {
         console.warn('SDK error detected but not blocking app:', event);
         // Don't set SDK error state - just log it
       }
+      
+      // Handle DataCloneError specifically for postMessage operations
+      if (event.reason?.name === 'DataCloneError' || event.error?.name === 'DataCloneError') {
+        console.warn('DataCloneError detected - likely from postMessage with non-cloneable objects:', event);
+        // Log the error but don't crash the app
+      }
+    };
+
+    const handleMessageError = (event) => {
+      console.warn('Message error detected:', event);
+      // Handle postMessage errors gracefully
     };
     
     window.addEventListener('unhandledrejection', handleError);
-    return () => window.removeEventListener('unhandledrejection', handleError);
+    window.addEventListener('messageerror', handleMessageError);
+    return () => {
+      window.removeEventListener('unhandledrejection', handleError);
+      window.removeEventListener('messageerror', handleMessageError);
+    };
   }, []);
 // Memoized SDK utilities for performance
   const sdkUtils = useMemo(() => ({

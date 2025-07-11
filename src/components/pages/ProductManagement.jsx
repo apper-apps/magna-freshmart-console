@@ -2464,7 +2464,7 @@ const ImageUploadSystem = ({
   const [cropData, setCropData] = useState({ x: 0, y: 0, width: 100, height: 100 });
   const fileInputRef = useRef(null);
 
-  // Handle image selection from search results or AI generation
+// Handle image selection from search results or AI generation
   const handleImageSelect = (imageUrl, attribution = null) => {
     try {
       if (!imageUrl) {
@@ -2472,15 +2472,18 @@ const ImageUploadSystem = ({
         return;
       }
       
+      // Ensure we're working with a string URL for safe serialization
+      const urlString = typeof imageUrl === 'string' ? imageUrl : imageUrl.toString();
+      
       setImageData(prev => ({ 
         ...prev, 
-        selectedImage: imageUrl, 
+        selectedImage: urlString, 
         attribution,
         isProcessing: false 
       }));
       
       if (onImageSelect) {
-        onImageSelect(imageUrl, attribution);
+        onImageSelect(urlString, attribution);
       }
       
       toast.success('Image selected successfully!');
@@ -2670,7 +2673,7 @@ const ImageUploadSystem = ({
 
           {/* Image Preview & Cropping */}
           {imageData.selectedImage && (
-            <div className="space-y-4">
+<div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h4 className="font-medium text-gray-900">Image Preview</h4>
                 <div className="flex space-x-2">
@@ -2679,7 +2682,17 @@ const ImageUploadSystem = ({
                     variant="ghost"
                     size="sm"
                     icon="RotateCcw"
-                    onClick={() => setImageData(prev => ({ ...prev, selectedImage: null, croppedImage: null }))}
+                    onClick={() => {
+                      // Clean up URL if it's a blob URL
+                      if (imageData.selectedImage && imageData.selectedImage.startsWith('blob:')) {
+                        try {
+                          URL.revokeObjectURL(imageData.selectedImage);
+                        } catch (error) {
+                          console.warn('Failed to revoke URL:', error);
+                        }
+                      }
+                      setImageData(prev => ({ ...prev, selectedImage: null, croppedImage: null }));
+                    }}
                   >
                     Remove
                   </Button>
