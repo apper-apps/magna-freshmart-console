@@ -1733,7 +1733,7 @@ lowStockCount: 0
     }
   }
 
-  async getVendorOrdersStats(vendorId) {
+async getVendorOrdersStats(vendorId) {
     await this.delay(200);
     
     try {
@@ -1751,15 +1751,6 @@ lowStockCount: 0
       
       return stats;
       
-    } catch (error) {
-      console.error('Error getting vendor order stats:', error);
-      return {
-        totalOrders: 0,
-        pendingPacking: 0,
-        packedOrders: 0,
-        totalValue: 0,
-        averageOrderValue: 0
-};
     } catch (error) {
       console.error('Error getting vendor order stats:', error);
       return {
