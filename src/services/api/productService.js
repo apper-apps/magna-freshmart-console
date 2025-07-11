@@ -1,7 +1,4 @@
-import React from "react";
-import Error from "@/components/ui/Error";
 import productsData from "@/services/mockData/products.json";
-
 class ProductService {
   constructor() {
     this.products = [...productsData];
@@ -1762,8 +1759,16 @@ lowStockCount: 0
         packedOrders: 0,
         totalValue: 0,
         averageOrderValue: 0
-      };
 };
+    } catch (error) {
+      console.error('Error getting vendor order stats:', error);
+      return {
+        totalOrders: 0,
+        pendingPacking: 0,
+        packedOrders: 0,
+        totalValue: 0,
+        averageOrderValue: 0
+      };
     }
   }
 
