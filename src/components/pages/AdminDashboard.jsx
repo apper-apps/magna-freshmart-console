@@ -12,11 +12,11 @@ import Button from "@/components/atoms/Button";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import Orders from "@/components/pages/Orders";
+import Orders from "@/components/pages/Orders";
 import { orderService } from "@/services/api/orderService";
 import { approvalWorkflowService } from "@/services/api/approvalWorkflowService";
 import webSocketService from "@/services/api/websocketService";
 import { reportService } from "@/services/api/reportService";
-import { vendorService } from "@/services/api/vendorService";
 import { productService } from "@/services/api/productService";
 import { notificationService } from "@/services/api/notificationService";
 import { paymentService } from "@/services/api/paymentService";
@@ -567,8 +567,8 @@ const priorityConfig = {
             {quickActions.map((action) => {
               const badgeCount = notificationCounts[action.notificationKey] || 0;
               const priorityInfo = priorityConfig[action.priority];
-              return (
-{action.isAction ? (
+return (
+                {action.isAction ? (
                   <button
                     key={action.path}
                     onClick={() => action.path === '#vendor-control' && setShowVendorControl(!showVendorControl)}
