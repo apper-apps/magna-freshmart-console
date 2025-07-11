@@ -405,7 +405,7 @@ const sendSafeMessage = (targetWindow, message, targetOrigin = "*") => {
 // Enhanced message handler for external SDK communication
 const setupMessageHandler = () => {
   const messageQueue = [];
-  const processingQueue = false;
+  let processingQueue = false;
   
   const processMessageQueue = async () => {
     if (processingQueue || messageQueue.length === 0) return;
