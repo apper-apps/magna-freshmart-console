@@ -1,11 +1,13 @@
-import React, { memo, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
-import { toast } from 'react-toastify';
-import ApperIcon from '@/components/ApperIcon';
-import Button from '@/components/atoms/Button';
-import Badge from '@/components/atoms/Badge';
-import { addToCart, setLoading, selectCartLoading } from '@/store/cartSlice';
+import React, { useCallback, memo, useMemo } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import { Heart, ShoppingCart, Star } from "lucide-react";
+import { toast } from "react-toastify";
+import formatCurrency from "@/utils/currency";
+import { addToCart, selectCartLoading, setLoading } from "@/store/cartSlice";
+import ApperIcon from "@/components/ApperIcon";
+import Badge from "@/components/atoms/Badge";
+import Button from "@/components/atoms/Button";
 
 const ProductCard = memo(({ product }) => {
   const navigate = useNavigate();

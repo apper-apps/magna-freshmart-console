@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { toast } from "react-toastify";
+import { useDispatch, useSelector } from "react-redux";
+import { CreditCard, DollarSign, Minus, Plus, ShoppingCart, Smartphone, Trash2 } from "lucide-react";
+import { formatCurrency } from "@/utils/currency";
+import { addToCart, clearCart, removeFromCart, updateQuantity } from "@/store/cartSlice";
 import ApperIcon from "@/components/ApperIcon";
 import Button from "@/components/atoms/Button";
 import Input from "@/components/atoms/Input";
@@ -130,36 +133,36 @@ useEffect(() => {
     ]);
   };
 
-  const addCustomer = async () => {
-    if (!newCustomer.name || !newCustomer.phone) {
-      toast.error('Name and phone are required');
-      return;
-    }
-    
-    const customer = {
-      Id: customers.length + 1,
-      ...newCustomer,
-      totalPurchases: 0,
-      lastVisit: new Date().toISOString().split('T')[0]
-    };
-    
-    setCustomers([...customers, customer]);
-    setNewCustomer({ name: '', phone: '', email: '', address: '' });
-    toast.success('Customer added successfully');
+const addCustomer = async () => {
+  if (!newCustomer?.name || !newCustomer?.phone) {
+    console.error('Name and phone are required');
+    return;
+  }
+  
+  const customer = {
+    Id: customers.length + 1,
+    ...newCustomer,
+    totalPurchases: 0,
+    lastVisit: new Date().toISOString().split('T')[0]
   };
+  
+  setCustomers([...customers, customer]);
+  setNewCustomer({ name: '', phone: '', email: '', address: '' });
+  console.log('Customer added successfully');
+};
 
-  const selectCustomer = (customer) => {
-    setSelectedCustomer(customer);
-    setShowCustomerModal(false);
-    toast.success(`Customer ${customer.name} selected`);
-  };
+const selectCustomer = (customer) => {
+  if (!customer) return;
+  setSelectedCustomer(customer);
+  setShowCustomerModal(false);
+  console.log(`Customer ${customer.name} selected`);
+};
 
-  const bulkUpdateStock = async () => {
-    if (selectedProducts.length === 0 || !bulkAction) {
-      toast.error('Please select products and action');
-      return;
-    }
-    
+const bulkUpdateStock = async () => {
+  if (selectedProducts.length === 0 || !bulkAction) {
+    console.error('Please select products and action');
+    return;
+  }
     try {
       for (const productId of selectedProducts) {
         const product = products.find(p => p.id === productId);
@@ -174,14 +177,14 @@ useEffect(() => {
         }
       }
       
-      await loadProducts();
-      setSelectedProducts([]);
-      setBulkAction('');
-      toast.success(`Bulk action applied to ${selectedProducts.length} products`);
-    } catch (error) {
-      toast.error('Error updating stock');
-    }
-  };
+await loadProducts();
+    setSelectedProducts([]);
+    setBulkAction('');
+    console.log(`Bulk action applied to ${selectedProducts.length} products`);
+  } catch (error) {
+    console.error('Error updating stock:', error);
+  }
+};
 
   const getFilteredProducts = () => {
     let filtered = products;
@@ -211,57 +214,66 @@ const filterProducts = () => {
     setFilteredProducts(filtered);
   };
 
-  const handleBarcodeScan = async (barcode) => {
-    try {
-      const product = await productService.getByBarcode(barcode);
-      if (product) {
-        addToCart(product);
-        toast.success(`${product.name} added to cart`);
-      } else {
-        toast.error('Product not found');
-      }
-    } catch (err) {
-      toast.error('Error finding product');
-    }
-    setShowBarcodeScanner(false);
-  };
-
-  const addToCart = (product) => {
-    const existingItem = cart.find(item => item.id === product.id);
-    
-    if (existingItem) {
-      if (existingItem.quantity >= product.stock) {
-        toast.error('Insufficient stock');
-        return;
-      }
-      setCart(cart.map(item =>
-        item.id === product.id
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      ));
+const handleBarcodeScan = async (barcode) => {
+  try {
+    const product = await productService.getByBarcode(barcode);
+    if (product) {
+      addToCart(product);
+      console.log(`${product.name} added to cart`);
     } else {
-      setCart([...cart, { ...product, quantity: 1 }]);
+      console.error('Product not found');
     }
-  };
-
-  const updateQuantity = (productId, newQuantity) => {
-    if (newQuantity <= 0) {
-      setCart(cart.filter(item => item.id !== productId));
+  } catch (err) {
+    console.error('Error finding product:', err);
+  }
+  setShowBarcodeScanner(false);
+};
+const addToCart = (product) => {
+  if (!product || !product.id) {
+    console.error('Invalid product');
+    return;
+  }
+  
+  const existingItem = cart.find(item => item.id === product.id);
+  
+  if (existingItem) {
+    if (existingItem.quantity >= product.stock) {
+      console.error('Insufficient stock');
       return;
     }
-
-    const product = products.find(p => p.id === productId);
-    if (newQuantity > product.stock) {
-      toast.error('Insufficient stock');
-      return;
-    }
-
     setCart(cart.map(item =>
-      item.id === productId
-        ? { ...item, quantity: newQuantity }
+      item.id === product.id
+        ? { ...item, quantity: item.quantity + 1 }
         : item
     ));
-  };
+  } else {
+    setCart([...cart, { ...product, quantity: 1 }]);
+  }
+};
+
+const updateQuantity = (productId, newQuantity) => {
+  if (newQuantity <= 0) {
+    setCart(cart.filter(item => item.id !== productId));
+    return;
+  }
+
+  const product = products.find(p => p.id === productId);
+  if (!product) {
+    console.error('Product not found');
+    return;
+  }
+  
+  if (newQuantity > product.stock) {
+    console.error('Insufficient stock');
+    return;
+  }
+
+  setCart(cart.map(item =>
+    item.id === productId
+      ? { ...item, quantity: newQuantity }
+      : item
+  ));
+};
 
   const removeFromCart = (productId) => {
     setCart(cart.filter(item => item.id !== productId));
@@ -278,18 +290,18 @@ const filterProducts = () => {
   };
 
 const processPayment = async () => {
-    if (cart.length === 0) {
-      toast.error('Cart is empty');
-      return;
-    }
+  if (cart.length === 0) {
+    console.error('Cart is empty');
+    return;
+  }
 
-    const total = getTotal();
-    const paid = parseFloat(customerPaid) || 0;
+  const total = getTotal();
+  const paid = parseFloat(customerPaid) || 0;
 
-    if (paymentType === 'cash' && paid < total) {
-      toast.error('Insufficient payment amount');
-      return;
-    }
+  if (paymentType === 'cash' && paid < total) {
+    console.error('Insufficient payment amount');
+    return;
+  }
 
     try {
       setProcessingPayment(true);
@@ -312,9 +324,8 @@ const processPayment = async () => {
             paymentResult = await paymentService.processDigitalWalletPayment(paymentType, total, `POS-${Date.now()}`, '03001234567');
           } else if (paymentType === 'bank') {
             paymentResult = await paymentService.processBankTransfer(total, `POS-${Date.now()}`, {});
-          }
-        } catch (paymentError) {
-          toast.error(paymentError.message);
+} catch (paymentError) {
+          console.error('Payment error:', paymentError);
           setProcessingPayment(false);
           return;
         }
@@ -364,23 +375,23 @@ const transactionData = {
       await loadProducts();
       await loadDashboardData(); // Refresh dashboard data
       
-      if (paymentType === 'cash') {
-        toast.success('Payment processed successfully!');
-      } else {
-        toast.success(`${paymentType.toUpperCase()} payment processed successfully!`);
-      }
-      
-      // Handle receipt printing based on configuration
-      if (receiptConfig.autoPrint) {
-        printReceipt(transactionData);
-      } else {
-        showReceiptPreviewModal(transactionData);
-      }
-    } catch (err) {
-      toast.error('Payment processing failed');
-    } finally {
-      setProcessingPayment(false);
+if (paymentType === 'cash') {
+      console.log('Payment processed successfully!');
+    } else {
+      console.log(`${paymentType.toUpperCase()} payment processed successfully!`);
     }
+    
+    // Handle receipt printing based on configuration
+    if (receiptConfig?.autoPrint) {
+      printReceipt(transactionData);
+    } else {
+      showReceiptPreviewModal(transactionData);
+    }
+  } catch (err) {
+    console.error('Payment processing failed:', err);
+  } finally {
+    setProcessingPayment(false);
+  }
   };
 
 const generateReceiptHTML = (transaction) => {
@@ -540,11 +551,11 @@ const generateReceiptHTML = (transaction) => {
       const receiptHTML = generateReceiptHTML(transaction);
       const receiptWindow = window.open('', '_blank', 'width=400,height=600');
       
-      if (!receiptWindow) {
-        toast.error('Please allow pop-ups to print receipts');
-        setPrintStatus('');
-        return;
-      }
+if (!receiptWindow) {
+      console.error('Please allow pop-ups to print receipts');
+      setPrintStatus('');
+      return;
+    }
 
       receiptWindow.document.write(receiptHTML);
       receiptWindow.document.close();
@@ -552,23 +563,22 @@ const generateReceiptHTML = (transaction) => {
       receiptWindow.onload = () => {
         setPrintStatus('Printing...');
         setTimeout(() => {
-          receiptWindow.print();
-          setPrintStatus('');
-          toast.success('Receipt printed successfully');
-        }, 500);
-      };
+receiptWindow.print();
+        setPrintStatus('');
+        console.log('Receipt printed successfully');
+      }, 500);
+    };
 
-      receiptWindow.onafterprint = () => {
-        receiptWindow.close();
-      };
+    receiptWindow.onafterprint = () => {
+      receiptWindow.close();
+    };
 
-      setLastTransaction(transaction);
-      
-    } catch (error) {
-      setPrintStatus('');
-      toast.error('Failed to print receipt');
-      console.error('Print error:', error);
-    }
+    setLastTransaction(transaction);
+    
+  } catch (error) {
+    setPrintStatus('');
+    console.error('Failed to print receipt:', error);
+  }
   };
 
   const showReceiptPreviewModal = (transaction) => {
@@ -583,13 +593,13 @@ const generateReceiptHTML = (transaction) => {
     }
   };
 
-  const reprintLastReceipt = () => {
-    if (lastTransaction) {
-      printReceipt(lastTransaction);
-    } else {
-      toast.error('No previous receipt to reprint');
-    }
-  };
+const reprintLastReceipt = () => {
+  if (lastTransaction) {
+    printReceipt(lastTransaction);
+  } else {
+    console.error('No previous receipt to reprint');
+  }
+};
 
   if (loading) {
     return (
@@ -1273,10 +1283,10 @@ return (
               </Button>
               <Button
                 variant="primary"
-                onClick={() => {
-                  setShowReceiptConfig(false);
-                  toast.success('Receipt configuration saved');
-                }}
+onClick={() => {
+                setShowReceiptConfig(false);
+                console.log('Receipt configuration saved');
+              }}
                 className="flex-1"
               >
                 Save Configuration

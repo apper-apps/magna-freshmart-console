@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { CreditCard, Mail, MapPin, Phone, User } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
+import { formatCurrency } from "@/utils/currency";
+import { clearCart } from "@/store/cartSlice";
 import ApperIcon from "@/components/ApperIcon";
 import Button from "@/components/atoms/Button";
 import Input from "@/components/atoms/Input";
@@ -12,12 +15,13 @@ import PaymentMethod from "@/components/molecules/PaymentMethod";
 import { orderService } from "@/services/api/orderService";
 import { productService } from "@/services/api/productService";
 import { paymentService } from "@/services/api/paymentService";
+import { toast } from "react-hot-toast";
 function Checkout() {
-  const navigate = useNavigate()
-const { cart, clearCart } = useCart()
-  const [loading, setLoading] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState('cash')
-  const [availablePaymentMethods, setAvailablePaymentMethods] = useState([])
+  const navigate = useNavigate();
+  const { cart, clearCart } = useCart();
+  const [loading, setLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
   const [gatewayConfig, setGatewayConfig] = useState({})
   const [formData, setFormData] = useState({
     name: '',
@@ -75,35 +79,35 @@ const { cart, clearCart } = useCart()
 
 // Load available payment methods from admin configuration
   React.useEffect(() => {
-    loadPaymentMethods()
-  }, [])
-
-  async function loadPaymentMethods() {
+    loadPaymentMethods();
+  }, []);
+async function loadPaymentMethods() {
     try {
-      const methods = await paymentService.getAvailablePaymentMethods()
-      const config = await paymentService.getGatewayConfig()
-      setAvailablePaymentMethods(methods.filter(method => method.enabled))
-      setGatewayConfig(config)
+      const methods = await paymentService.getAvailablePaymentMethods();
+      const config = await paymentService.getGatewayConfig();
+      const enabledMethods = methods?.filter(method => method?.enabled) || [];
+      setAvailablePaymentMethods(enabledMethods);
+      setGatewayConfig(config || {});
       
       // Set default payment method to first enabled method
-      if (methods.length > 0) {
-        setPaymentMethod(methods[0].id)
+      if (enabledMethods.length > 0) {
+        setPaymentMethod(enabledMethods[0].id);
       }
     } catch (error) {
-      console.error('Failed to load payment methods:', error)
-      toast.error('Failed to load payment options')
+      console.error('Failed to load payment methods:', error);
+      toast.error('Failed to load payment options');
     }
   }
 
-  function calculateGatewayFee() {
-    const selectedMethod = availablePaymentMethods.find(method => method.id === paymentMethod)
-    if (!selectedMethod || !selectedMethod.fee) return 0
+function calculateGatewayFee() {
+    const selectedMethod = availablePaymentMethods.find(method => method?.id === paymentMethod);
+    if (!selectedMethod || !selectedMethod.fee) return 0;
     
     const feeAmount = typeof selectedMethod.fee === 'number' 
       ? selectedMethod.fee * subtotal 
-      : selectedMethod.fee
+      : selectedMethod.fee;
     
-    return Math.max(feeAmount, selectedMethod.minimumFee || 0)
+    return Math.max(feeAmount, selectedMethod.minimumFee || 0);
   }
   function handleInputChange(e) {
     const { name, value } = e.target
@@ -366,12 +370,11 @@ status: paymentMethod === 'cash' ? 'confirmed' : 'payment_pending',
       setLoading(true)
       let paymentResult = null
 // Process payment based on admin-managed gateway configuration
-      const selectedGateway = availablePaymentMethods.find(method => method.id === paymentMethod)
+      const selectedGateway = availablePaymentMethods.find(method => method?.id === paymentMethod);
       
       if (!selectedGateway || !selectedGateway.enabled) {
-        throw new Error(`Payment method ${paymentMethod} is not available`)
+        throw new Error(`Payment method ${paymentMethod} is not available`);
       }
-
 if (paymentMethod === 'card') {
         paymentResult = await paymentService.processCardPayment(
           { 
@@ -391,23 +394,23 @@ if (paymentMethod === 'card') {
           formData.phone
         )
 } else if (paymentMethod === 'wallet') {
-        paymentResult = await paymentService.processWalletPayment(total, Date.now())
+        paymentResult = await paymentService.processWalletPayment(total, Date.now());
         
         // Record wallet transaction for order payment
-        if (paymentResult.status === 'completed') {
+        if (paymentResult?.status === 'completed') {
           await paymentService.recordWalletTransaction({
             type: 'order_payment',
             amount: -total, // Negative because it's a payment (deduction)
-            description: `Order payment for ${validatedItems.length} items`,
+            description: `Order payment for ${cart?.length || 0} items`,
             reference: paymentResult.transactionId,
             orderId: Date.now(),
             transactionId: paymentResult.transactionId,
             status: 'completed',
             metadata: {
-              itemCount: validatedItems.length,
-              originalAmount: validatedSubtotal,
-              dealSavings: validatedDealSavings,
-              deliveryCharge: validatedDeliveryCharge
+              itemCount: cart?.length || 0,
+              originalAmount: originalSubtotal,
+              dealSavings: dealSavings,
+              deliveryCharge: deliveryCharge
             }
           });
         }
@@ -836,8 +839,7 @@ if (paymentMethod === 'card') {
           </div>
         </div>
 </div>
-    </div>
-  )
+  );
 }
 
-export default Checkout
+export default Checkout;

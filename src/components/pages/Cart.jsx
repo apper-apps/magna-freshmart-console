@@ -1,11 +1,15 @@
-import React, { useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
-import ApperIcon from '@/components/ApperIcon';
-import Button from '@/components/atoms/Button';
-import CartItem from '@/components/molecules/CartItem';
-import Empty from '@/components/ui/Empty';
-import { selectCartItems, selectCartTotal, selectCartItemCount, clearCart, validateCartPrices } from '@/store/cartSlice';
+import React, { useEffect } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowRight, ShoppingBag } from "lucide-react";
+import { useCart } from "@/hooks/useCart";
+import { formatCurrency } from "@/utils/currency";
+import { selectCartItemCount, selectCartItems, selectCartTotal, validateCartPrices, clearCart } from "@/store/cartSlice";
+import ApperIcon from "@/components/ApperIcon";
+import Button from "@/components/atoms/Button";
+import Empty from "@/components/ui/Empty";
+import Checkout from "@/components/pages/Checkout";
+import CartItem from "@/components/molecules/CartItem";
 
 const Cart = () => {
   const navigate = useNavigate();

@@ -1,8 +1,8 @@
-import 'react-toastify/dist/ReactToastify.css';
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { ToastContainer } from "react-toastify";
-import { Provider, useDispatch } from "react-redux";
+import 'react-toastify/dist/ReactToastify.css'
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { ToastContainer } from 'react-toastify'
+import { Provider, useDispatch } from 'react-redux'
 import { PersistGate } from "redux-persist/integration/react";
 import { persistor, store } from "@/store/index";
 import { webSocketService } from "@/services/api/websocketService";

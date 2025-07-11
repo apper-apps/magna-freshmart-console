@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import { useParams, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { Heart, Minus, Plus, ShoppingCart, Star } from "lucide-react";
 import { formatCurrency } from "@/utils/currency";
-import { useCart } from "@/hooks/useCart";
+import { addToCart } from "@/store/cartSlice";
 import ApperIcon from "@/components/ApperIcon";
 import Badge from "@/components/atoms/Badge";
 import Button from "@/components/atoms/Button";
@@ -10,6 +11,8 @@ import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import Cart from "@/components/pages/Cart";
 import { productService } from "@/services/api/productService";
+import { useCart } from "@/hooks/useCart";
+import { toast } from "react-hot-toast";
 const ProductDetail = () => {
   const { productId } = useParams();
   const navigate = useNavigate();

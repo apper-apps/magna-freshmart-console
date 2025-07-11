@@ -1,10 +1,11 @@
-import React from 'react';
-import { useDispatch } from 'react-redux';
-import { toast } from 'react-toastify';
-import ApperIcon from '@/components/ApperIcon';
-import Button from '@/components/atoms/Button';
-import { updateQuantity, removeFromCart, updateQuantityWithValidation } from '@/store/cartSlice';
-
+import React from "react";
+import { useDispatch } from "react-redux";
+import { Minus, Plus, Trash2 } from "lucide-react";
+import { toast } from "react-hot-toast";
+import { formatCurrency } from "@/utils/currency";
+import { removeFromCart, updateQuantity, updateQuantityWithValidation } from "@/store/cartSlice";
+import ApperIcon from "@/components/ApperIcon";
+import Button from "@/components/atoms/Button";
 const CartItem = ({ item }) => {
   const dispatch = useDispatch();
 
