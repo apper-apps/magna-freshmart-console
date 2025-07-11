@@ -19,7 +19,7 @@ import webSocketService from "@/services/api/websocketService";
 import { reportService } from "@/services/api/reportService";
 import { vendorService } from "@/services/api/vendorService";
 import { productService } from "@/services/api/productService";
-import { paymentService } from "@/services/api/paymentService";
+import { notificationService } from "@/services/api/notificationService";
 
 const AdminDashboard = () => {
   const dispatch = useDispatch();
