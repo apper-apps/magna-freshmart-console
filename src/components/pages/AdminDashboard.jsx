@@ -15,10 +15,10 @@ import Orders from "@/components/pages/Orders";
 import Orders from "@/components/pages/Orders";
 import { orderService } from "@/services/api/orderService";
 import { approvalWorkflowService } from "@/services/api/approvalWorkflowService";
-import { webSocketService } from "@/services/api/websocketService";
+import webSocketService from "@/services/api/websocketService";
 import { reportService } from "@/services/api/reportService";
-import { vendorService } from "@/services/api/vendorService";
 import { productService } from "@/services/api/productService";
+import { notificationService } from "@/services/api/notificationService";
 import { paymentService } from "@/services/api/paymentService";
 
 const AdminDashboard = () => {
