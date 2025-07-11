@@ -22,7 +22,7 @@ function Checkout() {
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
-  const [gatewayConfig, setGatewayConfig] = useState({})
+const [gatewayConfig, setGatewayConfig] = useState({});
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -31,10 +31,10 @@ function Checkout() {
     city: '',
     postalCode: '',
     instructions: ''
-})
-  const [paymentProof, setPaymentProof] = useState(null)
+});
+const [paymentProof, setPaymentProof] = useState(null);
   const [transactionId, setTransactionId] = useState('')
-  const [errors, setErrors] = useState({})
+const [errors, setErrors] = useState({});
 
 // Calculate totals with validated pricing and deals
   const calculateCartTotals = () => {
@@ -839,8 +839,7 @@ if (paymentMethod === 'card') {
 </div>
         </div>
       </div>
-    );
+);
   }
-}
 
 export default Checkout;
