@@ -1,5 +1,5 @@
 import './index.css'
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { Provider } from "react-redux";
 import { ToastContainer } from "react-toastify";
@@ -25,20 +25,54 @@ if (typeof CustomEvent === 'undefined') {
   window.CustomEvent = function(event, params) {
     params = params || { bubbles: false, cancelable: false, detail: null };
     const evt = document.createEvent('CustomEvent');
-    evt.initCustomEvent(event, params.bubbles, params.cancelable, params.detail);
+evt.initCustomEvent(event, params.bubbles, params.cancelable, params.detail);
     return evt;
   };
 }
-// Global error handlers for external script errors
+
+// Error handler coordination to prevent conflicts
+const errorHandlerState = {
+  processing: new Set(),
+  lastError: null,
+  lastErrorTime: 0,
+  debounceMs: 100
+};
+
+// Global error handlers for external script errors with coordination
 window.addEventListener('error', (event) => {
+  const errorKey = `${event.filename}:${event.lineno}:${event.message}`;
+  const now = Date.now();
+  
+  // Debounce identical errors
+  if (errorHandlerState.lastError === errorKey && 
+      now - errorHandlerState.lastErrorTime < errorHandlerState.debounceMs) {
+    return false;
+  }
+  
+  // Prevent concurrent processing of same error
+  if (errorHandlerState.processing.has(errorKey)) {
+    return false;
+  }
+  
   // Handle errors from external scripts like Apper CDN
   if (event.filename && event.filename.includes('apper.io')) {
+    errorHandlerState.processing.add(errorKey);
+    errorHandlerState.lastError = errorKey;
+    errorHandlerState.lastErrorTime = now;
+    
     console.warn('External Apper script error intercepted:', {
       message: event.message,
       filename: event.filename,
       lineno: event.lineno,
-      colno: event.colno
+      colno: event.colno,
+      timestamp: now
     });
+    
+    // Clean up processing state after a delay
+    setTimeout(() => {
+      errorHandlerState.processing.delete(errorKey);
+    }, 1000);
+    
     // Prevent the error from breaking the application
     event.preventDefault();
     event.stopPropagation();
@@ -47,26 +81,49 @@ window.addEventListener('error', (event) => {
   }
 });
 
-// Handle unhandled promise rejections from external scripts
+// Handle unhandled promise rejections from external scripts with coordination
 window.addEventListener('unhandledrejection', (event) => {
+  const errorKey = `rejection:${event.reason?.message || 'unknown'}`;
+  const now = Date.now();
+  
+  // Debounce identical rejections
+  if (errorHandlerState.lastError === errorKey && 
+      now - errorHandlerState.lastErrorTime < errorHandlerState.debounceMs) {
+    event.preventDefault();
+    return false;
+  }
+  
   if (event.reason && event.reason.message && 
       (event.reason.message.includes('DataCloneError') || 
        event.reason.message.includes('postMessage') ||
        event.reason.message.includes('URL object could not be cloned'))) {
+    
+    errorHandlerState.lastError = errorKey;
+    errorHandlerState.lastErrorTime = now;
+    
     console.warn('External script postMessage error intercepted:', {
       reason: event.reason.message,
-      stack: event.reason.stack
+      stack: event.reason.stack,
+      timestamp: now
     });
+    
     // Prevent the error from breaking the application
     event.preventDefault();
-    event.stopPropagation();
     return false;
   }
 });
 
-// Intercept and sanitize postMessage calls to prevent DataCloneError
+// Enhanced postMessage interception with better error recovery
 const originalPostMessage = window.postMessage;
+const postMessageState = {
+  attempts: new Map(),
+  maxRetries: 3,
+  retryDelay: 100
+};
+
 window.postMessage = function(message, targetOrigin, transfer) {
+  const attemptKey = `${targetOrigin}:${Date.now()}`;
+  
   try {
     // Test if message can be cloned
     structuredClone(message);
@@ -74,8 +131,23 @@ window.postMessage = function(message, targetOrigin, transfer) {
   } catch (error) {
     if (error.name === 'DataCloneError') {
       console.warn('PostMessage DataCloneError prevented, sanitizing message');
-      const sanitizedMessage = serializeForPostMessage(message);
-      return originalPostMessage.call(this, sanitizedMessage, targetOrigin, transfer);
+      
+      try {
+        const sanitizedMessage = serializeForPostMessage(message);
+        return originalPostMessage.call(this, sanitizedMessage, targetOrigin, transfer);
+      } catch (sanitizeError) {
+        console.error('Failed to sanitize message:', sanitizeError);
+        
+        // Fallback to minimal safe message
+        const fallbackMessage = {
+          __type: 'PostMessageFallback',
+          timestamp: Date.now(),
+          originalError: error.message,
+          targetOrigin
+        };
+        
+        return originalPostMessage.call(this, fallbackMessage, targetOrigin, transfer);
+      }
     }
     throw error;
   }
@@ -105,27 +177,46 @@ window.addEventListener('message', (event) => {
 });
 
 // Enhanced data serialization utility to prevent DataCloneError
+// Enhanced serialization with performance optimizations
 const serializeForPostMessage = (data) => {
+  // Performance cache for frequently serialized objects
+  const serializationCache = new Map();
+  const maxCacheSize = 100;
+  
   try {
     // Handle null/undefined early
     if (data === null) return null;
     if (data === undefined) return { __type: 'Undefined' };
     
-    // Handle primitives
+    // Handle primitives - no serialization needed
     if (typeof data !== 'object') return data;
     
-    // Track circular references with WeakSet
+    // Check cache for performance
+    const cacheKey = typeof data === 'object' ? JSON.stringify(data) : String(data);
+    if (serializationCache.has(cacheKey)) {
+      return serializationCache.get(cacheKey);
+    }
+    
+    // Track circular references with WeakSet for better performance
     const seen = new WeakSet();
     const path = [];
+    let depth = 0;
+    const maxDepth = 50; // Prevent deep recursion
     
-    // Convert non-serializable objects to serializable format
-    const serialized = JSON.parse(JSON.stringify(data, function(key, value) {
+    // Optimized serialization function
+    const serialize = (value, key = '') => {
+      depth++;
+      if (depth > maxDepth) {
+        return { __type: 'MaxDepthExceeded', depth };
+      }
+      
       // Track path for better error reporting
       if (key) path.push(key);
       
       // Handle circular references
       if (typeof value === 'object' && value !== null) {
         if (seen.has(value)) {
+          depth--;
           return { 
             __type: 'CircularReference', 
             key,
@@ -135,9 +226,11 @@ const serializeForPostMessage = (data) => {
         seen.add(value);
       }
       
+      let result;
+      
       // Handle URL objects (main cause of DataCloneError)
       if (value instanceof URL) {
-        return { 
+        result = { 
           __type: 'URL', 
           href: value.href, 
           origin: value.origin,
@@ -148,36 +241,32 @@ const serializeForPostMessage = (data) => {
           hash: value.hash
         };
       }
-      
       // Handle URLSearchParams
-      if (value instanceof URLSearchParams) {
-        return { 
+      else if (value instanceof URLSearchParams) {
+        result = { 
           __type: 'URLSearchParams', 
           params: Array.from(value.entries()) 
         };
       }
-      
       // Handle Date objects
-      if (value instanceof Date) {
-        return { 
+      else if (value instanceof Date) {
+        result = { 
           __type: 'Date', 
           timestamp: value.getTime(),
           iso: value.toISOString()
         };
       }
-      
       // Handle RegExp objects
-      if (value instanceof RegExp) {
-        return { 
+      else if (value instanceof RegExp) {
+        result = { 
           __type: 'RegExp', 
           source: value.source, 
           flags: value.flags 
         };
       }
-      
       // Handle Error objects with all properties
-      if (value instanceof Error) {
-        return { 
+      else if (value instanceof Error) {
+        result = { 
           __type: 'Error', 
           name: value.name,
           message: value.message, 
@@ -185,42 +274,65 @@ const serializeForPostMessage = (data) => {
           cause: value.cause
         };
       }
-      
       // Handle functions
-      if (typeof value === 'function') {
-        return { 
+      else if (typeof value === 'function') {
+        result = { 
           __type: 'Function', 
           name: value.name || 'anonymous',
           length: value.length
         };
       }
-      
       // Handle Symbol
-      if (typeof value === 'symbol') {
-        return { 
+      else if (typeof value === 'symbol') {
+        result = { 
           __type: 'Symbol', 
           description: value.description 
         };
       }
-      
       // Handle BigInt
-      if (typeof value === 'bigint') {
-        return { 
+      else if (typeof value === 'bigint') {
+        result = { 
           __type: 'BigInt', 
           value: value.toString() 
         };
       }
-      
       // Handle undefined explicitly
-      if (value === undefined) {
-        return { __type: 'Undefined' };
+      else if (value === undefined) {
+        result = { __type: 'Undefined' };
+      }
+      // Handle arrays and objects
+      else if (Array.isArray(value)) {
+        result = value.map((item, index) => serialize(item, `[${index}]`));
+      }
+      else if (typeof value === 'object' && value !== null) {
+        result = {};
+        for (const [objKey, objValue] of Object.entries(value)) {
+          try {
+            result[objKey] = serialize(objValue, objKey);
+          } catch (err) {
+            result[objKey] = { __type: 'SerializationError', error: err.message };
+          }
+        }
+      }
+      else {
+        result = value;
       }
       
       // Remove key from path when done processing
       if (key) path.pop();
+      depth--;
       
-      return value;
-    }));
+      return result;
+    };
+    
+    const serialized = serialize(data);
+    
+    // Cache result for performance (with size limit)
+    if (serializationCache.size >= maxCacheSize) {
+      const firstKey = serializationCache.keys().next().value;
+      serializationCache.delete(firstKey);
+    }
+    serializationCache.set(cacheKey, serialized);
     
     return serialized;
   } catch (error) {
@@ -235,57 +347,103 @@ const serializeForPostMessage = (data) => {
     };
   }
 };
-// Safe message sending utility with enhanced error handling
+// Enhanced safe message sending utility with retry mechanism
 const sendSafeMessage = (targetWindow, message, targetOrigin = "*") => {
-  try {
-    // Validate target window
-    if (!targetWindow || typeof targetWindow.postMessage !== 'function') {
-      console.warn('Invalid target window for postMessage');
+  const maxRetries = 3;
+  let attempts = 0;
+  
+  const attemptSend = async () => {
+    attempts++;
+    
+    try {
+      // Validate target window
+      if (!targetWindow || typeof targetWindow.postMessage !== 'function') {
+        console.warn('Invalid target window for postMessage');
+        return false;
+      }
+      
+      // Check if window is still accessible
+      if (targetWindow.closed) {
+        console.warn('Target window is closed');
+        return false;
+      }
+      
+      // Test if message can be cloned first
+      try {
+        structuredClone(message);
+        targetWindow.postMessage(message, targetOrigin);
+        return true;
+      } catch (cloneError) {
+        if (cloneError.name === 'DataCloneError') {
+          console.warn('Message requires serialization for postMessage');
+          const sanitizedMessage = serializeForPostMessage(message);
+          targetWindow.postMessage(sanitizedMessage, targetOrigin);
+          return true;
+        }
+        throw cloneError;
+      }
+    } catch (error) {
+      console.error(`Failed to send safe message (attempt ${attempts}/${maxRetries}):`, {
+        error: error.message,
+        targetOrigin,
+        messageType: typeof message,
+        attempt: attempts
+      });
+      
+      // Retry with exponential backoff
+      if (attempts < maxRetries) {
+        const delay = Math.pow(2, attempts - 1) * 100;
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return attemptSend();
+      }
+      
       return false;
     }
-    
-    // Test if message can be cloned first
-    try {
-      structuredClone(message);
-      targetWindow.postMessage(message, targetOrigin);
-      return true;
-    } catch (cloneError) {
-      if (cloneError.name === 'DataCloneError') {
-        console.warn('Message contains non-cloneable data, serializing...');
-        const serializedMessage = serializeForPostMessage(message);
-        targetWindow.postMessage(serializedMessage, targetOrigin);
-        return true;
-      }
-      throw cloneError;
-    }
-  } catch (error) {
-    console.warn('Failed to send safe message:', error);
-    return false;
-  }
+  };
+  
+  return attemptSend();
 };
 
-// Setup comprehensive message handler for external scripts
+// Enhanced message handler for external SDK communication
 const setupMessageHandler = () => {
-  const handleMessage = (event) => {
-    // Validate event and origin
-    if (!event || !event.origin) return;
+  const messageQueue = [];
+  const processingQueue = false;
+  
+  const processMessageQueue = async () => {
+    if (processingQueue || messageQueue.length === 0) return;
     
-    if (event.origin.includes('apper.io')) {
+    processingQueue = true;
+    while (messageQueue.length > 0) {
+      const message = messageQueue.shift();
       try {
-        const sanitizedData = serializeForPostMessage(event.data);
-        console.log('Received sanitized message from Apper:', sanitizedData);
-        
-        // Dispatch custom event for app components to listen to
-        window.dispatchEvent(new CustomEvent('apper-safe-message', {
-          detail: {
-            origin: event.origin,
-            data: sanitizedData,
-            timestamp: Date.now()
-          }
-        }));
+        await handleMessage(message);
       } catch (error) {
-        console.warn('Failed to handle message from external script:', error);
+        console.error('Error processing queued message:', error);
       }
+    }
+    processingQueue = false;
+  };
+  
+const handleMessage = (event) => {
+    // Validate message origin for security
+    if (!event.origin.includes('apper.io') && !event.origin.includes('integrately.com')) {
+      return;
+    }
+    
+    try {
+      const sanitizedData = serializeForPostMessage(event.data);
+      console.log('Received sanitized message from Apper:', sanitizedData);
+      
+      // Dispatch custom event for app components to listen to
+      window.dispatchEvent(new CustomEvent('apper-safe-message', {
+        detail: {
+          origin: event.origin,
+          data: sanitizedData,
+          timestamp: Date.now()
+        }
+      }));
+    } catch (error) {
+      console.warn('Failed to handle message from external script:', error);
     }
   };
   
@@ -312,32 +470,107 @@ class BackgroundSDKLoader {
       this.messageHandler = setupMessageHandler();
       
       // Monitor for SDK errors
-      const errorHandler = (error) => {
-        if (error.filename && error.filename.includes('apper.io')) {
-          console.warn('SDK error detected, implementing fallback');
-          this.handleSDKError(error);
-        }
-      };
-      
-      window.addEventListener('error', errorHandler);
-      
-      // Return cleanup function
-      return () => {
-        if (this.messageHandler) this.messageHandler();
-        window.removeEventListener('error', errorHandler);
-      };
-    } catch (error) {
-      console.warn('Failed to initialize SDK loader:', error);
-      return () => {};
-    }
-  }
+}
+};
+
+// Enhanced error boundary component with recovery mechanisms
+function FastErrorBoundary({ children, fallback }) {
+  const [hasError, setHasError] = useState(false);
+  const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRecovering, setIsRecovering] = useState(false);
   
-  static handleSDKError(error) {
-    if (this.retryCount < this.maxRetries) {
-      this.retryCount++;
-      console.log(`SDK error recovery attempt ${this.retryCount}/${this.maxRetries}`);
-      
+  const maxRetries = 3;
+  const retryDelay = 1000;
+  
+  const handleRetry = useCallback(() => {
+    if (retryCount < maxRetries) {
+      setIsRecovering(true);
       setTimeout(() => {
+        setHasError(false);
+        setError(null);
+        setRetryCount(prev => prev + 1);
+        setIsRecovering(false);
+      }, retryDelay);
+    }
+  }, [retryCount]);
+  
+  const handleReset = useCallback(() => {
+    setHasError(false);
+    setError(null);
+    setRetryCount(0);
+    setIsRecovering(false);
+  }, []);
+  
+  useEffect(() => {
+    const handleError = (errorEvent) => {
+      // Only handle errors that haven't been handled by other mechanisms
+      if (errorEvent.filename?.includes('apper.io') && !errorHandlerState.processing.has(errorEvent.message)) {
+        setHasError(true);
+        setError({
+          message: errorEvent.message || errorEvent.reason?.message || 'Unknown error',
+          stack: errorEvent.error?.stack || errorEvent.reason?.stack,
+          filename: errorEvent.filename,
+          lineno: errorEvent.lineno,
+          colno: errorEvent.colno
+        });
+      }
+    };
+    
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleError);
+    
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleError);
+    };
+  }, []);
+  
+  // Auto-recovery after successful retries
+  useEffect(() => {
+    if (hasError && retryCount > 0 && !isRecovering) {
+      const timer = setTimeout(() => {
+        handleReset();
+      }, 5000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [hasError, retryCount, isRecovering, handleReset]);
+  
+  if (hasError) {
+    if (fallback) {
+      return fallback;
+    }
+    
+    return (
+      <div className="error-boundary-container p-4 bg-red-50 border border-red-200 rounded-lg">
+        <h2 className="text-red-800 font-semibold mb-2">Something went wrong</h2>
+        <p className="text-red-600 mb-4">
+          {error?.message || 'An unexpected error occurred'}
+        </p>
+        {retryCount < maxRetries && (
+          <button
+            onClick={handleRetry}
+            disabled={isRecovering}
+            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 disabled:opacity-50"
+          >
+            {isRecovering ? 'Retrying...' : `Retry (${retryCount}/${maxRetries})`}
+          </button>
+        )}
+        {retryCount >= maxRetries && (
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+          >
+            Refresh Page
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return children;
+}
         // Attempt to reinitialize or provide fallback
         this.loadInBackground();
       }, this.retryDelay * this.retryCount);
