@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { CreditCard, Mail, MapPin, Phone, User } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
+import { toast } from "react-hot-toast";
 import { formatCurrency } from "@/utils/currency";
 import { clearCart } from "@/store/cartSlice";
 import ApperIcon from "@/components/ApperIcon";
@@ -15,7 +16,6 @@ import PaymentMethod from "@/components/molecules/PaymentMethod";
 import { orderService } from "@/services/api/orderService";
 import { productService } from "@/services/api/productService";
 import { paymentService } from "@/services/api/paymentService";
-import { toast } from "react-hot-toast";
 function Checkout() {
   const navigate = useNavigate();
   const { cart, clearCart } = useCart();
@@ -836,10 +836,11 @@ if (paymentMethod === 'card') {
                 </Button>
               </div>
             </form>
-          </div>
-        </div>
 </div>
-  );
+        </div>
+      </div>
+    );
+  }
 }
 
 export default Checkout;
