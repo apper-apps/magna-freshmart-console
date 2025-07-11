@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
 import { ApperIcon } from '@/components/ApperIcon';
-import { Button } from '@/atoms/Button';
-import { Input } from '@/atoms/Input';
-import { Badge } from '@/atoms/Badge';
+import { Button } from '@/components/atoms/Button';
+import { Input } from '@/components/atoms/Input';
+import { Badge } from '@/components/atoms/Badge';
 import Loading from '@/components/ui/Loading';
 import Error from '@/components/ui/Error';
 import { vendorService } from '@/services/api/vendorService';
