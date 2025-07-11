@@ -81,10 +81,6 @@ window.addEventListener('message', (event) => {
   }
 });
 
-// Performance monitoring utility
-const performanceMonitor = {
-  marks: {}
-};
 // Enhanced data serialization utility to prevent DataCloneError
 const serializeForPostMessage = (data) => {
   try {
@@ -376,172 +372,28 @@ const performanceMonitor = {
     }
   }
 };
+};
 
-performanceMonitor.mark('app-start');
-// Enhanced main initialization with comprehensive error handling
-const initializeApp = async () => {
+// Missing function for SDK message handling
+
+// Missing function for SDK message handling
+const handleSDKMessage = (event) => {
   try {
-    performanceMonitor.mark('init-start');
-    
-    // Initialize SDK loader with error recovery
-    const cleanupSDK = await BackgroundSDKLoader.loadInBackground();
-    
-    performanceMonitor.measure('SDK initialization', 'init-start');
-    
-    // Initialize React app with error boundary
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    
-    // Enhanced error boundary component
-    const AppWithErrorBoundary = () => {
-      const [hasError, setHasError] = useState(false);
-      const [error, setError] = useState(null);
+    if (event.origin && event.origin.includes('apper.io')) {
+      const sanitizedData = serializeForPostMessage(event.data);
+      console.log('Handled SDK message:', sanitizedData);
       
-      useEffect(() => {
-        const handleError = (event) => {
-          if (event.filename && event.filename.includes('apper.io')) {
-            performanceMonitor.trackError(event.error || new Error(event.message), 'external-script');
-            // Don't break app for external script errors
-            event.preventDefault();
-            return;
-          }
-          
-          setHasError(true);
-          setError(event.error || new Error(event.message));
-          performanceMonitor.trackError(event.error || new Error(event.message), 'app-error');
-        };
-        
-        const handleUnhandledRejection = (event) => {
-          if (event.reason && event.reason.message && 
-              event.reason.message.includes('DataCloneError')) {
-            performanceMonitor.trackError(event.reason, 'postmessage-error');
-            event.preventDefault();
-            return;
-          }
-          
-          setHasError(true);
-          setError(event.reason);
-          performanceMonitor.trackError(event.reason, 'promise-rejection');
-        };
-        
-        window.addEventListener('error', handleError);
-        window.addEventListener('unhandledrejection', handleUnhandledRejection);
-        
-        return () => {
-          window.removeEventListener('error', handleError);
-          window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-          if (cleanupSDK) cleanupSDK();
-        };
-      }, []);
-      
-      if (hasError) {
-        return (
-          <Provider store={store}>
-            <Error 
-              error={error} 
-              onRetry={() => {
-                setHasError(false);
-                setError(null);
-                window.location.reload();
-              }}
-            />
-          </Provider>
-        );
-      }
-      
-      return (
-        <Provider store={store}>
-          <App />
-          <ToastContainer
-            position="top-right"
-            autoClose={3000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme="light"
-          />
-        </Provider>
-      );
-    };
-    
-    root.render(<AppWithErrorBoundary />);
-    
-    performanceMonitor.measure('App initialization', 'init-start');
-    
+      // Dispatch sanitized message
+      window.dispatchEvent(new CustomEvent('apper-sdk-message', {
+        detail: sanitizedData
+      }));
+    }
   } catch (error) {
-    console.error('Failed to initialize app:', error);
-    performanceMonitor.trackError(error, 'init-error');
-    
-    // Fallback initialization without external dependencies
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(
-      <Provider store={store}>
-        <Error 
-          error={error} 
-          onRetry={() => window.location.reload()}
-        />
-      </Provider>
-    );
+    console.warn('SDK message handling failed:', error);
   }
 };
 
-// Initialize when DOM is ready with additional safety
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeApp);
-} else {
-  // Add small delay to ensure all scripts are loaded
-  setTimeout(initializeApp, 0);
-}
-      
-      return false;
-    }
-  }
-  
-  static setupMessageHandler() {
-    if (typeof window === 'undefined' || this.messageHandler) {
-      return;
-    }
-    
-    this.messageHandler = (event) => {
-      try {
-        handleSDKMessage(event);
-      } catch (error) {
-        console.warn('Message handler error:', error);
-      }
-    };
-    
-    window.addEventListener('message', this.messageHandler);
-  }
-  
-  static cleanup() {
-    if (this.messageHandler && typeof window !== 'undefined') {
-      window.removeEventListener('message', this.messageHandler);
-      this.messageHandler = null;
-    }
-  }
-  
-  static async initializeWhenReady() {
-    try {
-      if (window.apperSDK?.isInitialized) {
-        return true;
-      }
-      
-      // Try to initialize if available
-      if (window.apperSDK?.initialize) {
-        await window.apperSDK.initialize();
-        return true;
-      }
-      
-      return false;
-    } catch (error) {
-      console.warn('SDK initialization failed:', error);
-      return false;
-    }
-  }
-}
+performanceMonitor.mark('app-start');
 
 // Fast Error Boundary
 function FastErrorBoundary({ children, fallback }) {
@@ -550,13 +402,30 @@ function FastErrorBoundary({ children, fallback }) {
 
   React.useEffect(() => {
     const handleError = (event) => {
+      // Skip external script errors
+      if (event.filename && event.filename.includes('apper.io')) {
+        performanceMonitor.trackError(event.error || new Error(event.message), 'external-script');
+        event.preventDefault();
+        return;
+      }
+      
       setHasError(true);
-      setError(event.error);
+      setError(event.error || new Error(event.message));
+      performanceMonitor.trackError(event.error || new Error(event.message), 'app-error');
     };
 
     const handleUnhandledRejection = (event) => {
+      // Skip DataCloneError from external scripts
+      if (event.reason && event.reason.message && 
+          event.reason.message.includes('DataCloneError')) {
+        performanceMonitor.trackError(event.reason, 'postmessage-error');
+        event.preventDefault();
+        return;
+      }
+      
       setHasError(true);
       setError(event.reason);
+      performanceMonitor.trackError(event.reason, 'promise-rejection');
     };
 
     window.addEventListener('error', handleError);
@@ -590,18 +459,14 @@ function FastErrorBoundary({ children, fallback }) {
   return children;
 }
 
-// Initialize app
+// Initialize app with comprehensive error handling
 async function initializeApp() {
   try {
     // Mark initialization start
-    performanceMonitor.marks.initStart = performance.now();
+    performanceMonitor.mark('init-start');
     
-    // Load SDK in background (non-blocking)
-    BackgroundSDKLoader.loadInBackground().then(loaded => {
-      if (loaded) {
-        BackgroundSDKLoader.initializeWhenReady();
-      }
-    });
+    // Initialize SDK loader with error recovery
+    const cleanupSDK = await BackgroundSDKLoader.loadInBackground();
 
     // Get root element
     const rootElement = document.getElementById('root');
@@ -613,44 +478,69 @@ async function initializeApp() {
     const root = ReactDOM.createRoot(rootElement);
     
     // Mark render start
-    performanceMonitor.marks.renderStart = performance.now();
+    performanceMonitor.mark('render-start');
 
     // Render app with error boundary
-root.render(
+    root.render(
       <FastErrorBoundary>
         <Provider store={store}>
           <App />
-          <ToastContainer />
+          <ToastContainer
+            position="top-right"
+            autoClose={3000}
+            hideProgressBar={false}
+            newestOnTop={false}
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+            theme="light"
+          />
         </Provider>
       </FastErrorBoundary>
     );
 
     // Mark initialization complete
-    performanceMonitor.marks.initComplete = performance.now();
+    performanceMonitor.measure('App initialization', 'init-start');
     
     // Log performance metrics in development
     if (import.meta.env.DEV) {
-      const initTime = performanceMonitor.marks.initComplete - performanceMonitor.marks.initStart;
-      console.log(`App initialized in ${initTime.toFixed(2)}ms`);
+      const renderTime = performanceMonitor.measure('Render time', 'render-start');
+      console.log(`App initialized successfully`);
     }
+
+    // Return cleanup function
+    return () => {
+      if (cleanupSDK) cleanupSDK();
+    };
 
   } catch (error) {
     console.error('Failed to initialize app:', error);
+    performanceMonitor.trackError(error, 'init-error');
     
     // Fallback render
-    document.getElementById('root').innerHTML = `
-      <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background-color: #f5f5f5;">
-        <div style="text-align: center; padding: 2rem; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-          <h2 style="color: #dc2626; margin-bottom: 1rem;">Application Error</h2>
-          <p style="color: #6b7280; margin-bottom: 1rem;">Unable to load the application. Please refresh the page.</p>
-          <button onclick="window.location.reload()" style="background: #3b82f6; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">
-            Refresh Page
-          </button>
+    const rootElement = document.getElementById('root');
+    if (rootElement) {
+      rootElement.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background-color: #f5f5f5;">
+          <div style="text-align: center; padding: 2rem; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+            <h2 style="color: #dc2626; margin-bottom: 1rem;">Application Error</h2>
+            <p style="color: #6b7280; margin-bottom: 1rem;">Unable to load the application. Please refresh the page.</p>
+            <button onclick="window.location.reload()" style="background: #3b82f6; color: white; padding: 0.5rem 1rem; border: none; border-radius: 4px; cursor: pointer;">
+              Refresh Page
+            </button>
+          </div>
         </div>
-      </div>
-    `;
+      `;
+    }
   }
 }
 
-// Start the application
-initializeApp();
+// Initialize when DOM is ready with additional safety
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeApp);
+} else {
+  // Add small delay to ensure all scripts are loaded
+  setTimeout(initializeApp, 0);
+}
