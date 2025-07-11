@@ -18,7 +18,7 @@ import webSocketService from "@/services/api/websocketService";
 import { productService } from "@/services/api/productService";
 import { notificationService } from "@/services/api/notificationService";
 import { paymentService } from "@/services/api/paymentService";
-
+import { reportService } from "@/services/api/reportService";
 const AdminDashboard = () => {
   const dispatch = useDispatch();
   const notificationCounts = useSelector(state => state.notifications.counts);
@@ -45,12 +45,30 @@ const AdminDashboard = () => {
   const [recentOrders, setRecentOrders] = useState([]);
   const [revenueBreakdown, setRevenueBreakdown] = useState([]);
   const [selectedApproval, setSelectedApproval] = useState(null);
-  const [approvalComments, setApprovalComments] = useState('');
+const [approvalComments, setApprovalComments] = useState('');
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [wsConnectionStatus, setWsConnectionStatus] = useState({ connected: false });
   const pollingRef = useRef(null);
   const wsUnsubscribeRef = useRef(null);
-
+  
+  // Payment Verification Report State
+  const [paymentVerificationData, setPaymentVerificationData] = useState({
+    data: [],
+    summary: { totalPending: 0, totalAmount: 0, averageAmount: 0, recentActivity: 0, byPaymentMethod: {} },
+    metadata: { generatedAt: new Date().toISOString(), lastRefresh: new Date().toISOString() }
+  });
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState(null);
+  const [activeReportTab, setActiveReportTab] = useState('summary');
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const [reportFilters, setReportFilters] = useState({
+    startDate: '',
+    endDate: '',
+    vendor: '',
+    paymentMethod: ''
+  });
+  const [exportLoading, setExportLoading] = useState(false);
+  const reportRefreshRef = useRef(null);
 const loadDashboardData = async () => {
     setLoading(true);
     try {
@@ -114,6 +132,68 @@ const loadDashboardData = async () => {
     }
 };
 
+// Payment Verification Report Functions
+const loadPaymentVerificationReport = async (filters = {}) => {
+  setReportLoading(true);
+  setReportError(null);
+  try {
+    const reportData = await reportService.getPaymentVerificationReport(filters);
+    setPaymentVerificationData(reportData);
+  } catch (error) {
+    console.error('Error loading payment verification report:', error);
+    setReportError('Failed to load payment verification report');
+    toast.error('Failed to load payment verification report');
+  } finally {
+    setReportLoading(false);
+  }
+};
+
+const handleExportReport = async (format = 'pdf') => {
+  setExportLoading(true);
+  try {
+    const exportResult = await reportService.exportReport('payment_verification', format, reportFilters);
+    toast.success(`Report exported successfully! ${exportResult.recordCount} records exported.`);
+    
+    // Simulate file download
+    const link = document.createElement('a');
+    link.href = exportResult.fileUrl;
+    link.download = exportResult.fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error('Error exporting report:', error);
+    toast.error('Failed to export report');
+  } finally {
+    setExportLoading(false);
+  }
+};
+
+const handleFilterChange = (filterName, value) => {
+  const newFilters = { ...reportFilters, [filterName]: value };
+  setReportFilters(newFilters);
+  loadPaymentVerificationReport(newFilters);
+};
+
+const startAutoRefresh = () => {
+  if (reportRefreshRef.current) {
+    clearInterval(reportRefreshRef.current);
+  }
+  
+  reportRefreshRef.current = setInterval(() => {
+    loadPaymentVerificationReport(reportFilters);
+  }, 15000); // 15 seconds
+  
+  setAutoRefreshEnabled(true);
+};
+
+const stopAutoRefresh = () => {
+  if (reportRefreshRef.current) {
+    clearInterval(reportRefreshRef.current);
+    reportRefreshRef.current = null;
+  }
+  setAutoRefreshEnabled(false);
+};
 // Notification polling functionality
   const fetchNotificationCountsData = useCallback(async () => {
     try {
@@ -152,8 +232,34 @@ const loadDashboardData = async () => {
 }, [fetchNotificationCountsData]);
 useEffect(() => {
     loadDashboardData();
+    loadPaymentVerificationReport();
+    
+    // Start auto-refresh for payment verification report
+    if (autoRefreshEnabled) {
+      startAutoRefresh();
+    }
+    
+    return () => {
+      if (reportRefreshRef.current) {
+        clearInterval(reportRefreshRef.current);
+      }
+    };
   }, []);
 
+  // Handle auto-refresh toggle
+  useEffect(() => {
+    if (autoRefreshEnabled) {
+      startAutoRefresh();
+    } else {
+      stopAutoRefresh();
+    }
+    
+    return () => {
+      if (reportRefreshRef.current) {
+        clearInterval(reportRefreshRef.current);
+      }
+    };
+  }, [autoRefreshEnabled]);
   // Initialize WebSocket connection and approval workflows
 useEffect(() => {
     const initializeApprovalWorkflow = async () => {
@@ -481,7 +587,294 @@ const priorityConfig = {
               ))}
             </div>
           )}
+</div>
+      </div>
+
+      {/* Payment Verification Report Section */}
+      <div className="card p-6 mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-3">
+            <div className="bg-gradient-to-r from-orange-500 to-red-500 p-2 rounded-lg">
+              <ApperIcon name="Shield" size={24} className="text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-semibold text-gray-900">Payment Verification Report</h2>
+              <div className="flex items-center space-x-4 mt-1">
+                <div className="flex items-center space-x-1">
+                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                  <span className="text-sm font-medium text-red-600">Critical Priority</span>
+                </div>
+                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                  <span>Last updated: {format(new Date(paymentVerificationData.metadata.lastRefresh), 'HH:mm:ss')}</span>
+                  <span>|</span>
+                  <div className="flex items-center space-x-1">
+                    <div className={`w-2 h-2 rounded-full ${autoRefreshEnabled ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+                    <span>Auto-refresh: {autoRefreshEnabled ? '15s' : 'Off'}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
+              className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                autoRefreshEnabled 
+                  ? 'bg-green-100 text-green-700 hover:bg-green-200' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {autoRefreshEnabled ? 'Auto-refresh On' : 'Auto-refresh Off'}
+            </button>
+            <button
+              onClick={() => loadPaymentVerificationReport(reportFilters)}
+              disabled={reportLoading}
+              className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 transition-colors disabled:opacity-50"
+            >
+              {reportLoading ? 'Refreshing...' : 'Refresh'}
+            </button>
+          </div>
         </div>
+
+        {/* Report Tabs */}
+        <div className="flex space-x-1 mb-6 border-b border-gray-200">
+          {[
+            { id: 'summary', label: 'Summary', icon: 'BarChart3' },
+            { id: 'detailed', label: 'Detailed', icon: 'FileText' },
+            { id: 'export', label: 'Export', icon: 'Download' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveReportTab(tab.id)}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-t-lg font-medium transition-colors ${
+                activeReportTab === tab.id
+                  ? 'bg-blue-50 text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <ApperIcon name={tab.icon} size={16} />
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Report Content */}
+        {reportLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loading type="spinner" />
+          </div>
+        ) : reportError ? (
+          <div className="text-center py-12">
+            <Error message={reportError} onRetry={() => loadPaymentVerificationReport(reportFilters)} />
+          </div>
+        ) : (
+          <div>
+            {/* Summary Tab */}
+            {activeReportTab === 'summary' && (
+              <div className="space-y-6">
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-orange-100 text-sm">Pending Verifications</p>
+                        <p className="text-2xl font-bold">{paymentVerificationData.summary.totalPending}</p>
+                      </div>
+                      <ApperIcon name="Clock" size={24} className="text-orange-100" />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white p-4 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-blue-100 text-sm">Total Amount</p>
+                        <p className="text-2xl font-bold">Rs. {paymentVerificationData.summary.totalAmount.toLocaleString()}</p>
+                      </div>
+                      <ApperIcon name="DollarSign" size={24} className="text-blue-100" />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white p-4 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-green-100 text-sm">Average Amount</p>
+                        <p className="text-2xl font-bold">Rs. {paymentVerificationData.summary.averageAmount.toLocaleString()}</p>
+                      </div>
+                      <ApperIcon name="TrendingUp" size={24} className="text-green-100" />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-4 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-purple-100 text-sm">Recent Activity</p>
+                        <p className="text-2xl font-bold">{paymentVerificationData.summary.recentActivity}</p>
+                      </div>
+                      <ApperIcon name="Activity" size={24} className="text-purple-100" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Methods Breakdown */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-gray-900 mb-3">Payment Methods</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {Object.entries(paymentVerificationData.summary.byPaymentMethod).map(([method, count]) => (
+                      <div key={method} className="flex items-center justify-between p-3 bg-white rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className="bg-blue-100 p-2 rounded-lg">
+                            <ApperIcon name="CreditCard" size={16} className="text-blue-600" />
+                          </div>
+                          <span className="font-medium text-gray-900 capitalize">{method}</span>
+                        </div>
+                        <span className="text-gray-900 font-semibold">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Detailed Tab */}
+            {activeReportTab === 'detailed' && (
+              <div className="space-y-6">
+                {/* Filters */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-gray-900 mb-3">Filters</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                      <input
+                        type="date"
+                        value={reportFilters.startDate}
+                        onChange={(e) => handleFilterChange('startDate', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                      <input
+                        type="date"
+                        value={reportFilters.endDate}
+                        onChange={(e) => handleFilterChange('endDate', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
+                      <input
+                        type="text"
+                        value={reportFilters.vendor}
+                        onChange={(e) => handleFilterChange('vendor', e.target.value)}
+                        placeholder="Search vendor..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+                      <select
+                        value={reportFilters.paymentMethod}
+                        onChange={(e) => handleFilterChange('paymentMethod', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">All Methods</option>
+                        <option value="jazzcash">JazzCash</option>
+                        <option value="easypaisa">EasyPaisa</option>
+                        <option value="bank">Bank Transfer</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Detailed Data Table */}
+                <div className="bg-white rounded-lg overflow-hidden">
+                  <div className="px-6 py-4 border-b border-gray-200">
+                    <h3 className="font-semibold text-gray-900">Pending Verifications</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {paymentVerificationData.data.map((verification) => (
+                          <tr key={verification.Id}>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                              #{verification.orderId}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {verification.customerName}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              Rs. {(verification.amount || 0).toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">
+                              {verification.paymentMethod || 'Unknown'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {format(new Date(verification.submittedAt), 'MMM dd, HH:mm')}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <Badge variant="warning" className="text-xs">
+                                {verification.verificationStatus}
+                              </Badge>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Export Tab */}
+            {activeReportTab === 'export' && (
+              <div className="space-y-6">
+                <div className="bg-gray-50 p-6 rounded-lg">
+                  <h3 className="font-semibold text-gray-900 mb-4">Export Options</h3>
+                  <p className="text-gray-600 mb-6">Generate and download reports in various formats</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <button
+                      onClick={() => handleExportReport('pdf')}
+                      disabled={exportLoading}
+                      className="flex items-center justify-center space-x-3 p-4 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
+                    >
+                      <ApperIcon name="FileText" size={20} className="text-red-600" />
+                      <span className="font-medium text-red-600">Export PDF</span>
+                    </button>
+                    
+                    <button
+                      onClick={() => handleExportReport('csv')}
+                      disabled={exportLoading}
+                      className="flex items-center justify-center space-x-3 p-4 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors disabled:opacity-50"
+                    >
+                      <ApperIcon name="Download" size={20} className="text-green-600" />
+                      <span className="font-medium text-green-600">Export CSV</span>
+                    </button>
+                  </div>
+                  
+                  {exportLoading && (
+                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <Loading type="spinner" size="sm" />
+                        <span className="text-blue-600">Generating export...</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 {/* Wallet Management */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
