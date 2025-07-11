@@ -1,17 +1,87 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Permissions-Policy" content="clipboard-write=self, clipboard-read=self" />
-    <title>Vite + React</title>
+    <title>FreshMart - Your Fresh Grocery Destination</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- External Script Error Handling -->
+    <script>
+      // Global error handler for external script errors
+      window.addEventListener('error', function(event) {
+        if (event.filename && event.filename.includes('apper.io')) {
+          console.warn('External Apper script error detected:', {
+            message: event.message,
+            filename: event.filename,
+            lineno: event.lineno,
+            colno: event.colno
+          });
+          
+          // Prevent error from breaking the application
+          event.preventDefault();
+          return false;
+        }
+      });
+
+      // Handle unhandled promise rejections from external scripts
+      window.addEventListener('unhandledrejection', function(event) {
+        if (event.reason && event.reason.toString().includes('DataCloneError')) {
+          console.warn('DataCloneError from external script detected:', event.reason);
+          // Prevent unhandled rejection from breaking the application
+          event.preventDefault();
+        }
+      });
+
+      // PostMessage error wrapper for external integrations
+      const originalPostMessage = window.postMessage;
+      window.postMessage = function(message, targetOrigin, transfer) {
+        try {
+          // Convert URL objects to strings to prevent DataCloneError
+          const sanitizedMessage = sanitizeMessageForPostMessage(message);
+          return originalPostMessage.call(this, sanitizedMessage, targetOrigin, transfer);
+        } catch (error) {
+          console.warn('PostMessage error prevented:', error);
+          // Attempt to send string representation if original fails
+          try {
+            const stringMessage = typeof message === 'object' ? JSON.stringify(message) : String(message);
+            return originalPostMessage.call(this, stringMessage, targetOrigin, transfer);
+          } catch (fallbackError) {
+            console.error('PostMessage fallback also failed:', fallbackError);
+          }
+        }
+      };
+
+      function sanitizeMessageForPostMessage(obj) {
+        if (obj === null || typeof obj !== 'object') {
+          return obj;
+        }
+        
+        if (obj instanceof URL) {
+          return obj.toString();
+        }
+        
+        if (Array.isArray(obj)) {
+          return obj.map(sanitizeMessageForPostMessage);
+        }
+        
+        const sanitized = {};
+        for (const key in obj) {
+          if (obj.hasOwnProperty(key)) {
+            sanitized[key] = sanitizeMessageForPostMessage(obj[key]);
+          }
+        }
+        return sanitized;
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
-  </head>
-  <body>
-<div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
   </body>
 </html>
