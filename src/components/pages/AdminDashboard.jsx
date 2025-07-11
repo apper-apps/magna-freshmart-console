@@ -457,9 +457,9 @@ const quickActions = [
     { label: 'Delivery Tracking', path: '/admin/delivery-dashboard', icon: 'MapPin', color: 'from-indigo-500 to-purple-500', notificationKey: 'delivery', priority: 'high' },
     { label: 'Manage Products', path: '/admin/products', icon: 'Package', color: 'from-blue-500 to-cyan-500', notificationKey: 'products', priority: 'high' },
     
-    // Medium Priority
+// Medium Priority
 { label: 'Analytics', path: '/admin/analytics', icon: 'TrendingUp', color: 'from-amber-500 to-orange-500', notificationKey: 'analytics', priority: 'medium' },
-    { label: 'Vendor Management', path: '#vendor-control', icon: 'Users', color: 'from-red-500 to-pink-500', notificationKey: 'vendorControl', priority: 'high', isAction: true },
+    { label: 'Vendor Management', path: '/admin/vendors', icon: 'Users', color: 'from-red-500 to-pink-500', notificationKey: 'vendorControl', priority: 'high' },
     { label: 'Vendor Portal', path: '/vendor-portal', icon: 'Store', color: 'from-purple-500 to-violet-500', notificationKey: 'vendor', role: ['admin', 'moderator'], priority: 'medium' },
     { label: 'AI Generate', path: '/admin/ai-generate', icon: 'Brain', color: 'from-purple-500 to-indigo-500', notificationKey: 'ai', priority: 'medium' },
     { label: 'Role Assignment', path: '/role-management', icon: 'Settings', color: 'from-amber-500 to-yellow-500', notificationKey: 'roles', role: ['admin'], priority: 'medium' }
