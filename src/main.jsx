@@ -6,6 +6,29 @@ import { ToastContainer } from "react-toastify";
 import App from "@/App";
 import { store } from "@/store/index";
 import Error from "@/components/ui/Error";
+
+// Polyfill for structuredClone if not available
+if (typeof structuredClone === 'undefined') {
+  window.structuredClone = function(obj) {
+    if (obj === null || typeof obj !== 'object') return obj;
+    try {
+      return JSON.parse(JSON.stringify(obj));
+    } catch (error) {
+      console.warn('structuredClone fallback failed:', error);
+      return obj;
+    }
+  };
+}
+
+// Polyfill for CustomEvent if not available
+if (typeof CustomEvent === 'undefined') {
+  window.CustomEvent = function(event, params) {
+    params = params || { bubbles: false, cancelable: false, detail: null };
+    const evt = document.createEvent('CustomEvent');
+    evt.initCustomEvent(event, params.bubbles, params.cancelable, params.detail);
+    return evt;
+  };
+}
 // Global error handlers for external script errors
 window.addEventListener('error', (event) => {
   // Handle errors from external scripts like Apper CDN
@@ -367,11 +390,10 @@ const performanceMonitor = {
     });
     
     // Keep only last 50 errors to prevent memory issues
-    if (this.errors.length > 50) {
+if (this.errors.length > 50) {
       this.errors = this.errors.slice(-50);
     }
   }
-};
 };
 
 // Missing function for SDK message handling
