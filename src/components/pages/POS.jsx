@@ -319,12 +319,13 @@ const processPayment = async () => {
               cvv: '***',
               cardholderName: 'Customer'
             };
-            paymentResult = await paymentService.processCardPayment(mockCardData, total, `POS-${Date.now()}`);
+paymentResult = await paymentService.processCardPayment(mockCardData, total, `POS-${Date.now()}`);
           } else if (['jazzcash', 'easypaisa', 'sadapay'].includes(paymentType)) {
             paymentResult = await paymentService.processDigitalWalletPayment(paymentType, total, `POS-${Date.now()}`, '03001234567');
           } else if (paymentType === 'bank') {
             paymentResult = await paymentService.processBankTransfer(total, `POS-${Date.now()}`, {});
-} catch (paymentError) {
+          }
+        } catch (paymentError) {
           console.error('Payment error:', paymentError);
           setProcessingPayment(false);
           return;
