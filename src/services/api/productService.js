@@ -1763,7 +1763,66 @@ lowStockCount: 0
         totalValue: 0,
         averageOrderValue: 0
       };
+};
     }
   }
+
+  // Admin vendor assignment functionality
+  async assignProductsToVendor(vendorId, productIds) {
+    await this.delay(400);
+    
+    if (!vendorId || !productIds || !Array.isArray(productIds) || productIds.length === 0) {
+      throw new Error('Invalid vendor ID or product IDs');
+    }
+    
+    // Validate all products exist
+    const invalidProducts = productIds.filter(productId => 
+      !this.products.find(p => p.id === parseInt(productId))
+    );
+    
+    if (invalidProducts.length > 0) {
+      throw new Error(`Products not found: ${invalidProducts.join(', ')}`);
+    }
+    
+    // Create assignment records (in real app, this would be stored in database)
+    const assignments = productIds.map(productId => ({
+      Id: this.getNextAssignmentId(),
+      vendorId: parseInt(vendorId),
+      productId: parseInt(productId),
+      assignedDate: new Date().toISOString(),
+      assignedBy: 'admin',
+      canEditPrice: true,
+      canEditCost: false,
+      minMargin: 5,
+      maxDiscount: 20,
+      status: 'active'
+    }));
+    
+    // Update products with vendor assignment info
+    productIds.forEach(productId => {
+      const productIndex = this.products.findIndex(p => p.id === parseInt(productId));
+      if (productIndex !== -1) {
+        this.products[productIndex] = {
+          ...this.products[productIndex],
+          assignedVendor: parseInt(vendorId),
+          assignedDate: new Date().toISOString(),
+          lastUpdated: new Date().toISOString()
+        };
+      }
+    });
+    
+    return {
+      assignments: assignments,
+      assignedCount: productIds.length,
+      vendorId: parseInt(vendorId),
+      assignedAt: new Date().toISOString()
+    };
+  }
+
+  getNextAssignmentId() {
+    // Simple ID generation for assignments
+    return Math.floor(Math.random() * 1000000) + Date.now();
+  }
 }
+
 export const productService = new ProductService();

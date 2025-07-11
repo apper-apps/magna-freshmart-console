@@ -12,13 +12,15 @@ import Button from "@/components/atoms/Button";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import Orders from "@/components/pages/Orders";
+import Orders from "@/components/pages/Orders";
 import { orderService } from "@/services/api/orderService";
 import { approvalWorkflowService } from "@/services/api/approvalWorkflowService";
 import webSocketService from "@/services/api/websocketService";
-import { productService } from "@/services/api/productService";
-import { notificationService } from "@/services/api/notificationService";
-import { paymentService } from "@/services/api/paymentService";
 import { reportService } from "@/services/api/reportService";
+import { vendorService } from "@/services/api/vendorService";
+import { productService } from "@/services/api/productService";
+import { paymentService } from "@/services/api/paymentService";
+
 const AdminDashboard = () => {
   const dispatch = useDispatch();
   const notificationCounts = useSelector(state => state.notifications.counts);
@@ -44,13 +46,18 @@ const AdminDashboard = () => {
   const [walletLoading, setWalletLoading] = useState(false);
   const [recentOrders, setRecentOrders] = useState([]);
   const [revenueBreakdown, setRevenueBreakdown] = useState([]);
-  const [selectedApproval, setSelectedApproval] = useState(null);
+const [selectedApproval, setSelectedApproval] = useState(null);
 const [approvalComments, setApprovalComments] = useState('');
   const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [showVendorControl, setShowVendorControl] = useState(false);
+  const [vendors, setVendors] = useState([]);
+  const [selectedVendor, setSelectedVendor] = useState(null);
+  const [availableProducts, setAvailableProducts] = useState([]);
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [vendorLoading, setVendorLoading] = useState(false);
   const [wsConnectionStatus, setWsConnectionStatus] = useState({ connected: false });
   const pollingRef = useRef(null);
   const wsUnsubscribeRef = useRef(null);
-  
   // Payment Verification Report State
   const [paymentVerificationData, setPaymentVerificationData] = useState({
     data: [],
@@ -230,6 +237,49 @@ const stopAutoRefresh = () => {
       }
     };
 }, [fetchNotificationCountsData]);
+
+// Load vendor data for vendor control panel
+const loadVendorData = async () => {
+  setVendorLoading(true);
+  try {
+    const vendorList = await vendorService.getAllVendors();
+    const productList = await productService.getAll('admin');
+    setVendors(vendorList);
+    setAvailableProducts(productList);
+  } catch (error) {
+    console.error('Error loading vendor data:', error);
+    toast.error('Failed to load vendor data');
+  } finally {
+    setVendorLoading(false);
+  }
+};
+
+// Vendor control functions
+const toggleVendorStatus = async (vendorId, status) => {
+  try {
+    await vendorService.toggleVendorStatus(vendorId, status);
+    await vendorService.logAdminAction(`Vendor ${vendorId} ${status}`);
+    toast.success(`Vendor ${status} successfully`);
+    loadVendorData(); // Refresh vendor list
+  } catch (error) {
+    console.error('Error toggling vendor status:', error);
+    toast.error(`Failed to ${status} vendor`);
+  }
+};
+
+const assignProducts = async (vendorId, productIds) => {
+  try {
+    await productService.assignProductsToVendor(vendorId, productIds);
+    await vendorService.notifyVendor(vendorId, "New products assigned");
+    toast.success(`${productIds.length} products assigned successfully`);
+    setSelectedProducts([]);
+    setSelectedVendor(null);
+  } catch (error) {
+    console.error('Error assigning products:', error);
+    toast.error('Failed to assign products');
+  }
+};
+
 useEffect(() => {
     loadDashboardData();
     loadPaymentVerificationReport();
@@ -246,6 +296,11 @@ useEffect(() => {
     };
   }, []);
 
+useEffect(() => {
+  if (showVendorControl) {
+    loadVendorData();
+  }
+}, [showVendorControl]);
   // Handle auto-refresh toggle
   useEffect(() => {
     if (autoRefreshEnabled) {
@@ -403,7 +458,8 @@ const quickActions = [
     { label: 'Manage Products', path: '/admin/products', icon: 'Package', color: 'from-blue-500 to-cyan-500', notificationKey: 'products', priority: 'high' },
     
     // Medium Priority
-    { label: 'Analytics', path: '/admin/analytics', icon: 'TrendingUp', color: 'from-amber-500 to-orange-500', notificationKey: 'analytics', priority: 'medium' },
+{ label: 'Analytics', path: '/admin/analytics', icon: 'TrendingUp', color: 'from-amber-500 to-orange-500', notificationKey: 'analytics', priority: 'medium' },
+    { label: 'Vendor Management', path: '#vendor-control', icon: 'Users', color: 'from-red-500 to-pink-500', notificationKey: 'vendorControl', priority: 'high', isAction: true },
     { label: 'Vendor Portal', path: '/vendor-portal', icon: 'Store', color: 'from-purple-500 to-violet-500', notificationKey: 'vendor', role: ['admin', 'moderator'], priority: 'medium' },
     { label: 'AI Generate', path: '/admin/ai-generate', icon: 'Brain', color: 'from-purple-500 to-indigo-500', notificationKey: 'ai', priority: 'medium' },
     { label: 'Role Assignment', path: '/role-management', icon: 'Settings', color: 'from-amber-500 to-yellow-500', notificationKey: 'roles', role: ['admin'], priority: 'medium' }
@@ -512,41 +568,78 @@ const priorityConfig = {
               const badgeCount = notificationCounts[action.notificationKey] || 0;
               const priorityInfo = priorityConfig[action.priority];
               return (
-                <Link
-                  key={action.path}
-                  to={action.path}
-                  className="group"
-                  onClick={() => handleTabClick(action.path)}
-                >
-                  <div className="relative p-4 rounded-lg border border-gray-200 hover:border-primary hover:shadow-md transition-all duration-200">
-                    {/* Priority indicator */}
-                    <div className="absolute top-2 right-2 flex items-center space-x-1">
-                      <div className={`w-2 h-2 ${priorityInfo.color} rounded-full`}></div>
-                      <span className={`text-xs font-medium ${priorityInfo.textColor}`}>
-                        {priorityInfo.text}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center space-x-3 mt-2">
-                      <div className={`relative bg-gradient-to-r ${action.color} p-2 rounded-lg`}>
-                        <ApperIcon name={action.icon} size={20} className="text-white" />
-                        {badgeCount > 0 && (
-                          <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center min-w-[20px] shadow-lg">
-                            {badgeCount > 99 ? '99+' : badgeCount}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <span className="font-medium text-gray-900 group-hover:text-primary transition-colors block">
-                          {action.label}
-                        </span>
-                        <span className={`text-xs ${priorityInfo.textColor} opacity-75`}>
-                          {priorityInfo.text} Priority
+{action.isAction ? (
+                  <button
+                    key={action.path}
+                    onClick={() => action.path === '#vendor-control' && setShowVendorControl(!showVendorControl)}
+                    className="group w-full text-left"
+                  >
+                    <div className="relative p-4 rounded-lg border border-gray-200 hover:border-primary hover:shadow-md transition-all duration-200">
+                      {/* Priority indicator */}
+                      <div className="absolute top-2 right-2 flex items-center space-x-1">
+                        <div className={`w-2 h-2 ${priorityInfo.color} rounded-full`}></div>
+                        <span className={`text-xs font-medium ${priorityInfo.textColor}`}>
+                          {priorityInfo.text}
                         </span>
                       </div>
+                      
+                      <div className="flex items-center space-x-3 mt-2">
+                        <div className={`relative bg-gradient-to-r ${action.color} p-2 rounded-lg`}>
+                          <ApperIcon name={action.icon} size={20} className="text-white" />
+                          {badgeCount > 0 && (
+                            <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center min-w-[20px] shadow-lg">
+                              {badgeCount > 99 ? '99+' : badgeCount}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <span className="font-medium text-gray-900 group-hover:text-primary transition-colors block">
+                            {action.label}
+                          </span>
+                          <span className={`text-xs ${priorityInfo.textColor} opacity-75`}>
+                            {priorityInfo.text} Priority
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </Link>
+                  </button>
+                ) : (
+                  <Link
+                    key={action.path}
+                    to={action.path}
+                    className="group"
+                    onClick={() => handleTabClick(action.path)}
+                  >
+                    <div className="relative p-4 rounded-lg border border-gray-200 hover:border-primary hover:shadow-md transition-all duration-200">
+                      {/* Priority indicator */}
+                      <div className="absolute top-2 right-2 flex items-center space-x-1">
+                        <div className={`w-2 h-2 ${priorityInfo.color} rounded-full`}></div>
+                        <span className={`text-xs font-medium ${priorityInfo.textColor}`}>
+                          {priorityInfo.text}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center space-x-3 mt-2">
+                        <div className={`relative bg-gradient-to-r ${action.color} p-2 rounded-lg`}>
+                          <ApperIcon name={action.icon} size={20} className="text-white" />
+                          {badgeCount > 0 && (
+                            <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center min-w-[20px] shadow-lg">
+                              {badgeCount > 99 ? '99+' : badgeCount}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <span className="font-medium text-gray-900 group-hover:text-primary transition-colors block">
+                            {action.label}
+                          </span>
+                          <span className={`text-xs ${priorityInfo.textColor} opacity-75`}>
+                            {priorityInfo.text} Priority
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                )}
               );
             })}
           </div>
@@ -1176,8 +1269,154 @@ const priorityConfig = {
             </div>
           </div>
         </div>
-      </div>
+</div>
 
+      {/* Vendor Control Panel */}
+      {showVendorControl && (
+        <div className="card p-6 mt-8">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="bg-gradient-to-r from-red-500 to-pink-500 p-2 rounded-lg">
+                <ApperIcon name="Users" size={24} className="text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-semibold text-gray-900">Vendor Management Control</h2>
+                <p className="text-gray-600">Manage vendor status and product assignments</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowVendorControl(false)}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <ApperIcon name="X" size={24} />
+            </button>
+          </div>
+
+          {vendorLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loading type="spinner" />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Vendor Status Control */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
+                  <ApperIcon name="Shield" size={20} className="mr-2 text-red-600" />
+                  Vendor Status Control
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {vendors.map((vendor) => (
+                    <div key={vendor.Id} className="bg-white p-4 rounded-lg border">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <h4 className="font-medium text-gray-900">{vendor.name}</h4>
+                          <p className="text-sm text-gray-600">{vendor.company}</p>
+                        </div>
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          vendor.isActive 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {vendor.isActive ? 'Active' : 'Blocked'}
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        {vendor.isActive ? (
+                          <Button
+                            variant="danger"
+                            size="small"
+                            onClick={() => toggleVendorStatus(vendor.Id, 'blocked')}
+                            icon="Ban"
+                          >
+                            Block
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="primary"
+                            size="small"
+                            onClick={() => toggleVendorStatus(vendor.Id, 'active')}
+                            icon="CheckCircle"
+                          >
+                            Activate
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="small"
+                          onClick={() => setSelectedVendor(vendor)}
+                          icon="Package"
+                        >
+                          Assign Products
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Product Assignment */}
+              {selectedVendor && (
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
+                    <ApperIcon name="Package" size={20} className="mr-2 text-blue-600" />
+                    Assign Products to {selectedVendor.name}
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4 max-h-64 overflow-y-auto">
+                    {availableProducts.map((product) => (
+                      <label key={product.id} className="flex items-center space-x-3 p-3 bg-white rounded-lg border cursor-pointer hover:bg-gray-50">
+                        <input
+                          type="checkbox"
+                          checked={selectedProducts.includes(product.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedProducts([...selectedProducts, product.id]);
+                            } else {
+                              setSelectedProducts(selectedProducts.filter(id => id !== product.id));
+                            }
+                          }}
+                          className="rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{product.name}</p>
+                          <p className="text-sm text-gray-600">{product.category}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-600">
+                      {selectedProducts.length} products selected
+                    </p>
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="small"
+                        onClick={() => {
+                          setSelectedVendor(null);
+                          setSelectedProducts([]);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="primary"
+                        size="small"
+                        onClick={() => assignProducts(selectedVendor.Id, selectedProducts)}
+                        disabled={selectedProducts.length === 0}
+                        icon="Check"
+                      >
+                        Assign Selected
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       {/* Approval Action Modal */}
       {showApprovalModal && selectedApproval && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">

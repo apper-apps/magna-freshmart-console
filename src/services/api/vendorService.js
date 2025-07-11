@@ -1,4 +1,6 @@
-import vendorsData from '@/services/mockData/vendors.json';
+import React from "react";
+import Error from "@/components/ui/Error";
+import vendorsData from "@/services/mockData/vendors.json";
 
 class VendorService {
   constructor() {
@@ -349,8 +351,71 @@ class VendorService {
     return phoneRegex.test(phone);
   }
 
-  delay(ms = 200) {
+delay(ms = 200) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // Admin control functions
+  async toggleVendorStatus(vendorId, status) {
+    await this.delay(300);
+    
+    const vendorIndex = this.vendors.findIndex(v => v.Id === parseInt(vendorId));
+    
+    if (vendorIndex === -1) {
+      throw new Error('Vendor not found');
+    }
+    
+    const isActive = status === 'active';
+    this.vendors[vendorIndex].isActive = isActive;
+    this.vendors[vendorIndex].statusLastUpdated = new Date().toISOString();
+    this.vendors[vendorIndex].lastUpdatedBy = 'admin';
+    
+    return {
+      Id: this.vendors[vendorIndex].Id,
+      name: this.vendors[vendorIndex].name,
+      isActive: isActive,
+      statusLastUpdated: this.vendors[vendorIndex].statusLastUpdated
+    };
+  }
+
+  async logAdminAction(action) {
+    await this.delay(100);
+    
+    const logEntry = {
+      action: action,
+      timestamp: new Date().toISOString(),
+      adminId: 'current_admin', // In real app, get from session
+      type: 'vendor_management'
+    };
+    
+    // In real implementation, this would save to database
+    console.log('Admin Action Logged:', logEntry);
+    
+    return logEntry;
+  }
+
+  async notifyVendor(vendorId, message) {
+    await this.delay(200);
+    
+    const vendor = this.vendors.find(v => v.Id === parseInt(vendorId));
+    
+    if (!vendor) {
+      throw new Error('Vendor not found');
+    }
+    
+    // In real implementation, this would send email/SMS/push notification
+    const notification = {
+      vendorId: vendorId,
+      vendorEmail: vendor.email,
+      message: message,
+      type: 'admin_notification',
+      sentAt: new Date().toISOString(),
+      status: 'sent'
+    };
+    
+    console.log('Vendor Notification Sent:', notification);
+    
+    return notification;
   }
 }
 
