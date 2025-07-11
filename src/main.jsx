@@ -5,7 +5,7 @@ import { Provider } from "react-redux";
 import { ToastContainer } from "react-toastify";
 import App from "@/App";
 import { store } from "@/store/index";
-import Error from "@/components/ui/Error";
+import ErrorComponent from "@/components/ui/Error";
 
 // Polyfill for structuredClone if not available
 if (typeof structuredClone === 'undefined') {
@@ -123,10 +123,9 @@ const postMessageState = {
 
 window.postMessage = function(message, targetOrigin, transfer) {
   const attemptKey = `${targetOrigin}:${Date.now()}`;
-  
-  try {
+try {
     // Test if message can be cloned
-    structuredClone(message);
+    window.structuredClone(message);
     return originalPostMessage.call(this, message, targetOrigin, transfer);
   } catch (error) {
     if (error.name === 'DataCloneError') {
@@ -161,10 +160,10 @@ window.addEventListener('message', (event) => {
       console.log('Message from Apper script:', event.data);
       
       // If the message contains URL objects, convert them
-      if (event.data && typeof event.data === 'object') {
+if (event.data && typeof event.data === 'object') {
         const sanitizedData = serializeForPostMessage(event.data);
         // Forward sanitized message to any listeners
-        window.dispatchEvent(new CustomEvent('apper-message', {
+        window.dispatchEvent(new window.CustomEvent('apper-message', {
           detail: sanitizedData
         }));
       }
@@ -367,10 +366,9 @@ const sendSafeMessage = (targetWindow, message, targetOrigin = "*") => {
         console.warn('Target window is closed');
         return false;
       }
-      
-      // Test if message can be cloned first
+// Test if message can be cloned first
       try {
-        structuredClone(message);
+        window.structuredClone(message);
         targetWindow.postMessage(message, targetOrigin);
         return true;
       } catch (cloneError) {
@@ -432,10 +430,10 @@ const handleMessage = (event) => {
     
     try {
       const sanitizedData = serializeForPostMessage(event.data);
-      console.log('Received sanitized message from Apper:', sanitizedData);
+console.log('Received sanitized message from Apper:', sanitizedData);
       
       // Dispatch custom event for app components to listen to
-      window.dispatchEvent(new CustomEvent('apper-safe-message', {
+      window.dispatchEvent(new window.CustomEvent('apper-safe-message', {
         detail: {
           origin: event.origin,
           data: sanitizedData,
@@ -496,10 +494,9 @@ static async loadInBackground() {
         setTimeout(() => {
           this.loadInBackground();
         }, this.retryDelay * this.retryCount);
-      } else {
-        console.warn('Max SDK recovery attempts reached, using fallback mode');
+console.warn('Max SDK recovery attempts reached, using fallback mode');
         // Implement fallback functionality
-        window.dispatchEvent(new CustomEvent('apper-sdk-fallback', {
+        window.dispatchEvent(new window.CustomEvent('apper-sdk-fallback', {
           detail: { error: error.message, timestamp: Date.now() }
         }));
       }
@@ -672,10 +669,10 @@ const handleSDKMessage = (event) => {
   try {
     if (event.origin && event.origin.includes('apper.io')) {
       const sanitizedData = serializeForPostMessage(event.data);
-      console.log('Handled SDK message:', sanitizedData);
+console.log('Handled SDK message:', sanitizedData);
       
       // Dispatch sanitized message
-      window.dispatchEvent(new CustomEvent('apper-sdk-message', {
+      window.dispatchEvent(new window.CustomEvent('apper-sdk-message', {
         detail: sanitizedData
       }));
     }
