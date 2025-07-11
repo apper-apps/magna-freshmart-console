@@ -464,13 +464,62 @@ class BackgroundSDKLoader {
   static maxRetries = 3;
   static retryDelay = 1000;
   
-  static async loadInBackground() {
+static async loadInBackground() {
     try {
       // Setup safe message handling first
       this.messageHandler = setupMessageHandler();
       
-      // Monitor for SDK errors
-}
+      // Monitor for SDK errors and setup recovery
+      window.addEventListener('apper-sdk-error', this.handleSDKError.bind(this));
+      
+      // Initialize SDK with timeout
+      const sdkPromise = this.initializeSDK();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('SDK initialization timeout')), 5000)
+      );
+      
+      await Promise.race([sdkPromise, timeoutPromise]);
+      
+      console.log('SDK loaded successfully in background');
+      return this.messageHandler;
+      
+    } catch (error) {
+      console.warn('SDK background loading failed:', error);
+      performanceMonitor.trackError(error, 'sdk-load-error');
+      
+      // Attempt recovery if retries available
+      if (this.retryCount < this.maxRetries) {
+        this.retryCount++;
+        console.log(`Retrying SDK load (${this.retryCount}/${this.maxRetries})`);
+        
+        // Retry with exponential backoff
+        setTimeout(() => {
+          this.loadInBackground();
+        }, this.retryDelay * this.retryCount);
+      } else {
+        console.warn('Max SDK recovery attempts reached, using fallback mode');
+        // Implement fallback functionality
+        window.dispatchEvent(new CustomEvent('apper-sdk-fallback', {
+          detail: { error: error.message, timestamp: Date.now() }
+        }));
+      }
+      
+      return () => {}; // Return cleanup function
+    }
+  }
+  
+  static async initializeSDK() {
+    // Placeholder for actual SDK initialization
+    // This would contain the actual SDK loading logic
+    return new Promise((resolve) => {
+      setTimeout(resolve, 100);
+    });
+  }
+  
+  static handleSDKError(event) {
+    console.error('SDK Error:', event.detail);
+    performanceMonitor.trackError(new Error(event.detail.message), 'sdk-runtime-error');
+  }
 };
 
 // Enhanced error boundary component with recovery mechanisms
@@ -568,20 +617,7 @@ function FastErrorBoundary({ children, fallback }) {
       </div>
     );
   }
-
-  return children;
-}
-        // Attempt to reinitialize or provide fallback
-        this.loadInBackground();
-      }, this.retryDelay * this.retryCount);
-    } else {
-      console.warn('Max SDK recovery attempts reached, using fallback mode');
-      // Implement fallback functionality here
-      window.dispatchEvent(new CustomEvent('apper-sdk-fallback', {
-        detail: { error: error.message, timestamp: Date.now() }
-      }));
-    }
-  }
+return children;
 }
 
 // Enhanced performance monitoring with error tracking
@@ -651,68 +687,6 @@ const handleSDKMessage = (event) => {
 performanceMonitor.mark('app-start');
 
 // Fast Error Boundary
-function FastErrorBoundary({ children, fallback }) {
-  const [hasError, setHasError] = React.useState(false);
-  const [error, setError] = React.useState(null);
-
-  React.useEffect(() => {
-    const handleError = (event) => {
-      // Skip external script errors
-      if (event.filename && event.filename.includes('apper.io')) {
-        performanceMonitor.trackError(event.error || new Error(event.message), 'external-script');
-        event.preventDefault();
-        return;
-      }
-      
-      setHasError(true);
-      setError(event.error || new Error(event.message));
-      performanceMonitor.trackError(event.error || new Error(event.message), 'app-error');
-    };
-
-    const handleUnhandledRejection = (event) => {
-      // Skip DataCloneError from external scripts
-      if (event.reason && event.reason.message && 
-          event.reason.message.includes('DataCloneError')) {
-        performanceMonitor.trackError(event.reason, 'postmessage-error');
-        event.preventDefault();
-        return;
-      }
-      
-      setHasError(true);
-      setError(event.reason);
-      performanceMonitor.trackError(event.reason, 'promise-rejection');
-    };
-
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-
-    return () => {
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-    };
-  }, []);
-
-  if (hasError) {
-    return fallback || (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
-          <h2 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h2>
-          <p className="text-gray-600 mb-4">
-            We're sorry, but there was an error loading the application.
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
-          >
-            Reload Page
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return children;
-}
 
 // Initialize app with comprehensive error handling
 async function initializeApp() {
