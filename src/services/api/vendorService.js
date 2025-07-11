@@ -1,5 +1,3 @@
-import React from "react";
-import Error from "@/components/ui/Error";
 import vendorsData from "@/services/mockData/vendors.json";
 
 class VendorService {
