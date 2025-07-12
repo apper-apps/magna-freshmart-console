@@ -1,19 +1,32 @@
 import 'react-toastify/dist/ReactToastify.css'
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
-import { ToastContainer } from 'react-toastify'
-import { Provider, useDispatch } from 'react-redux'
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
+import { Provider, useDispatch } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
 import { persistor, store } from "@/store/index";
-import { webSocketService } from "@/services/api/websocketService";
-import { setConnectionStatus, updateApprovalStatus, addRealTimeNotification } from "@/store/approvalWorkflowSlice";
+import { addRealTimeNotification, setConnectionStatus, updateApprovalStatus } from "@/store/approvalWorkflowSlice";
 import Layout from "@/components/organisms/Layout";
 import Loading from "@/components/ui/Loading";
-// Direct imports for core components
-import ProductDetail from "@/components/pages/ProductDetail";
+import PayrollManagement from "@/components/pages/PayrollManagement";
+import AdminDashboard from "@/components/pages/AdminDashboard";
 import Cart from "@/components/pages/Cart";
+import AIGenerate from "@/components/pages/AIGenerate";
+import ProductManagement from "@/components/pages/ProductManagement";
+import Analytics from "@/components/pages/Analytics";
+import Orders from "@/components/pages/Orders";
+import PaymentManagement from "@/components/pages/PaymentManagement";
+import VendorPortal from "@/components/pages/VendorPortal";
+import Category from "@/components/pages/Category";
+import OrderTracking from "@/components/pages/OrderTracking";
+import Account from "@/components/pages/Account";
+import DeliveryTracking from "@/components/pages/DeliveryTracking";
+import POS from "@/components/pages/POS";
 import Checkout from "@/components/pages/Checkout";
+import FinancialDashboard from "@/components/pages/FinancialDashboard";
 import Home from "@/components/pages/Home";
+import VendorManagement from "@/components/pages/VendorManagement";
+import webSocketService from "@/services/api/websocketService";
 // Error boundary for lazy-loaded components
 class LazyErrorBoundary extends React.Component {
   constructor(props) {

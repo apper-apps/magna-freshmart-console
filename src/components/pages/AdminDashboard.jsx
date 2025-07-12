@@ -14,7 +14,7 @@ import Loading from "@/components/ui/Loading";
 import Orders from "@/components/pages/Orders";
 import { orderService } from "@/services/api/orderService";
 import { approvalWorkflowService } from "@/services/api/approvalWorkflowService";
-import webSocketService from "@/services/api/websocketService";
+import webSocketService, { webSocketService } from "@/services/api/websocketService";
 import { reportService } from "@/services/api/reportService";
 import { vendorService } from "@/services/api/vendorService";
 import { productService } from "@/services/api/productService";
