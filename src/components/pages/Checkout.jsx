@@ -19,7 +19,7 @@ import { paymentService } from "@/services/api/paymentService";
 
 function Checkout() {
   const navigate = useNavigate();
-const { cart, clearCart } = useCart();
+  const { cart, clearCart } = useCart();
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
@@ -77,11 +77,9 @@ const [errors, setErrors] = useState({});
   const totals = calculateCartTotals();
   const { originalSubtotal, dealSavings, subtotal, deliveryCharge, total } = totals;
   const gatewayFee = calculateGatewayFee(subtotal);
-  
-  useEffect(() => {
-loadPaymentMethods();
+useEffect(() => {
+    loadPaymentMethods();
   }, []);
-
   async function loadPaymentMethods() {
     try {
       const methods = await paymentService.getAvailablePaymentMethods();
@@ -97,9 +95,10 @@ loadPaymentMethods();
     } catch (error) {
       console.error('Failed to load payment methods:', error);
       toast.error('Failed to load payment options');
-    }
+}
   }
-function calculateGatewayFee(currentSubtotal = 0) {
+
+  function calculateGatewayFee(currentSubtotal = 0) {
     const selectedMethod = availablePaymentMethods.find(method => method?.id === paymentMethod);
     if (!selectedMethod || !selectedMethod.fee) return 0;
     
@@ -122,9 +121,10 @@ function calculateGatewayFee(currentSubtotal = 0) {
         ...prev,
         [name]: ''
       }));
-    }
+}
   }
-function handleFileUpload(e) {
+
+  function handleFileUpload(e) {
     const file = e.target.files[0];
     if (file) {
       // Validate file type
@@ -154,9 +154,10 @@ function handleFileUpload(e) {
 
   function removePaymentProof() {
     setPaymentProof(null);
-    toast.info('Payment proof removed');
+toast.info('Payment proof removed');
   }
-function validateForm() {
+
+  function validateForm() {
     const newErrors = {};
     const required = ['name', 'phone', 'address', 'city', 'postalCode'];
     
@@ -187,9 +188,10 @@ function validateForm() {
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+return Object.keys(newErrors).length === 0;
   }
-async function handlePaymentRetry() {
+
+  async function handlePaymentRetry() {
     try {
       setLoading(true);
       const paymentResult = await paymentService.retryPayment(
@@ -225,9 +227,10 @@ async function handlePaymentRetry() {
       reader.onload = () => resolve(reader.result);
       reader.onerror = reject;
       reader.readAsDataURL(file);
-    });
+});
   }
-async function completeOrder(paymentResult) {
+
+  async function completeOrder(paymentResult) {
     try {
       let paymentProofData = null;
       
@@ -355,11 +358,11 @@ async function completeOrder(paymentResult) {
     } catch (error) {
       toast.error('Failed to create order: ' + error.message);
       throw error;
-    }
+}
   }
-async function handleSubmit(e, isRetry = false) {
+
+  async function handleSubmit(e, isRetry = false) {
     e.preventDefault();
-    
     if (!validateForm()) {
       toast.error('Please fix the form errors');
       return;
@@ -453,9 +456,10 @@ async function handleSubmit(e, isRetry = false) {
       }
     } finally {
       setLoading(false);
-    }
+}
   }
-// Redirect if cart is empty
+
+  // Redirect if cart is empty
   if (!cart || cart.length === 0) {
     return (
       <div className="min-h-screen bg-background py-8">
@@ -619,10 +623,10 @@ async function handleSubmit(e, isRetry = false) {
                     <Input
                       label="Delivery Instructions"
                       name="instructions"
-                      value={formData.instructions}
+value={formData.instructions}
                       onChange={handleInputChange}
                       placeholder="Special instructions for delivery..."
-/>
+                    />
                   </div>
                 </div>
               </div>
@@ -719,9 +723,9 @@ async function handleSubmit(e, isRetry = false) {
                               </div>
                             )}
                           </div>
-                        </div>
+</div>
                       </div>
-))}
+                    ))}
                   </div>
                 )}
                 
@@ -817,11 +821,11 @@ async function handleSubmit(e, isRetry = false) {
                             <li>• Upload the screenshot for verification</li>
                             <li>• Your order will be processed after payment verification</li>
                           </ul>
-                        </div>
-                      </div>
 </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
                 )}
               </div>
 
@@ -830,12 +834,12 @@ async function handleSubmit(e, isRetry = false) {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full"
+className="w-full"
                 >
                   {loading ? 'Processing...' : `Place Order - Rs. ${total.toLocaleString()}`}
                 </Button>
               </div>
-</form>
+            </form>
           </div>
         </div>
       </div>
