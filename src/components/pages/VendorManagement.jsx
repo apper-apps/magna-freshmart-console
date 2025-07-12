@@ -7,6 +7,8 @@ import { Badge } from '@/components/atoms/Badge';
 import Loading from '@/components/ui/Loading';
 import Error from '@/components/ui/Error';
 import { vendorService } from '@/services/api/vendorService';
+import { productService } from '@/services/api/productService';
+import ProductAssignment from '@/components/molecules/ProductAssignment';
 
 const VendorManagement = () => {
   const [vendors, setVendors] = useState([]);
@@ -26,10 +28,23 @@ const VendorManagement = () => {
     isActive: true
   });
   const [formLoading, setFormLoading] = useState(false);
+  const [availableProducts, setAvailableProducts] = useState([]);
+  const [productAssignments, setProductAssignments] = useState([]);
+  const [selectedProducts, setSelectedProducts] = useState([]);
 
-  useEffect(() => {
+useEffect(() => {
     loadVendors();
+    loadAvailableProducts();
   }, []);
+
+  const loadAvailableProducts = async () => {
+    try {
+      const data = await productService.getAll('admin');
+      setAvailableProducts(data);
+    } catch (err) {
+      console.error('Failed to load products:', err);
+    }
+  };
 
   const loadVendors = async () => {
     try {
@@ -65,7 +80,7 @@ const VendorManagement = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const resetForm = () => {
+const resetForm = () => {
     setFormData({
       name: '',
       email: '',
@@ -77,9 +92,11 @@ const VendorManagement = () => {
     });
     setEditingVendor(null);
     setShowForm(false);
+    setProductAssignments([]);
+    setSelectedProducts([]);
   };
 
-  const handleEdit = (vendor) => {
+const handleEdit = async (vendor) => {
     setEditingVendor(vendor);
     setFormData({
       name: vendor.name,
@@ -90,25 +107,49 @@ const VendorManagement = () => {
       address: vendor.address || '',
       isActive: vendor.isActive
     });
+    
+    // Load existing product assignments for this vendor
+    try {
+      const vendorProducts = await productService.getVendorProducts(vendor.Id);
+      const assignedProductIds = vendorProducts.map(p => p.id);
+      setSelectedProducts(assignedProductIds);
+    } catch (err) {
+      console.error('Failed to load vendor products:', err);
+    }
+    
     setShowForm(true);
   };
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
     setFormLoading(true);
 
     try {
+      let vendorResult;
+      
       if (editingVendor) {
         // Update existing vendor
         const updateData = { ...formData };
         if (!updateData.password) {
           delete updateData.password; // Don't update password if empty
         }
-        await vendorService.update(editingVendor.Id, updateData);
+        vendorResult = await vendorService.update(editingVendor.Id, updateData);
+        
+        // Update product assignments if changed
+        if (selectedProducts.length > 0) {
+          await productService.assignProductsToVendor(editingVendor.Id, selectedProducts);
+        }
+        
         toast.success('Vendor updated successfully');
       } else {
         // Create new vendor
-        await vendorService.create(formData);
+        vendorResult = await vendorService.create(formData);
+        
+        // Assign products to new vendor if any selected
+        if (selectedProducts.length > 0) {
+          await productService.assignProductsToVendor(vendorResult.Id, selectedProducts);
+        }
+        
         toast.success('Vendor created successfully');
       }
       
@@ -311,13 +352,13 @@ const VendorManagement = () => {
         )}
       </div>
 
-      {/* Add/Edit Vendor Modal */}
+{/* Add/Edit Vendor Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
             <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={resetForm}></div>
             
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
               <form onSubmit={handleSubmit}>
                 <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                   <div className="flex items-center justify-between mb-4">
@@ -334,100 +375,125 @@ const VendorManagement = () => {
                     </Button>
                   </div>
                   
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Name *
-                      </label>
-                      <Input
-                        type="text"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleFormChange}
-                        required
-                        className="w-full"
-                      />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Vendor Information */}
+                    <div className="space-y-4">
+                      <h4 className="text-md font-medium text-gray-900 border-b pb-2">
+                        Vendor Information
+                      </h4>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Name *
+                        </label>
+                        <Input
+                          type="text"
+                          name="name"
+                          value={formData.name}
+                          onChange={handleFormChange}
+                          required
+                          className="w-full"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Email *
+                        </label>
+                        <Input
+                          type="email"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleFormChange}
+                          required
+                          className="w-full"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Password {editingVendor ? '(leave empty to keep current)' : '*'}
+                        </label>
+                        <Input
+                          type="password"
+                          name="password"
+                          value={formData.password}
+                          onChange={handleFormChange}
+                          required={!editingVendor}
+                          className="w-full"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Company
+                        </label>
+                        <Input
+                          type="text"
+                          name="company"
+                          value={formData.company}
+                          onChange={handleFormChange}
+                          className="w-full"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Phone
+                        </label>
+                        <Input
+                          type="tel"
+                          name="phone"
+                          value={formData.phone}
+                          onChange={handleFormChange}
+                          className="w-full"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Address
+                        </label>
+                        <textarea
+                          name="address"
+                          value={formData.address}
+                          onChange={handleFormChange}
+                          rows={3}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                        />
+                      </div>
+                      
+                      <div className="flex items-center">
+                        <input
+                          type="checkbox"
+                          id="isActive"
+                          name="isActive"
+                          checked={formData.isActive}
+                          onChange={handleFormChange}
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <label htmlFor="isActive" className="ml-2 block text-sm text-gray-900">
+                          Active vendor
+                        </label>
+                      </div>
                     </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Email *
-                      </label>
-                      <Input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleFormChange}
-                        required
-                        className="w-full"
+
+                    {/* Product Assignment */}
+                    <div className="space-y-4">
+                      <h4 className="text-md font-medium text-gray-900 border-b pb-2">
+                        Product Assignment
+                      </h4>
+                      
+                      <ProductAssignment
+                        vendor={editingVendor || { name: formData.name, Id: 'new' }}
+                        availableProducts={availableProducts}
+                        onAssign={(productIds) => {
+                          setSelectedProducts(productIds);
+                          toast.success(`${productIds.length} products will be assigned`);
+                        }}
+                        loading={false}
+                        error={null}
                       />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Password {editingVendor ? '(leave empty to keep current)' : '*'}
-                      </label>
-                      <Input
-                        type="password"
-                        name="password"
-                        value={formData.password}
-                        onChange={handleFormChange}
-                        required={!editingVendor}
-                        className="w-full"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Company
-                      </label>
-                      <Input
-                        type="text"
-                        name="company"
-                        value={formData.company}
-                        onChange={handleFormChange}
-                        className="w-full"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Phone
-                      </label>
-                      <Input
-                        type="tel"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleFormChange}
-                        className="w-full"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Address
-                      </label>
-                      <textarea
-                        name="address"
-                        value={formData.address}
-                        onChange={handleFormChange}
-                        rows={3}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                      />
-                    </div>
-                    
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="isActive"
-                        name="isActive"
-                        checked={formData.isActive}
-                        onChange={handleFormChange}
-                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                      />
-                      <label htmlFor="isActive" className="ml-2 block text-sm text-gray-900">
-                        Active vendor
-                      </label>
                     </div>
                   </div>
                 </div>
