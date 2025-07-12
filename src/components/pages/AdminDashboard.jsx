@@ -14,7 +14,7 @@ import Loading from "@/components/ui/Loading";
 import Orders from "@/components/pages/Orders";
 import { orderService } from "@/services/api/orderService";
 import { approvalWorkflowService } from "@/services/api/approvalWorkflowService";
-import webSocketService from "@/services/api/websocketService";
+import webSocketService, { webSocketService } from "@/services/api/websocketService";
 import { reportService } from "@/services/api/reportService";
 import { vendorService } from "@/services/api/vendorService";
 import { productService } from "@/services/api/productService";
@@ -49,6 +49,9 @@ const AdminDashboard = () => {
 const [selectedApproval, setSelectedApproval] = useState(null);
   const [approvalComments, setApprovalComments] = useState('');
   const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [selectedApprovals, setSelectedApprovals] = useState([]);
+  const [showBulkConfirmModal, setShowBulkConfirmModal] = useState(false);
+  const [bulkActionType, setBulkActionType] = useState('');
   const [showVendorControl, setShowVendorControl] = useState(false);
   const [vendors, setVendors] = useState([]);
   const [selectedVendor, setSelectedVendor] = useState(null);
@@ -369,6 +372,7 @@ useEffect(() => {
   }, [dispatch]);
 
   // Handle approval actions
+// Handle approval actions
   const handleApprovalAction = async (action, requestId, comments = '') => {
     try {
       if (action === 'approve') {
@@ -386,6 +390,7 @@ useEffect(() => {
       setSelectedApproval(null);
       setApprovalComments('');
       setShowApprovalModal(false);
+      setSelectedApprovals(selectedApprovals.filter(id => id !== requestId));
       
       // Refresh approvals list
       dispatch(fetchPendingApprovals());
@@ -395,6 +400,59 @@ useEffect(() => {
     }
   };
 
+  // Handle bulk approval actions
+  const handleBulkApproval = () => {
+    if (selectedApprovals.length === 0) {
+      toast.warning('Please select approval requests to approve');
+      return;
+    }
+    setBulkActionType('approve');
+    setShowBulkConfirmModal(true);
+  };
+
+  const handleBulkRejection = () => {
+    if (selectedApprovals.length === 0) {
+      toast.warning('Please select approval requests to reject');
+      return;
+    }
+    setBulkActionType('reject');
+    setShowBulkConfirmModal(true);
+  };
+
+  const processBulkAction = async (comments = '') => {
+    try {
+      if (bulkActionType === 'reject' && !comments.trim()) {
+        toast.error('Rejection comments are required for bulk rejection');
+        return;
+      }
+
+      setLoading(true);
+      const promises = selectedApprovals.map(requestId => {
+        if (bulkActionType === 'approve') {
+          return dispatch(approveRequest({ requestId, comments })).unwrap();
+        } else {
+          return dispatch(rejectRequest({ requestId, comments })).unwrap();
+        }
+      });
+
+      await Promise.all(promises);
+      
+      toast.success(`Successfully ${bulkActionType}d ${selectedApprovals.length} approval requests`);
+      setSelectedApprovals([]);
+      setShowBulkConfirmModal(false);
+      setBulkActionType('');
+      setApprovalComments('');
+      
+      // Refresh approvals list
+      dispatch(fetchPendingApprovals());
+      
+    } catch (error) {
+      toast.error(`Failed to process bulk ${bulkActionType}: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+}
+  };
   const openApprovalModal = (approval, action) => {
     setSelectedApproval({ ...approval, action });
     setApprovalComments('');
@@ -1078,42 +1136,171 @@ const priorityConfig = {
 </div>
       </div>
 
-      {/* Approval Workflow Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-        {/* Pending Approvals */}
+{/* Enhanced Approval Workflow Section */}
+      <div className="space-y-8 mb-8">
+        {/* Approval Management Panel */}
         <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <ApperIcon name="Clock" size={20} className="text-orange-600" />
-              <h2 className="text-xl font-semibold text-gray-900">Pending Approvals</h2>
-              {realTimeUpdates.connected && (
-                <div className="flex items-center space-x-1">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-xs text-green-600">Live</span>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="bg-gradient-to-r from-orange-500 to-red-500 p-2 rounded-lg">
+                <ApperIcon name="Shield" size={24} className="text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-semibold text-gray-900">Admin Approval Panel</h2>
+                <div className="flex items-center space-x-4 mt-1">
+                  <div className="flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                    <span className="text-sm font-medium text-orange-600">Critical Priority</span>
+                  </div>
+                  {realTimeUpdates.connected && (
+                    <div className="flex items-center space-x-1">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-xs text-green-600">Live Updates</span>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
-            <Badge variant="warning" className="text-sm">
-              {pendingApprovals.length} pending
-            </Badge>
+            <div className="flex items-center space-x-2">
+              <Badge variant="warning" className="text-sm">
+                {pendingApprovals.length} pending
+              </Badge>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => dispatch(fetchPendingApprovals())}
+                disabled={approvalLoading}
+                icon="RefreshCw"
+              >
+                {approvalLoading ? 'Refreshing...' : 'Refresh'}
+              </Button>
+            </div>
           </div>
-          
+
+          {/* Approval Statistics */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-orange-100 text-sm">Pending Queue</p>
+                  <p className="text-2xl font-bold">{pendingApprovals.length}</p>
+                </div>
+                <ApperIcon name="Clock" size={24} className="text-orange-100" />
+              </div>
+            </div>
+            
+            <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white p-4 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-100 text-sm">Urgent Priority</p>
+                  <p className="text-2xl font-bold">
+                    {pendingApprovals.filter(req => req.priority === 'urgent').length}
+                  </p>
+                </div>
+                <ApperIcon name="AlertTriangle" size={24} className="text-green-100" />
+              </div>
+            </div>
+            
+            <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white p-4 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-blue-100 text-sm">Financial Impact</p>
+                  <p className="text-2xl font-bold">
+                    Rs. {pendingApprovals.reduce((sum, req) => 
+                      sum + Math.abs(req.businessImpact?.revenueImpact || 0), 0
+                    ).toLocaleString()}
+                  </p>
+                </div>
+                <ApperIcon name="DollarSign" size={24} className="text-blue-100" />
+              </div>
+            </div>
+            
+            <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-4 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-purple-100 text-sm">Avg. Processing</p>
+                  <p className="text-2xl font-bold">2.4h</p>
+                </div>
+                <ApperIcon name="Timer" size={24} className="text-purple-100" />
+              </div>
+            </div>
+          </div>
+
+          {/* Bulk Actions */}
+          {selectedApprovals.length > 0 && (
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <ApperIcon name="CheckSquare" size={20} className="text-blue-600" />
+                  <span className="font-medium text-blue-900">
+                    {selectedApprovals.length} approval{selectedApprovals.length > 1 ? 's' : ''} selected
+                  </span>
+                </div>
+                <div className="flex space-x-2">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleBulkApproval()}
+                    icon="Check"
+                  >
+                    Bulk Approve
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleBulkRejection()}
+                    icon="X"
+                  >
+                    Bulk Reject
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedApprovals([])}
+                    icon="Square"
+                  >
+                    Clear
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Pending Approvals Queue */}
           {approvalLoading ? (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center py-12">
               <Loading type="spinner" />
             </div>
           ) : pendingApprovals.length === 0 ? (
-            <div className="text-center py-8">
+            <div className="text-center py-12">
               <ApperIcon name="CheckCircle" size={48} className="text-green-400 mx-auto mb-4" />
               <p className="text-gray-600">No pending approvals</p>
+              <p className="text-sm text-gray-500 mt-2">All approval requests have been processed</p>
             </div>
           ) : (
-            <div className="space-y-4 max-h-64 overflow-y-auto">
-              {pendingApprovals.slice(0, 5).map((approval) => (
-                <div key={approval.Id} className="bg-gray-50 p-4 rounded-lg border-l-4 border-orange-400">
-                  <div className="flex items-start justify-between">
+            <div className="space-y-4">
+              {pendingApprovals.map((approval) => (
+                <div key={approval.Id} className="bg-gray-50 p-4 rounded-lg border-l-4 border-orange-400 hover:bg-gray-100 transition-colors">
+                  <div className="flex items-start space-x-4">
+                    {/* Selection Checkbox */}
+                    <div className="flex items-center pt-1">
+                      <input
+                        type="checkbox"
+                        checked={selectedApprovals.includes(approval.Id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedApprovals([...selectedApprovals, approval.Id]);
+                          } else {
+                            setSelectedApprovals(selectedApprovals.filter(id => id !== approval.Id));
+                          }
+                        }}
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                    </div>
+                    
+                    {/* Approval Details */}
                     <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-1">
+                      <div className="flex items-center space-x-2 mb-2">
                         <h3 className="font-medium text-gray-900">{approval.title}</h3>
                         <Badge 
                           variant={approval.priority === 'urgent' ? 'error' : approval.priority === 'high' ? 'warning' : 'info'}
@@ -1121,19 +1308,52 @@ const priorityConfig = {
                         >
                           {approval.priority}
                         </Badge>
+                        <Badge variant="outline" className="text-xs">
+                          {approval.type.replace('_', ' ').toUpperCase()}
+                        </Badge>
                       </div>
-                      <p className="text-sm text-gray-600 mb-2">{approval.description}</p>
+                      
+                      <p className="text-sm text-gray-600 mb-3">{approval.description}</p>
+                      
+                      {/* Business Impact Display */}
+                      {approval.businessImpact && (
+                        <div className="bg-white p-3 rounded-lg border mb-3">
+                          <div className="grid grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-600">Revenue Impact:</span>
+                              <p className={`font-medium ${approval.businessImpact.revenueImpact >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                Rs. {Math.abs(approval.businessImpact.revenueImpact).toLocaleString()}
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Margin Impact:</span>
+                              <p className={`font-medium ${approval.businessImpact.marginImpact >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {approval.businessImpact.marginImpact}%
+                              </p>
+                            </div>
+                            <div>
+                              <span className="text-gray-600">Customer Impact:</span>
+                              <p className="font-medium text-gray-900 capitalize">
+                                {approval.businessImpact.customerImpact}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
                       <div className="flex items-center space-x-4 text-xs text-gray-500">
-                        <span>By: {approval.submittedBy}</span>
-                        <span>{format(new Date(approval.submittedAt), 'MMM dd, HH:mm')}</span>
-                        {approval.businessImpact?.revenueImpact && (
-                          <span className={approval.businessImpact.revenueImpact > 0 ? 'text-green-600' : 'text-red-600'}>
-                            Rs. {Math.abs(approval.businessImpact.revenueImpact).toLocaleString()}
+                        <span>Submitted by: {approval.submittedBy}</span>
+                        <span>{format(new Date(approval.submittedAt), 'MMM dd, yyyy HH:mm')}</span>
+                        {approval.walletImpact?.requiresHold && (
+                          <span className="text-blue-600">
+                            Wallet Hold: Rs. {approval.walletImpact.holdAmount.toLocaleString()}
                           </span>
                         )}
                       </div>
                     </div>
-                    <div className="flex space-x-2 ml-4">
+                    
+                    {/* Action Buttons */}
+                    <div className="flex space-x-2">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1152,6 +1372,15 @@ const priorityConfig = {
                       >
                         Reject
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon="Eye"
+                        onClick={() => openApprovalModal(approval, 'view')}
+                        className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                      >
+                        Details
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -1159,6 +1388,108 @@ const priorityConfig = {
             </div>
           )}
         </div>
+
+        {/* Audit Trail */}
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center space-x-3">
+              <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-2 rounded-lg">
+                <ApperIcon name="FileText" size={24} className="text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Approval Audit Trail</h2>
+                <p className="text-gray-600">Complete history of approval decisions</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Audit Trail Filters */}
+          <div className="bg-gray-50 p-4 rounded-lg mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">All Statuses</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="">All Types</option>
+                  <option value="price_change">Price Change</option>
+                  <option value="bulk_discount">Bulk Discount</option>
+                  <option value="product_removal">Product Removal</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
+                <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option value="today">Today</option>
+                  <option value="week">This Week</option>
+                  <option value="month">This Month</option>
+                  <option value="all">All Time</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Approver</label>
+                <input
+                  type="text"
+                  placeholder="Search approver..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Audit Trail Table */}
+          <div className="bg-white rounded-lg overflow-hidden border">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Request</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted By</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Decision</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Approved By</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Impact</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {/* Sample audit trail data - in production, this would come from approval history */}
+                  <tr>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">Price Update - Organic Tomatoes</div>
+                        <div className="text-sm text-gray-500">ID: #1</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Badge variant="info" className="text-xs">Price Change</Badge>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">vendor_1</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Badge variant="success" className="text-xs">Approved</Badge>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">admin_1</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {format(new Date(), 'MMM dd, yyyy HH:mm')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
+                      +Rs. 1,500
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
 
         {/* Real-time System Status */}
         <div className="card p-6">
@@ -1502,6 +1833,82 @@ const priorityConfig = {
                 icon={selectedApproval.action === 'approve' ? 'Check' : 'X'}
               >
                 {selectedApproval.action === 'approve' ? 'Approve Request' : 'Reject Request'}
+              </Button>
+            </div>
+          </div>
+</div>
+      )}
+
+      {/* Bulk Action Confirmation Modal */}
+      {showBulkConfirmModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Bulk {bulkActionType === 'approve' ? 'Approve' : 'Reject'} Requests
+                </h2>
+                <button
+                  onClick={() => setShowBulkConfirmModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <ApperIcon name="X" size={24} />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-medium text-gray-900 mb-3">Selected Requests:</h3>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {selectedApprovals.map(requestId => {
+                    const request = pendingApprovals.find(req => req.Id === requestId);
+                    return request ? (
+                      <div key={requestId} className="flex items-center justify-between p-2 bg-white rounded border">
+                        <div>
+                          <span className="font-medium text-gray-900">{request.title}</span>
+                          <span className="text-sm text-gray-600 ml-2">({request.type})</span>
+                        </div>
+                        <Badge variant={request.priority === 'urgent' ? 'error' : 'warning'} className="text-xs">
+                          {request.priority}
+                        </Badge>
+                      </div>
+                    ) : null;
+                  })}
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {bulkActionType === 'approve' ? 'Approval Comments (Optional)' : 'Rejection Reason (Required)'}
+                </label>
+                <textarea
+                  value={approvalComments}
+                  onChange={(e) => setApprovalComments(e.target.value)}
+                  placeholder={bulkActionType === 'approve' 
+                    ? 'Add comments for bulk approval...' 
+                    : 'Please provide a reason for bulk rejection...'}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  rows={4}
+                  required={bulkActionType === 'reject'}
+                />
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-4">
+              <Button
+                variant="ghost"
+                onClick={() => setShowBulkConfirmModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant={bulkActionType === 'approve' ? 'primary' : 'secondary'}
+                onClick={() => processBulkAction(approvalComments)}
+                disabled={bulkActionType === 'reject' && !approvalComments.trim()}
+                icon={bulkActionType === 'approve' ? 'Check' : 'X'}
+              >
+                {bulkActionType === 'approve' ? 'Approve All' : 'Reject All'} ({selectedApprovals.length})
               </Button>
             </div>
           </div>

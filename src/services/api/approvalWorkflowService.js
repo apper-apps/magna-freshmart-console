@@ -761,6 +761,468 @@ return { required: false };
       return { activeHolds: 0, totalHolding: 0, holds: [], adjustmentHistory: [] };
     }
   }
+// Enhanced Bulk Operations for Admin Panel
+  async getBulkApprovalHistory(filters = {}) {
+    await this.delay(300);
+    
+    let historyRequests = this.requests.filter(req => 
+      req.status === 'approved' || req.status === 'rejected'
+    );
+    
+    // Apply comprehensive filters
+    if (filters.status && filters.status !== 'all') {
+      historyRequests = historyRequests.filter(req => req.status === filters.status);
+    }
+    
+    if (filters.type && filters.type !== 'all') {
+      historyRequests = historyRequests.filter(req => req.type === filters.type);
+    }
+    
+    if (filters.approver) {
+      historyRequests = historyRequests.filter(req => 
+        (req.approvedBy && req.approvedBy.toLowerCase().includes(filters.approver.toLowerCase())) ||
+        (req.rejectedBy && req.rejectedBy.toLowerCase().includes(filters.approver.toLowerCase()))
+      );
+    }
+    
+    if (filters.dateRange && filters.dateRange !== 'all') {
+      const now = new Date();
+      let startDate;
+      
+      switch (filters.dateRange) {
+        case 'today':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case 'week':
+          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          break;
+        case 'month':
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        default:
+          startDate = new Date(0);
+      }
+      
+      historyRequests = historyRequests.filter(req => {
+        const decisionDate = new Date(req.approvedAt || req.rejectedAt);
+        return decisionDate >= startDate;
+      });
+    }
+    
+    // Sort by decision date (newest first)
+    historyRequests.sort((a, b) => {
+      const dateA = new Date(a.approvedAt || a.rejectedAt);
+      const dateB = new Date(b.approvedAt || b.rejectedAt);
+      return dateB - dateA;
+    });
+    
+    return {
+      requests: historyRequests,
+      totalCount: historyRequests.length,
+      approvedCount: historyRequests.filter(req => req.status === 'approved').length,
+      rejectedCount: historyRequests.filter(req => req.status === 'rejected').length,
+      metadata: {
+        generatedAt: new Date().toISOString(),
+        filterSummary: filters
+      }
+    };
+  }
+
+  async processBulkApproval(requestIds, comments = '') {
+    await this.delay(500);
+    
+    const results = {
+      successful: [],
+      failed: [],
+      summary: {
+        totalRequests: requestIds.length,
+        successCount: 0,
+        failureCount: 0,
+        totalImpact: 0
+      }
+    };
+    
+    for (const requestId of requestIds) {
+      try {
+        const request = this.requests.find(req => req.Id === parseInt(requestId));
+        if (!request) {
+          results.failed.push({
+            requestId,
+            reason: 'Request not found'
+          });
+          continue;
+        }
+        
+        if (request.status !== 'pending') {
+          results.failed.push({
+            requestId,
+            reason: 'Request is not in pending status'
+          });
+          continue;
+        }
+        
+        // Process wallet adjustment for approved price change
+        let walletAdjustment = null;
+        if (request.type === 'price_change' && request.walletImpact) {
+          walletAdjustment = await this.processWalletApproval(parseInt(requestId), request.walletImpact);
+        }
+        
+        // Update request status
+        const updatedRequest = {
+          ...request,
+          status: 'approved',
+          approvedBy: 'bulk_admin_action',
+          approvedAt: new Date().toISOString(),
+          approvalComments: comments || 'Bulk approval action',
+          walletAdjustment,
+          bulkActionId: `BULK_${Date.now()}`
+        };
+        
+        const index = this.requests.findIndex(req => req.Id === parseInt(requestId));
+        this.requests[index] = updatedRequest;
+        
+        results.successful.push({
+          requestId: parseInt(requestId),
+          title: request.title,
+          businessImpact: request.businessImpact?.revenueImpact || 0
+        });
+        
+        results.summary.totalImpact += Math.abs(request.businessImpact?.revenueImpact || 0);
+        
+        // Execute the approved changes
+        await this.executeApprovedChanges(updatedRequest);
+        
+      } catch (error) {
+        results.failed.push({
+          requestId,
+          reason: error.message
+        });
+      }
+    }
+    
+    results.summary.successCount = results.successful.length;
+    results.summary.failureCount = results.failed.length;
+    
+    // Notify WebSocket listeners about bulk approval
+    this.notifyListeners({
+      type: 'bulk_approval_completed',
+      data: {
+        bulkActionId: `BULK_${Date.now()}`,
+        requestIds: results.successful.map(r => r.requestId),
+        totalCount: results.summary.successCount,
+        totalImpact: results.summary.totalImpact,
+        processedAt: new Date().toISOString()
+      }
+    });
+    
+    return results;
+  }
+
+  async processBulkRejection(requestIds, comments) {
+    await this.delay(500);
+    
+    if (!comments || !comments.trim()) {
+      throw new Error('Rejection comments are required for bulk rejection');
+    }
+    
+    const results = {
+      successful: [],
+      failed: [],
+      summary: {
+        totalRequests: requestIds.length,
+        successCount: 0,
+        failureCount: 0,
+        totalImpact: 0
+      }
+    };
+    
+    for (const requestId of requestIds) {
+      try {
+        const request = this.requests.find(req => req.Id === parseInt(requestId));
+        if (!request) {
+          results.failed.push({
+            requestId,
+            reason: 'Request not found'
+          });
+          continue;
+        }
+        
+        if (request.status !== 'pending') {
+          results.failed.push({
+            requestId,
+            reason: 'Request is not in pending status'
+          });
+          continue;
+        }
+        
+        // Release wallet hold for rejected price change
+        if (request.type === 'price_change' && request.walletImpact) {
+          await this.processWalletRejection(parseInt(requestId), request.walletImpact);
+        }
+        
+        // Update request status
+        const updatedRequest = {
+          ...request,
+          status: 'rejected',
+          rejectedBy: 'bulk_admin_action',
+          rejectedAt: new Date().toISOString(),
+          rejectionComments: comments,
+          bulkActionId: `BULK_REJ_${Date.now()}`
+        };
+        
+        const index = this.requests.findIndex(req => req.Id === parseInt(requestId));
+        this.requests[index] = updatedRequest;
+        
+        results.successful.push({
+          requestId: parseInt(requestId),
+          title: request.title,
+          businessImpact: request.businessImpact?.revenueImpact || 0
+        });
+        
+        results.summary.totalImpact += Math.abs(request.businessImpact?.revenueImpact || 0);
+        
+      } catch (error) {
+        results.failed.push({
+          requestId,
+          reason: error.message
+        });
+      }
+    }
+    
+    results.summary.successCount = results.successful.length;
+    results.summary.failureCount = results.failed.length;
+    
+    // Notify WebSocket listeners about bulk rejection
+    this.notifyListeners({
+      type: 'bulk_rejection_completed',
+      data: {
+        bulkActionId: `BULK_REJ_${Date.now()}`,
+        requestIds: results.successful.map(r => r.requestId),
+        totalCount: results.summary.successCount,
+        rejectionReason: comments,
+        processedAt: new Date().toISOString()
+      }
+    });
+    
+    return results;
+  }
+
+  async getEnhancedApprovalStatistics(timeRange = 'month') {
+    await this.delay(200);
+    
+    const now = new Date();
+    let startDate;
+    
+    switch (timeRange) {
+      case 'today':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        break;
+      default:
+        startDate = new Date(0);
+    }
+    
+    const filteredRequests = this.requests.filter(req => {
+      const requestDate = new Date(req.submittedAt);
+      return requestDate >= startDate;
+    });
+    
+    const total = filteredRequests.length;
+    const pending = filteredRequests.filter(req => req.status === 'pending').length;
+    const approved = filteredRequests.filter(req => req.status === 'approved').length;
+    const rejected = filteredRequests.filter(req => req.status === 'rejected').length;
+    const urgent = filteredRequests.filter(req => req.priority === 'urgent').length;
+    
+    // Calculate financial impact
+    const totalFinancialImpact = filteredRequests.reduce((sum, req) => {
+      return sum + Math.abs(req.businessImpact?.revenueImpact || 0);
+    }, 0);
+    
+    // Calculate average processing time
+    const completedRequests = filteredRequests.filter(req => 
+      req.status === 'approved' || req.status === 'rejected'
+    );
+    
+    const avgProcessingTime = completedRequests.length > 0 
+      ? completedRequests.reduce((sum, req) => {
+          const submitted = new Date(req.submittedAt);
+          const completed = new Date(req.approvedAt || req.rejectedAt);
+          const hours = (completed - submitted) / (1000 * 60 * 60);
+          return sum + hours;
+        }, 0) / completedRequests.length
+      : 0;
+    
+    // Type distribution
+    const typeDistribution = filteredRequests.reduce((acc, req) => {
+      acc[req.type] = (acc[req.type] || 0) + 1;
+      return acc;
+    }, {});
+    
+    // Priority distribution
+    const priorityDistribution = filteredRequests.reduce((acc, req) => {
+      acc[req.priority] = (acc[req.priority] || 0) + 1;
+      return acc;
+    }, {});
+    
+    return {
+      overview: {
+        total,
+        pending,
+        approved,
+        rejected,
+        urgent,
+        approvalRate: total > 0 ? Math.round((approved / (approved + rejected)) * 100) : 0,
+        avgProcessingTimeHours: Math.round(avgProcessingTime * 10) / 10,
+        totalFinancialImpact
+      },
+      distributions: {
+        byType: typeDistribution,
+        byPriority: priorityDistribution
+      },
+      trends: {
+        dailySubmissions: this.calculateDailyTrends(filteredRequests, startDate),
+        weeklyCompletions: this.calculateWeeklyCompletions(completedRequests, startDate)
+      },
+      metadata: {
+        timeRange,
+        startDate: startDate.toISOString(),
+        endDate: now.toISOString(),
+        generatedAt: new Date().toISOString()
+      }
+    };
+  }
+
+  calculateDailyTrends(requests, startDate) {
+    const trends = {};
+    const now = new Date();
+    
+    for (let d = new Date(startDate); d <= now; d.setDate(d.getDate() + 1)) {
+      const dateKey = d.toISOString().split('T')[0];
+      trends[dateKey] = requests.filter(req => {
+        const reqDate = new Date(req.submittedAt).toISOString().split('T')[0];
+        return reqDate === dateKey;
+      }).length;
+    }
+    
+    return trends;
+  }
+
+  calculateWeeklyCompletions(requests, startDate) {
+    const completions = {};
+    const now = new Date();
+    
+    for (let d = new Date(startDate); d <= now; d.setDate(d.getDate() + 7)) {
+      const weekStart = new Date(d);
+      const weekEnd = new Date(d.getTime() + 7 * 24 * 60 * 60 * 1000);
+      const weekKey = `${weekStart.toISOString().split('T')[0]}_${weekEnd.toISOString().split('T')[0]}`;
+      
+      completions[weekKey] = requests.filter(req => {
+        const completionDate = new Date(req.approvedAt || req.rejectedAt);
+        return completionDate >= weekStart && completionDate < weekEnd;
+      }).length;
+    }
+    
+    return completions;
+  }
+
+  // Enhanced audit trail functionality
+  async getDetailedAuditTrail(requestId) {
+    await this.delay(200);
+    
+    const request = this.requests.find(req => req.Id === parseInt(requestId));
+    if (!request) {
+      throw new Error('Request not found');
+    }
+    
+    // Create comprehensive audit trail
+    const auditTrail = [
+      {
+        id: 1,
+        timestamp: request.submittedAt,
+        action: 'submitted',
+        actor: request.submittedBy,
+        details: {
+          type: request.type,
+          title: request.title,
+          priority: request.priority,
+          businessImpact: request.businessImpact
+        }
+      }
+    ];
+    
+    // Add wallet hold events
+    if (request.walletImpact?.requiresHold) {
+      auditTrail.push({
+        id: 2,
+        timestamp: request.submittedAt,
+        action: 'wallet_hold_created',
+        actor: 'system',
+        details: {
+          holdAmount: request.walletImpact.holdAmount,
+          reason: 'Price change approval requirement'
+        }
+      });
+    }
+    
+    // Add comments
+    if (request.comments && request.comments.length > 0) {
+      request.comments.forEach((comment, index) => {
+        auditTrail.push({
+          id: auditTrail.length + 1,
+          timestamp: comment.commentAt,
+          action: 'comment_added',
+          actor: comment.commentBy,
+          details: {
+            comment: comment.comment
+          }
+        });
+      });
+    }
+    
+    // Add decision
+    if (request.status === 'approved') {
+      auditTrail.push({
+        id: auditTrail.length + 1,
+        timestamp: request.approvedAt,
+        action: 'approved',
+        actor: request.approvedBy,
+        details: {
+          comments: request.approvalComments,
+          walletAdjustment: request.walletAdjustment
+        }
+      });
+    } else if (request.status === 'rejected') {
+      auditTrail.push({
+        id: auditTrail.length + 1,
+        timestamp: request.rejectedAt,
+        action: 'rejected',
+        actor: request.rejectedBy,
+        details: {
+          reason: request.rejectionComments
+        }
+      });
+    }
+    
+    return {
+      requestId: parseInt(requestId),
+      auditTrail: auditTrail.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)),
+      summary: {
+        totalEvents: auditTrail.length,
+        duration: request.approvedAt || request.rejectedAt 
+          ? new Date(request.approvedAt || request.rejectedAt) - new Date(request.submittedAt)
+          : new Date() - new Date(request.submittedAt),
+        currentStatus: request.status
+      }
+    };
+  }
 }
 
 export const approvalWorkflowService = new ApprovalWorkflowService();
