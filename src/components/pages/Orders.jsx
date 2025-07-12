@@ -202,15 +202,40 @@ const Orders = () => {
 <div className="flex justify-center">
                         <div className="relative group">
                           <img
-                            src={order.paymentProof.dataUrl || "/api/placeholder/150/100"}
+                            src={(() => {
+                              // Validate and return payment proof image URL
+                              const proofData = order.paymentProof?.dataUrl;
+                              if (proofData && typeof proofData === 'string') {
+                                // Check if it's a valid base64 data URL
+                                if (proofData.startsWith('data:image/') && proofData.includes('base64,')) {
+                                  return proofData;
+                                }
+                                // Handle other URL formats
+                                if (proofData.startsWith('http') || proofData.startsWith('/')) {
+                                  return proofData;
+                                }
+                              }
+                              // Fallback to enhanced placeholder
+                              return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDE1MCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxNTAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRUZGNkZGIiBzdHJva2U9IiNENERBRjciIHN0cm9rZS13aWR0aD0iMSIvPgo8cGF0aCBkPSJNNjAgNDBMOTAgNzBMNjAgNDBaIiBzdHJva2U9IiM2MkM0NjIiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIvPgo8Y2lyY2xlIGN4PSI3MCIgY3k9IjMwIiByPSI1IiBmaWxsPSIjNjJDNDYyIi8+Cjx0ZXh0IHg9Ijc1IiB5PSI1NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjMzc0MTUxIj5QYXltZW50IFByb29mPC90ZXh0Pgo8dGV4dCB4PSI3NSIgeT0iNjgiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSI4IiBmaWxsPSIjNjc3NDgwIj5DbGljayB0byBWaWV3PC90ZXh0Pgo8L3N2Zz4K';
+                            })()}
                             alt="Payment proof"
                             className="w-32 h-20 object-cover rounded-lg border border-blue-200 cursor-pointer transition-transform group-hover:scale-105"
                             onError={(e) => {
-                              e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDE1MCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxNTAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik02MCA0MEw5MCA3MEw2MCA0MFoiIHN0cm9rZT0iIzlDQTNBRiIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+CjxjaXJjbGUgY3g9IjcwIiBjeT0iMzAiIHI9IjUiIGZpbGw9IiM5Q0EzQUYiLz4KPHR4dCB4PSI3NSIgeT0iNTAiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzZCNzI4MCI+UGF5bWVudCBQcm9vZjwvdGV4dD4KPC9zdmc+Cg==';
+                              // Only set fallback if not already a fallback
+                              if (!e.target.src.includes('data:image/svg+xml')) {
+                                e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDE1MCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxNTAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRkVGMkYyIiBzdHJva2U9IiNGQ0E1QTUiIHN0cm9rZS13aWR0aD0iMSIvPgo8cGF0aCBkPSJNNTUgNDVMNzAgNjBMODUgNDVNNzAgNDBWNzAiIHN0cm9rZT0iI0VGNDQ0NCIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+Cjx0ZXh0IHg9Ijc1IiB5PSI1NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjOTkxQjFCIj5JbWFnZSBFcnJvcjwvdGV4dD4KPHR4dCB4PSI3NSIgeT0iNjgiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSI4IiBmaWxsPSIjOTkxQjFCIj5DbGljayB0byBWaWV3PC90ZXh0Pgo8L3N2Zz4K';
+                              }
                             }}
                             onClick={() => {
-                              // Show the actual uploaded image in a modal
-                              const imageUrl = order.paymentProof.dataUrl || "/api/placeholder/150/100";
+                              // Enhanced modal display with better error handling
+                              const proofData = order.paymentProof?.dataUrl;
+                              let imageUrl = proofData;
+                              
+                              // Validate image URL before modal display
+                              if (!imageUrl || typeof imageUrl !== 'string') {
+                                imageUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRjlGQUZCIiBzdHJva2U9IiNFNUU3RUIiIHN0cm9rZS13aWR0aD0iMiIvPgo8cGF0aCBkPSJNMTYwIDE0MEwyNDAgMjAwTDE2MCAxNDBaIiBzdHJva2U9IiM2MkM0NjIiIHN0cm9rZS13aWR0aD0iMyIgZmlsbD0ibm9uZSIvPgo8Y2lyY2xlIGN4PSIyMDAiIGN5PSIxMjAiIHI9IjEwIiBmaWxsPSIjNjJDNDYyIi8+Cjx0ZXh0IHg9IjIwMCIgeT0iMTcwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTYiIGZpbGw9IiMzNzQxNTEiIHRleHQtYW5jaG9yPSJtaWRkbGUiPlBheW1lbnQgUHJvb2Y8L3RleHQ+Cjx0ZXh0IHg9IjIwMCIgeT0iMTkwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM2Nzc0ODAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk5vIGltYWdlIGF2YWlsYWJsZTwvdGV4dD4KPHR4dCB4PSIyMDAiIHk9IjIxMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjOUI5Q0EwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5DbGljayB0byBjbG9zZTwvdGV4dD4KPC9zdmc+Cg==';
+                              }
+                              
                               const modal = document.createElement('div');
                               modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
                               modal.innerHTML = `

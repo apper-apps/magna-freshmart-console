@@ -80,17 +80,33 @@ if (orderData.paymentMethod === 'wallet') {
       newOrder.status = 'payment_pending';
     }
     
-// Handle payment proof submissions
+// Handle payment proof submissions with enhanced validation
     if (orderData.paymentProof && (orderData.paymentMethod === 'bank' || orderData.paymentMethod === 'jazzcash' || orderData.paymentMethod === 'easypaisa')) {
       newOrder.verificationStatus = 'pending';
       newOrder.paymentProofSubmittedAt = new Date().toISOString();
-      // Store the complete payment proof data including base64 image
+      
+      // Enhanced payment proof data validation and storage
+      const proofData = orderData.paymentProof;
+      
+      // Validate base64 data URL format
+      if (proofData.dataUrl && typeof proofData.dataUrl === 'string') {
+        if (!proofData.dataUrl.startsWith('data:image/') || !proofData.dataUrl.includes('base64,')) {
+          console.warn('Invalid payment proof data URL format, storing as-is');
+        }
+      }
+      
+      // Store the complete payment proof data with validation
       newOrder.paymentProof = {
-        ...orderData.paymentProof,
-        storedAt: new Date().toISOString()
+        fileName: proofData.fileName || 'payment_proof.jpg',
+        fileSize: proofData.fileSize || 0,
+        uploadedAt: proofData.uploadedAt || new Date().toISOString(),
+        dataUrl: proofData.dataUrl || null,
+        storedAt: new Date().toISOString(),
+        validated: Boolean(proofData.dataUrl && proofData.dataUrl.startsWith('data:image/')),
+        // Backup storage reference if dataUrl fails
+        backupRef: proofData.fileName ? `/uploads/${proofData.fileName}` : null
       };
     }
-    
     this.orders.push(newOrder);
     return { ...newOrder };
   }
@@ -231,18 +247,19 @@ return this.orders.filter(order => order.deliveryStatus === deliveryStatus);
     }
   }
 
-  async retryPayment(orderId, newPaymentData) {
+async retryPayment(orderId, newPaymentData) {
     await this.delay();
     const order = await this.getById(orderId);
     
     if (order.paymentStatus === 'completed') {
-      throw new Error('Payment already completed for this order');
+      throw new Error('Payment already completed');
     }
     
     const updatedOrder = {
       ...order,
-      paymentResult: newPaymentData,
+      ...newPaymentData,
       paymentStatus: 'completed',
+      paymentRetries: (order.paymentRetries || 0) + 1,
       updatedAt: new Date().toISOString(),
       paidAt: new Date().toISOString()
     };
