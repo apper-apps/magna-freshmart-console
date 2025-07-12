@@ -7,8 +7,8 @@ import { toast } from "react-hot-toast";
 import { formatCurrency } from "@/utils/currency";
 import { clearCart } from "@/store/cartSlice";
 import ApperIcon from "@/components/ApperIcon";
-import Button from "@/components/atoms/Button";
-import Input from "@/components/atoms/Input";
+import { Button } from "@/components/atoms/Button";
+import { Input } from "@/components/atoms/Input";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import Account from "@/components/pages/Account";
@@ -19,7 +19,7 @@ import { paymentService } from "@/services/api/paymentService";
 
 function Checkout() {
   const navigate = useNavigate();
-  const { cart, clearCart } = useCart();
+  const { cart, clearCart: clearCartHook } = useCart();
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
@@ -350,8 +350,8 @@ return Object.keys(newErrors).length === 0;
         } : null
       };
 
-      const order = await orderService.create(orderData);
-      clearCart();
+const order = await orderService.create(orderData);
+      clearCartHook();
       toast.success('Order placed successfully!');
       navigate('/orders');
       return order;
@@ -715,9 +715,10 @@ value={formData.instructions}
                                     </div>
                                   </div>
                                   {method.instructions && (
-                                    <div className="pt-2 border-t border-blue-200">
+<div className="pt-2 border-t border-blue-200">
                                       <p className="text-xs text-blue-700">{method.instructions}</p>
-)}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             )}
