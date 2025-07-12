@@ -7,8 +7,8 @@ import { toast } from "react-hot-toast";
 import { formatCurrency } from "@/utils/currency";
 import { clearCart } from "@/store/cartSlice";
 import ApperIcon from "@/components/ApperIcon";
-import { Button } from "@/components/atoms/Button";
-import { Input } from "@/components/atoms/Input";
+import Button from "@/components/atoms/Button";
+import Input from "@/components/atoms/Input";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import Account from "@/components/pages/Account";
@@ -19,8 +19,8 @@ import { paymentService } from "@/services/api/paymentService";
 
 function Checkout() {
   const navigate = useNavigate();
-  const { cart, clearCart } = useCart();
-const [loading, setLoading] = useState(false);
+const { cart, clearCart } = useCart();
+  const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
   const [gatewayConfig, setGatewayConfig] = useState({});
@@ -502,9 +502,9 @@ async function handleSubmit(e, isRetry = false) {
                     </div>
                     <span className="font-semibold">
                       Rs. {(item.price * item.quantity).toLocaleString()}
-                    </span>
+</span>
                   </div>
-))}
+                ))}
                 <div className="border-t pt-4 space-y-2">
                   <div className="flex justify-between">
                     <span>Original Subtotal:</span>
@@ -622,11 +622,10 @@ async function handleSubmit(e, isRetry = false) {
                       value={formData.instructions}
                       onChange={handleInputChange}
                       placeholder="Special instructions for delivery..."
-                    />
+/>
                   </div>
-</div>
+                </div>
               </div>
-
               {/* Payment Method */}
               <div className="card p-6">
                 <h2 className="text-xl font-semibold mb-4">Payment Method</h2>
@@ -722,9 +721,9 @@ async function handleSubmit(e, isRetry = false) {
                           </div>
                         </div>
                       </div>
-                    ))}
+))}
                   </div>
-)}
+                )}
                 
                 {/* Payment Details for Non-Cash Methods */}
                 {paymentMethod !== 'cash' && (
@@ -820,11 +819,11 @@ async function handleSubmit(e, isRetry = false) {
                           </ul>
                         </div>
                       </div>
-                    </div>
+</div>
                   </div>
+                </div>
                 )}
               </div>
-</div>
 
               {/* Submit Button */}
               <div className="card p-6">
@@ -840,8 +839,7 @@ async function handleSubmit(e, isRetry = false) {
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
 }
 
 export default Checkout;
