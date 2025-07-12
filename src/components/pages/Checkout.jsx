@@ -717,13 +717,12 @@ value={formData.instructions}
                                   {method.instructions && (
                                     <div className="pt-2 border-t border-blue-200">
                                       <p className="text-xs text-blue-700">{method.instructions}</p>
-                                    </div>
-                                  )}
+)}
                                 </div>
                               </div>
                             )}
                           </div>
-</div>
+                        </div>
                       </div>
                     ))}
                   </div>
