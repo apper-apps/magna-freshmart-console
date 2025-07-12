@@ -553,20 +553,25 @@ const VendorProductsTab = ({ products, vendor, onProductUpdate }) => {
   );
 };
 
-// Edit Price Modal Component
+// Edit Price and Stock Modal Component
 const EditPriceModal = ({ product, vendor, onSave, onClose }) => {
   const [formData, setFormData] = useState({
     price: product.price,
-    purchasePrice: product.purchasePrice || 0
+    purchasePrice: product.purchasePrice || 0,
+    stock: product.stock || 0
   });
   const [loading, setLoading] = useState(false);
+  const [submittingApproval, setSubmittingApproval] = useState(false);
   const [errors, setErrors] = useState({});
+  const [approvalStatus, setApprovalStatus] = useState(null);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    const numericValue = name === 'stock' ? parseInt(value) || 0 : parseFloat(value) || 0;
+    
     setFormData(prev => ({
       ...prev,
-      [name]: parseFloat(value) || 0
+      [name]: numericValue
     }));
     
     // Clear error when user starts typing
@@ -581,18 +586,27 @@ const EditPriceModal = ({ product, vendor, onSave, onClose }) => {
   const validateForm = () => {
     const newErrors = {};
     
+    // Price validation
     if (formData.price <= 0) {
       newErrors.price = 'Price must be greater than 0';
     }
     
+    // Purchase price validation
     if (formData.purchasePrice < 0) {
       newErrors.purchasePrice = 'Purchase price cannot be negative';
     }
     
+    // Stock validation
+    if (formData.stock < 0) {
+      newErrors.stock = 'Stock cannot be negative';
+    }
+    
+    // Selling price > buying price validation
     if (formData.purchasePrice > 0 && formData.price <= formData.purchasePrice) {
       newErrors.price = 'Selling price must be greater than purchase price';
     }
     
+    // Margin validation
     const margin = formData.purchasePrice > 0 
       ? ((formData.price - formData.purchasePrice) / formData.purchasePrice) * 100 
       : 0;
@@ -601,11 +615,17 @@ const EditPriceModal = ({ product, vendor, onSave, onClose }) => {
       newErrors.price = `Minimum margin required: ${product.vendorInfo?.minMargin || 5}%`;
     }
     
+    // Max 20% price change validation
+    const priceChangePercent = Math.abs(((formData.price - product.price) / product.price) * 100);
+    if (priceChangePercent > 20) {
+      newErrors.price = 'Maximum 20% price change allowed per update';
+    }
+    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
+  const handleDirectSave = async (e) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -622,6 +642,61 @@ const EditPriceModal = ({ product, vendor, onSave, onClose }) => {
     }
   };
 
+  const handleSubmitForApproval = async () => {
+    if (!validateForm()) {
+      return;
+    }
+    
+    setSubmittingApproval(true);
+    try {
+      // Simulate submission for approval
+      const approvalData = {
+        type: 'price_stock_change',
+        title: `Price/Stock Update - ${product.name}`,
+        description: `Update price from Rs. ${product.price} to Rs. ${formData.price} and stock from ${product.stock} to ${formData.stock}`,
+        submittedBy: `vendor_${vendor.Id}`,
+        affectedEntity: {
+          entityType: 'product',
+          entityId: product.id,
+          entityName: product.name,
+          currentValues: { 
+            price: product.price, 
+            stock: product.stock,
+            purchasePrice: product.purchasePrice || 0
+          },
+          proposedValues: { 
+            price: formData.price, 
+            stock: formData.stock,
+            purchasePrice: formData.purchasePrice
+          }
+        },
+        vendorId: vendor.Id,
+        productId: product.id
+      };
+      
+      // Simulate API call to submit for approval
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      setApprovalStatus({
+        status: 'submitted',
+        requestId: `REQ_${Date.now()}`,
+        submittedAt: new Date().toISOString()
+      });
+      
+      toast.success('Changes submitted for approval successfully');
+      
+      // Close modal after brief delay
+      setTimeout(() => {
+        onClose();
+      }, 2000);
+      
+    } catch (error) {
+      toast.error('Failed to submit for approval');
+    } finally {
+      setSubmittingApproval(false);
+    }
+  };
+
   const calculateMargin = () => {
     if (formData.purchasePrice > 0 && formData.price > 0) {
       return ((formData.price - formData.purchasePrice) / formData.purchasePrice) * 100;
@@ -629,12 +704,45 @@ const EditPriceModal = ({ product, vendor, onSave, onClose }) => {
     return 0;
   };
 
+  const calculatePriceChange = () => {
+    if (product.price > 0) {
+      return ((formData.price - product.price) / product.price) * 100;
+    }
+    return 0;
+  };
+
+  const hasChanges = formData.price !== product.price || 
+                    formData.stock !== product.stock || 
+                    formData.purchasePrice !== (product.purchasePrice || 0);
+
+  if (approvalStatus?.status === 'submitted') {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-lg max-w-md w-full p-6 text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ApperIcon name="CheckCircle" size={32} className="text-green-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            Submitted for Approval
+          </h3>
+          <p className="text-gray-600 mb-4">
+            Your changes have been submitted and are pending approval.
+          </p>
+          <div className="bg-gray-50 p-3 rounded-lg text-sm">
+            <p><strong>Request ID:</strong> {approvalStatus.requestId}</p>
+            <p><strong>Status:</strong> <span className="text-yellow-600 font-medium">Pending Review</span></p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full p-6">
+      <div className="bg-white rounded-lg max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-semibold text-gray-900">
-            Edit Price - {product.name}
+            Edit Price & Stock - {product.name}
           </h3>
           <button
             onClick={onClose}
@@ -644,8 +752,9 @@ const EditPriceModal = ({ product, vendor, onSave, onClose }) => {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-<div>
+        <div className="space-y-4">
+          {/* Price Input */}
+          <div>
             <Input
               type="number"
               name="price"
@@ -666,6 +775,7 @@ const EditPriceModal = ({ product, vendor, onSave, onClose }) => {
             )}
           </div>
 
+          {/* Purchase Price Input */}
           <div>
             <Input
               type="number"
@@ -686,13 +796,31 @@ const EditPriceModal = ({ product, vendor, onSave, onClose }) => {
             )}
           </div>
 
-          {/* Calculated Margin */}
-          <div className="bg-gray-50 p-4 rounded-lg">
+          {/* Stock Input */}
+          <div>
+            <Input
+              type="number"
+              name="stock"
+              label="Stock Quantity"
+              value={formData.stock}
+              onChange={handleInputChange}
+              min="0"
+              required
+              error={errors.stock}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Current stock: {product.stock} units
+            </p>
+          </div>
+
+          {/* Calculated Metrics */}
+          <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+            {/* Profit Margin */}
             <div className="flex justify-between items-center">
               <span className="text-sm font-medium text-gray-700">
                 Profit Margin:
               </span>
-<span className={`text-sm font-semibold ${
+              <span className={`text-sm font-semibold ${
                 calculateMargin() >= (product.vendorInfo?.minMargin || 5)
                   ? 'text-green-600'
                   : 'text-red-600'
@@ -700,39 +828,110 @@ const EditPriceModal = ({ product, vendor, onSave, onClose }) => {
                 {calculateMargin().toFixed(2)}%
               </span>
             </div>
-            <div className="text-xs text-gray-500 mt-1">
-              Minimum required: {product.vendorInfo?.minMargin || 5}% • 
+
+            {/* Price Change */}
+            {formData.price !== product.price && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-gray-700">
+                  Price Change:
+                </span>
+                <span className={`text-sm font-semibold ${
+                  Math.abs(calculatePriceChange()) <= 20
+                    ? 'text-blue-600'
+                    : 'text-red-600'
+                }`}>
+                  {calculatePriceChange() > 0 ? '+' : ''}{calculatePriceChange().toFixed(1)}%
+                </span>
+              </div>
+            )}
+
+            {/* Stock Change */}
+            {formData.stock !== product.stock && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium text-gray-700">
+                  Stock Change:
+                </span>
+                <span className="text-sm font-semibold text-blue-600">
+                  {formData.stock - product.stock > 0 ? '+' : ''}{formData.stock - product.stock} units
+                </span>
+              </div>
+            )}
+
+            <div className="text-xs text-gray-500 pt-2 border-t">
+              Min margin: {product.vendorInfo?.minMargin || 5}% • 
+              Max price change: 20% • 
               Profit: {formData.purchasePrice > 0 && formData.price > formData.purchasePrice ? 
                 formatCurrency(formData.price - formData.purchasePrice) : 'Rs. 0'}
             </div>
           </div>
           
-          <div className="flex space-x-3 pt-4">
+          {/* Action Buttons */}
+          <div className="flex flex-col space-y-3 pt-4">
+            {/* Submit for Approval Button */}
             <Button
               type="button"
-              onClick={onClose}
-              variant="outline"
-              className="flex-1"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
+              onClick={handleSubmitForApproval}
               variant="primary"
-              className="flex-1"
-              disabled={loading}
+              className="w-full"
+              disabled={!hasChanges || submittingApproval || Object.keys(errors).length > 0}
             >
-              {loading ? (
+              {submittingApproval ? (
                 <>
                   <ApperIcon name="Loader2" size={16} className="animate-spin mr-2" />
-                  Saving...
+                  Submitting for Approval...
                 </>
               ) : (
-                'Save Changes'
+                <>
+                  <ApperIcon name="Send" size={16} className="mr-2" />
+                  Submit for Approval
+                </>
               )}
             </Button>
+
+            {/* Direct Save and Cancel buttons */}
+            <div className="flex space-x-3">
+              <Button
+                type="button"
+                onClick={onClose}
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={handleDirectSave}
+                variant="ghost"
+                className="flex-1"
+                disabled={!hasChanges || loading || Object.keys(errors).length > 0}
+              >
+                {loading ? (
+                  <>
+                    <ApperIcon name="Loader2" size={16} className="animate-spin mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Direct'
+                )}
+              </Button>
+            </div>
           </div>
-        </form>
+
+          {/* Validation Summary */}
+          {Object.keys(errors).length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+              <div className="flex items-center mb-2">
+                <ApperIcon name="AlertCircle" size={16} className="text-red-600 mr-2" />
+                <span className="text-sm font-medium text-red-800">Please fix the following issues:</span>
+              </div>
+              <ul className="text-sm text-red-700 space-y-1">
+                {Object.values(errors).map((error, index) => (
+                  <li key={index}>• {error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

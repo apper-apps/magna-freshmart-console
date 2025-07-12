@@ -1546,8 +1546,7 @@ width = targetHeight * aspectRatio;
     
     return assignments.filter(assignment => assignment.vendorId === parseInt(vendorId));
   }
-
-  async updateVendorPrice(vendorId, productId, priceData) {
+async updateVendorPrice(vendorId, productId, priceData) {
     await this.delay(400);
     
     // Validate vendor has access to this product
@@ -1598,6 +1597,127 @@ width = targetHeight * aspectRatio;
     };
   }
 
+  async submitPriceStockApproval(vendorId, productId, proposedChanges) {
+    await this.delay(500);
+    
+    // Validate vendor has access to this product
+    const hasAccess = await this.validateVendorAccess(vendorId, productId);
+    if (!hasAccess.valid) {
+      throw new Error(hasAccess.error);
+    }
+    
+    const productIndex = this.products.findIndex(p => p.id === parseInt(productId));
+    if (productIndex === -1) {
+      throw new Error('Product not found');
+    }
+    
+    const currentProduct = this.products[productIndex];
+    const vendorAssignments = await this.getVendorProductAssignments(vendorId);
+    const assignment = vendorAssignments.find(a => a.productId === parseInt(productId));
+    
+    // Validate all proposed changes
+    const validation = await this.validateVendorPricing(proposedChanges, assignment, currentProduct);
+    if (!validation.isValid) {
+      throw new Error(validation.error);
+    }
+    
+    // Create approval request data
+    const approvalRequestData = {
+      type: 'price_stock_change',
+      title: `Price/Stock Update - ${currentProduct.name}`,
+      description: this.generateApprovalDescription(currentProduct, proposedChanges),
+      submittedBy: `vendor_${vendorId}`,
+      priority: this.determineApprovalPriority(currentProduct, proposedChanges),
+      affectedEntity: {
+        entityType: 'product',
+        entityId: parseInt(productId),
+        entityName: currentProduct.name,
+        currentValues: {
+          price: currentProduct.price,
+          stock: currentProduct.stock,
+          purchasePrice: currentProduct.purchasePrice || 0
+        },
+        proposedValues: {
+          price: proposedChanges.price,
+          stock: proposedChanges.stock,
+          purchasePrice: proposedChanges.purchasePrice
+        }
+      },
+      vendorInfo: {
+        vendorId: vendorId,
+        vendorName: assignment.vendorName || `Vendor ${vendorId}`,
+        assignmentId: assignment.Id
+      },
+      businessImpact: this.calculateApprovalBusinessImpact(currentProduct, proposedChanges),
+      validationResults: validation
+    };
+    
+    // In a real implementation, this would integrate with approval workflow service
+    // For now, simulate the submission
+    const submissionResult = {
+      requestId: `REQ_${Date.now()}_${productId}`,
+      status: 'submitted',
+      submittedAt: new Date().toISOString(),
+      estimatedReviewTime: '2-4 hours',
+      reviewers: assignment.approvalRequired || ['manager', 'admin'],
+      trackingUrl: `/approvals/${Date.now()}`
+    };
+    
+    return submissionResult;
+  }
+
+  generateApprovalDescription(currentProduct, proposedChanges) {
+    const changes = [];
+    
+    if (proposedChanges.price !== currentProduct.price) {
+      const priceChange = ((proposedChanges.price - currentProduct.price) / currentProduct.price * 100).toFixed(1);
+      changes.push(`Price: Rs. ${currentProduct.price} → Rs. ${proposedChanges.price} (${priceChange > 0 ? '+' : ''}${priceChange}%)`);
+    }
+    
+    if (proposedChanges.stock !== currentProduct.stock) {
+      const stockChange = proposedChanges.stock - currentProduct.stock;
+      changes.push(`Stock: ${currentProduct.stock} → ${proposedChanges.stock} (${stockChange > 0 ? '+' : ''}${stockChange} units)`);
+    }
+    
+    if (proposedChanges.purchasePrice !== (currentProduct.purchasePrice || 0)) {
+      changes.push(`Cost: Rs. ${currentProduct.purchasePrice || 0} → Rs. ${proposedChanges.purchasePrice}`);
+    }
+    
+    return changes.length > 0 
+      ? `Proposed changes: ${changes.join(', ')}`
+      : 'No changes detected';
+  }
+
+  determineApprovalPriority(currentProduct, proposedChanges) {
+    const priceChangePercent = Math.abs(((proposedChanges.price - currentProduct.price) / currentProduct.price) * 100);
+    const stockChangePercent = Math.abs(((proposedChanges.stock - currentProduct.stock) / currentProduct.stock) * 100);
+    
+    if (priceChangePercent > 15 || stockChangePercent > 50) {
+      return 'high';
+    } else if (priceChangePercent > 10 || stockChangePercent > 25) {
+      return 'medium';
+    }
+    return 'normal';
+  }
+
+  calculateApprovalBusinessImpact(currentProduct, proposedChanges) {
+    const priceDiff = proposedChanges.price - currentProduct.price;
+    const stockDiff = proposedChanges.stock - currentProduct.stock;
+    
+    const revenueImpact = (priceDiff * currentProduct.stock) + (proposedChanges.price * stockDiff);
+    const marginImpact = currentProduct.purchasePrice > 0 
+      ? ((proposedChanges.price - currentProduct.purchasePrice) / currentProduct.purchasePrice * 100) - 
+        ((currentProduct.price - currentProduct.purchasePrice) / currentProduct.purchasePrice * 100)
+      : 0;
+    
+    return {
+      revenueImpact: Math.round(revenueImpact),
+      marginImpact: Math.round(marginImpact * 100) / 100,
+      stockImpact: stockDiff,
+      customerImpact: Math.abs(priceDiff / currentProduct.price * 100) > 10 ? 'medium' : 'low'
+    };
+  }
+
   async validateVendorAccess(vendorId, productId) {
     try {
       const assignments = await this.getVendorProductAssignments(vendorId);
@@ -1619,14 +1739,15 @@ width = targetHeight * aspectRatio;
     }
   }
 
-  async validateVendorPricing(priceData, assignment, currentProduct) {
+async validateVendorPricing(priceData, assignment, currentProduct) {
     try {
       const newPrice = parseFloat(priceData.price) || currentProduct.price;
       const newPurchasePrice = parseFloat(priceData.purchasePrice) || currentProduct.purchasePrice;
+      const newStock = parseInt(priceData.stock) !== undefined ? parseInt(priceData.stock) : currentProduct.stock;
       const currentPurchasePrice = currentProduct.purchasePrice || 0;
       
       // Check if vendor can edit cost price
-      if (priceData.purchasePrice && !assignment.canEditCost) {
+      if (priceData.purchasePrice !== undefined && !assignment.canEditCost) {
         return {
           isValid: false,
           error: 'You do not have permission to edit cost prices'
@@ -1634,10 +1755,26 @@ width = targetHeight * aspectRatio;
       }
       
       // Check if vendor can edit selling price
-      if (priceData.price && !assignment.canEditPrice) {
+      if (priceData.price !== undefined && !assignment.canEditPrice) {
         return {
           isValid: false,
           error: 'You do not have permission to edit selling prices'
+        };
+      }
+      
+      // Stock validation - Stock ≥ 0
+      if (newStock < 0) {
+        return {
+          isValid: false,
+          error: 'Stock cannot be negative'
+        };
+      }
+      
+      // Selling price > buying price validation
+      if (newPurchasePrice > 0 && newPrice <= newPurchasePrice) {
+        return {
+          isValid: false,
+          error: 'Selling price must be greater than buying price'
         };
       }
       
@@ -1652,7 +1789,18 @@ width = targetHeight * aspectRatio;
         }
       }
       
-      // Validate maximum discount limit
+      // Max 20% price change per update validation
+      if (currentProduct.price > 0 && priceData.price !== undefined) {
+        const priceChangePercent = Math.abs(((newPrice - currentProduct.price) / currentProduct.price) * 100);
+        if (priceChangePercent > 20) {
+          return {
+            isValid: false,
+            error: 'Maximum 20% price change allowed per update'
+          };
+        }
+      }
+      
+      // Validate maximum discount limit (for price decreases)
       if (currentProduct.price > 0 && newPrice < currentProduct.price) {
         const discountPercentage = ((currentProduct.price - newPrice) / currentProduct.price) * 100;
         if (discountPercentage > assignment.maxDiscount) {
@@ -1668,14 +1816,22 @@ width = targetHeight * aspectRatio;
         ...currentProduct,
         ...priceData,
         price: newPrice,
-        purchasePrice: newPurchasePrice
+        purchasePrice: newPurchasePrice,
+        stock: newStock
       });
       
       if (!generalValidation.isValid) {
         return generalValidation;
       }
       
-      return { isValid: true };
+      return { 
+        isValid: true,
+        validatedData: {
+          price: newPrice,
+          purchasePrice: newPurchasePrice,
+          stock: newStock
+        }
+      };
       
     } catch (error) {
       console.error('Error validating vendor pricing:', error);
