@@ -822,10 +822,9 @@ value={formData.instructions}
                             <li>• Your order will be processed after payment verification</li>
                           </ul>
 </div>
-                      </div>
+</div>
                     </div>
                   </div>
-                )}
                 )}
               </div>
 
