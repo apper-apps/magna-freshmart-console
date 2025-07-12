@@ -105,7 +105,7 @@ constructor() {
   }
 
   // Digital Wallet Payment Processing
-  async processDigitalWalletPayment(walletType, amount, orderId, phone) {
+async processDigitalWalletPayment(walletType, amount, orderId, phone) {
     await this.delay(1500);
 
     // Validate phone number for Pakistani wallets
@@ -116,7 +116,33 @@ constructor() {
     const success = Math.random() > 0.05; // 95% success rate for digital wallets
     
     if (!success) {
-      throw new Error(`${walletType} payment failed. Please try again.`);
+      // Generate specific error messages for better user experience
+      const walletDisplayNames = {
+        'jazzcash': 'JazzCash',
+        'easypaisa': 'Easypaisa',
+        'sadapay': 'SadaPay',
+        'nayapay': 'NayaPay'
+      };
+      
+      const displayName = walletDisplayNames[walletType] || walletType;
+      const errorReasons = [
+        'Insufficient balance in your wallet',
+        'Network connectivity issue',
+        'Wallet service temporarily unavailable',
+        'Transaction limit exceeded',
+        'Authentication failed'
+      ];
+      
+      const randomReason = errorReasons[Math.floor(Math.random() * errorReasons.length)];
+      
+      const error = new Error(`${displayName} payment failed: ${randomReason}. Please check your wallet balance and try again.`);
+      error.code = 'WALLET_PAYMENT_FAILED';
+      error.walletType = walletType;
+      error.reason = randomReason;
+      error.retryable = true;
+      error.userGuidance = `Please ensure you have sufficient balance in your ${displayName} wallet and try again. If the problem persists, contact ${displayName} support.`;
+      
+      throw error;
     }
 
     const fee = this.calculateDigitalWalletFee(amount);

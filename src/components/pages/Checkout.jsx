@@ -442,17 +442,44 @@ const order = await orderService.create(orderData);
       // Complete the order
       await completeOrder(paymentResult);
       
-    } catch (error) {
+} catch (error) {
       console.error('Order submission error:', error);
-      toast.error('Order failed: ' + error.message);
       
-      // Offer retry for payment failures
-      if (error.message.includes('payment') && !isRetry) {
+      // Enhanced error handling with specific messaging
+      let errorMessage = 'Order failed: ' + error.message;
+      let showRetry = false;
+      let retryDelay = 2000;
+      
+      // Handle specific payment errors
+      if (error.code === 'WALLET_PAYMENT_FAILED') {
+        errorMessage = error.userGuidance || error.message;
+        showRetry = error.retryable !== false;
+        retryDelay = 3000; // Longer delay for wallet errors
+      } else if (error.message.includes('payment')) {
+        // Generic payment error handling
+        showRetry = !isRetry;
+        errorMessage = `Payment processing failed. ${error.message}`;
+      } else if (error.message.includes('network') || error.message.includes('connectivity')) {
+        showRetry = true;
+        errorMessage = 'Network error occurred. Please check your internet connection and try again.';
+      } else if (error.message.includes('timeout')) {
+        showRetry = true;
+        errorMessage = 'Request timed out. Please try again.';
+      }
+      
+      toast.error(errorMessage);
+      
+      // Offer retry for applicable errors
+      if (showRetry && !isRetry) {
         setTimeout(() => {
-          if (window.confirm('Payment failed. Would you like to retry?')) {
+          const retryMessage = error.code === 'WALLET_PAYMENT_FAILED' 
+            ? `${error.walletType} payment failed. Would you like to try again or choose a different payment method?`
+            : 'Payment failed. Would you like to retry?';
+            
+          if (window.confirm(retryMessage)) {
             handleSubmit(e, true);
           }
-        }, 2000);
+        }, retryDelay);
       }
     } finally {
       setLoading(false);

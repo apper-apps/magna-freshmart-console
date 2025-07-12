@@ -22,12 +22,24 @@ async getById(id) {
     return { ...order };
   }
 
-  async create(orderData) {
+async create(orderData) {
     await this.delay();
-    // Validate payment data
+    
+    // Enhanced payment data validation
     if (orderData.paymentMethod && orderData.paymentMethod !== 'cash') {
       if (!orderData.paymentResult && orderData.paymentMethod !== 'wallet') {
-        throw new Error('Payment result is required for non-cash payments');
+        const error = new Error('Payment result is required for non-cash payments');
+        error.code = 'PAYMENT_RESULT_MISSING';
+        throw error;
+      }
+      
+      // Validate payment result structure for digital wallets
+      if (['jazzcash', 'easypaisa'].includes(orderData.paymentMethod) && orderData.paymentResult) {
+        if (!orderData.paymentResult.transactionId) {
+          const error = new Error('Transaction ID is missing from payment result');
+          error.code = 'TRANSACTION_ID_MISSING';
+          throw error;
+        }
       }
     }
     
@@ -55,10 +67,13 @@ if (orderData.paymentMethod === 'wallet') {
         newOrder.paymentResult = walletTransaction;
         newOrder.paymentStatus = 'completed';
       } catch (walletError) {
-        throw new Error('Wallet payment failed: ' + walletError.message);
+        // Enhanced wallet error handling
+        const error = new Error('Wallet payment failed: ' + walletError.message);
+        error.code = walletError.code || 'WALLET_PAYMENT_FAILED';
+        error.originalError = walletError;
+        throw error;
       }
     }
-    
 // Handle bank transfer verification
     if (orderData.paymentMethod === 'bank' && orderData.paymentResult?.requiresVerification) {
       newOrder.paymentStatus = 'pending_verification';
