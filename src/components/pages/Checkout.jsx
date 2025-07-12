@@ -7,8 +7,8 @@ import { toast } from "react-hot-toast";
 import { formatCurrency } from "@/utils/currency";
 import { clearCart } from "@/store/cartSlice";
 import ApperIcon from "@/components/ApperIcon";
-import Button from "@/components/atoms/Button";
-import Input from "@/components/atoms/Input";
+import { Button } from "@/components/atoms/Button";
+import { Input } from "@/components/atoms/Input";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import Account from "@/components/pages/Account";
@@ -16,13 +16,14 @@ import PaymentMethod from "@/components/molecules/PaymentMethod";
 import { orderService } from "@/services/api/orderService";
 import { productService } from "@/services/api/productService";
 import { paymentService } from "@/services/api/paymentService";
+
 function Checkout() {
   const navigate = useNavigate();
   const { cart, clearCart } = useCart();
-  const [loading, setLoading] = useState(false);
+const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [availablePaymentMethods, setAvailablePaymentMethods] = useState([]);
-const [gatewayConfig, setGatewayConfig] = useState({});
+  const [gatewayConfig, setGatewayConfig] = useState({});
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -31,12 +32,12 @@ const [gatewayConfig, setGatewayConfig] = useState({});
     city: '',
     postalCode: '',
     instructions: ''
-});
-const [paymentProof, setPaymentProof] = useState(null);
-  const [transactionId, setTransactionId] = useState('')
+  });
+  const [paymentProof, setPaymentProof] = useState(null);
+  const [transactionId, setTransactionId] = useState('');
 const [errors, setErrors] = useState({});
 
-// Calculate totals with validated pricing and deals
+  // Calculate totals with validated pricing and deals
   const calculateCartTotals = () => {
     let subtotal = 0;
     let totalSavings = 0;
@@ -69,19 +70,19 @@ const [errors, setErrors] = useState({});
       dealSavings: totalSavings,
       subtotal: discountedSubtotal,
       deliveryCharge,
-      total: discountedSubtotal + deliveryCharge + calculateGatewayFee()
+      total: discountedSubtotal + deliveryCharge + calculateGatewayFee(discountedSubtotal)
     };
   };
 
   const totals = calculateCartTotals();
   const { originalSubtotal, dealSavings, subtotal, deliveryCharge, total } = totals;
-  const gatewayFee = calculateGatewayFee();
-
-// Load available payment methods from admin configuration
-  React.useEffect(() => {
-    loadPaymentMethods();
+  const gatewayFee = calculateGatewayFee(subtotal);
+  
+  useEffect(() => {
+loadPaymentMethods();
   }, []);
-async function loadPaymentMethods() {
+
+  async function loadPaymentMethods() {
     try {
       const methods = await paymentService.getAvailablePaymentMethods();
       const config = await paymentService.getGatewayConfig();
@@ -98,45 +99,44 @@ async function loadPaymentMethods() {
       toast.error('Failed to load payment options');
     }
   }
-
-function calculateGatewayFee() {
+function calculateGatewayFee(currentSubtotal = 0) {
     const selectedMethod = availablePaymentMethods.find(method => method?.id === paymentMethod);
     if (!selectedMethod || !selectedMethod.fee) return 0;
     
     const feeAmount = typeof selectedMethod.fee === 'number' 
-      ? selectedMethod.fee * subtotal 
+      ? selectedMethod.fee * currentSubtotal 
       : selectedMethod.fee;
     
     return Math.max(feeAmount, selectedMethod.minimumFee || 0);
   }
+
   function handleInputChange(e) {
-    const { name, value } = e.target
+    const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: value
-    }))
+    }));
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
         [name]: ''
-      }))
+      }));
     }
   }
-
 function handleFileUpload(e) {
-    const file = e.target.files[0]
+    const file = e.target.files[0];
     if (file) {
       // Validate file type
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp']
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
       if (!allowedTypes.includes(file.type)) {
-        toast.error('Please upload a valid image file (JPEG, PNG, WebP)')
-        return
+        toast.error('Please upload a valid image file (JPEG, PNG, WebP)');
+        return;
       }
       // Validate file size (5MB max)
       if (file.size > 5 * 1024 * 1024) {
-        toast.error('File size should be less than 5MB')
-        return
+        toast.error('File size should be less than 5MB');
+        return;
       }
       
       // Clear any previous errors
@@ -144,39 +144,39 @@ function handleFileUpload(e) {
         setErrors(prev => ({
           ...prev,
           paymentProof: ''
-        }))
+        }));
       }
       
-      setPaymentProof(file)
-      toast.success('Payment proof uploaded successfully')
+      setPaymentProof(file);
+      toast.success('Payment proof uploaded successfully');
     }
   }
 
   function removePaymentProof() {
-    setPaymentProof(null)
-    toast.info('Payment proof removed')
+    setPaymentProof(null);
+    toast.info('Payment proof removed');
   }
-
-  function validateForm() {
-    const newErrors = {}
-    const required = ['name', 'phone', 'address', 'city', 'postalCode']
+function validateForm() {
+    const newErrors = {};
+    const required = ['name', 'phone', 'address', 'city', 'postalCode'];
     
     required.forEach(field => {
       if (!formData[field]?.trim()) {
-        newErrors[field] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`
+        newErrors[field] = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`;
       }
-    })
+    });
 
     // Validate phone number
     if (formData.phone && !/^03[0-9]{9}$/.test(formData.phone)) {
-      newErrors.phone = 'Please enter a valid Pakistani phone number (03XXXXXXXXX)'
+      newErrors.phone = 'Please enter a valid Pakistani phone number (03XXXXXXXXX)';
     }
 
     // Validate email if provided
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email address'
+      newErrors.email = 'Please enter a valid email address';
     }
-// Validate payment proof and transaction ID for non-cash payments
+
+    // Validate payment proof and transaction ID for non-cash payments
     if (paymentMethod !== 'cash') {
       if (!transactionId.trim()) {
         newErrors.transactionId = 'Transaction ID is required';
@@ -186,23 +186,22 @@ function handleFileUpload(e) {
       }
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   }
-
-  async function handlePaymentRetry() {
+async function handlePaymentRetry() {
     try {
-      setLoading(true)
+      setLoading(true);
       const paymentResult = await paymentService.retryPayment(
         'previous_transaction_id',
         { amount: total, orderId: Date.now() }
-      )
-      return paymentResult
+      );
+      return paymentResult;
     } catch (error) {
-      toast.error('Payment retry failed: ' + error.message)
-      throw error
+      toast.error('Payment retry failed: ' + error.message);
+      throw error;
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -211,38 +210,38 @@ function handleFileUpload(e) {
       const verificationResult = await paymentService.verifyPayment(transactionId, {
         amount: total,
         orderId: Date.now()
-      })
-      return verificationResult
+      });
+      return verificationResult;
     } catch (error) {
-      toast.error('Payment verification failed: ' + error.message)
-      throw error
+      toast.error('Payment verification failed: ' + error.message);
+      throw error;
     }
   }
-// Convert file to base64 for safe serialization
+
+  // Convert file to base64 for safe serialization
   async function convertFileToBase64(file) {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result)
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
   }
-
 async function completeOrder(paymentResult) {
     try {
-      let paymentProofData = null
+      let paymentProofData = null;
       
       // Safely convert file to base64 if payment proof exists
       if (paymentProof) {
         try {
-          paymentProofData = await convertFileToBase64(paymentProof)
+          paymentProofData = await convertFileToBase64(paymentProof);
         } catch (fileError) {
-          console.warn('Failed to convert payment proof to base64:', fileError)
-          toast.warn('Payment proof could not be processed, but order will continue')
+          console.warn('Failed to convert payment proof to base64:', fileError);
+          toast.warn('Payment proof could not be processed, but order will continue');
         }
       }
 
-// Validate cart items before order creation
+      // Validate cart items before order creation
       const validatedItems = [];
       let hasValidationErrors = false;
       
@@ -281,7 +280,7 @@ async function completeOrder(paymentResult) {
         throw new Error('Please review cart items and try again');
       }
 
-// Recalculate totals with validated prices and deals
+      // Recalculate totals with validated prices and deals
       let validatedSubtotal = 0;
       let validatedDealSavings = 0;
       
@@ -310,7 +309,7 @@ async function completeOrder(paymentResult) {
       const validatedDeliveryCharge = finalSubtotal >= 2000 ? 0 : 150;
       const validatedTotal = finalSubtotal + validatedDeliveryCharge + gatewayFee;
 
-const orderData = {
+      const orderData = {
         items: validatedItems,
         originalSubtotal: validatedSubtotal,
         dealSavings: validatedDealSavings,
@@ -320,7 +319,7 @@ const orderData = {
         total: validatedTotal,
         paymentMethod,
         paymentResult,
-paymentStatus: paymentMethod === 'cash' ? 'pending' : 'pending_verification',
+        paymentStatus: paymentMethod === 'cash' ? 'pending' : 'pending_verification',
         paymentProof: paymentProofData ? {
           fileName: paymentProof?.name || null,
           fileSize: paymentProof?.size || 0,
@@ -337,7 +336,7 @@ paymentStatus: paymentMethod === 'cash' ? 'pending' : 'pending_verification',
           postalCode: formData.postalCode,
           instructions: formData.instructions
         },
-status: paymentMethod === 'cash' ? 'confirmed' : 'payment_pending',
+        status: paymentMethod === 'cash' ? 'confirmed' : 'payment_pending',
         verificationStatus: paymentMethod === 'cash' ? null : 'pending',
         priceValidatedAt: new Date().toISOString(),
         walletTransaction: paymentMethod === 'wallet' && paymentResult ? {
@@ -346,36 +345,38 @@ status: paymentMethod === 'cash' ? 'confirmed' : 'payment_pending',
           amount: validatedTotal,
           processedAt: paymentResult.timestamp
         } : null
-      }
+      };
 
-      const order = await orderService.create(orderData)
-      clearCart()
-      toast.success('Order placed successfully!')
-      navigate('/orders')
-      return order
+      const order = await orderService.create(orderData);
+      clearCart();
+      toast.success('Order placed successfully!');
+      navigate('/orders');
+      return order;
     } catch (error) {
-      toast.error('Failed to create order: ' + error.message)
-      throw error
+      toast.error('Failed to create order: ' + error.message);
+      throw error;
     }
   }
-  async function handleSubmit(e, isRetry = false) {
-    e.preventDefault()
+async function handleSubmit(e, isRetry = false) {
+    e.preventDefault();
     
     if (!validateForm()) {
-      toast.error('Please fix the form errors')
-      return
+      toast.error('Please fix the form errors');
+      return;
     }
 
     try {
-      setLoading(true)
-      let paymentResult = null
-// Process payment based on admin-managed gateway configuration
+      setLoading(true);
+      let paymentResult = null;
+
+      // Process payment based on admin-managed gateway configuration
       const selectedGateway = availablePaymentMethods.find(method => method?.id === paymentMethod);
       
       if (!selectedGateway || !selectedGateway.enabled) {
         throw new Error(`Payment method ${paymentMethod} is not available`);
       }
-if (paymentMethod === 'card') {
+
+      if (paymentMethod === 'card') {
         paymentResult = await paymentService.processCardPayment(
           { 
             cardNumber: '4111111111111111', 
@@ -385,15 +386,15 @@ if (paymentMethod === 'card') {
           },
           total,
           Date.now()
-        )
+        );
       } else if (paymentMethod === 'jazzcash' || paymentMethod === 'easypaisa') {
         paymentResult = await paymentService.processDigitalWalletPayment(
           paymentMethod,
           total,
           Date.now(),
           formData.phone
-        )
-} else if (paymentMethod === 'wallet') {
+        );
+      } else if (paymentMethod === 'wallet') {
         paymentResult = await paymentService.processWalletPayment(total, Date.now());
         
         // Record wallet transaction for order payment
@@ -419,13 +420,13 @@ if (paymentMethod === 'card') {
           total,
           Date.now(),
           { accountNumber: '1234567890', bankName: 'Test Bank' }
-        )
+        );
         
         // Handle verification if required
         if (paymentResult.requiresVerification) {
-          const verificationResult = await handlePaymentVerification(paymentResult.transactionId)
+          const verificationResult = await handlePaymentVerification(paymentResult.transactionId);
           if (!verificationResult.verified) {
-            throw new Error('Payment verification failed')
+            throw new Error('Payment verification failed');
           }
         }
       }
@@ -436,25 +437,24 @@ if (paymentMethod === 'card') {
       }
 
       // Complete the order
-      await completeOrder(paymentResult)
+      await completeOrder(paymentResult);
       
     } catch (error) {
-      console.error('Order submission error:', error)
-      toast.error('Order failed: ' + error.message)
+      console.error('Order submission error:', error);
+      toast.error('Order failed: ' + error.message);
       
       // Offer retry for payment failures
       if (error.message.includes('payment') && !isRetry) {
         setTimeout(() => {
           if (window.confirm('Payment failed. Would you like to retry?')) {
-            handleSubmit(e, true)
+            handleSubmit(e, true);
           }
-        }, 2000)
+        }, 2000);
       }
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
-
 // Redirect if cart is empty
   if (!cart || cart.length === 0) {
     return (
@@ -480,7 +480,7 @@ if (paymentMethod === 'card') {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Order Summary */}
-<div className="order-2 lg:order-1">
+          <div className="order-2 lg:order-1">
             <div className="card p-6 mb-6">
               <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
               <div className="space-y-4">
@@ -504,8 +504,8 @@ if (paymentMethod === 'card') {
                       Rs. {(item.price * item.quantity).toLocaleString()}
                     </span>
                   </div>
-                ))}
-<div className="border-t pt-4 space-y-2">
+))}
+                <div className="border-t pt-4 space-y-2">
                   <div className="flex justify-between">
                     <span>Original Subtotal:</span>
                     <span>Rs. {originalSubtotal.toLocaleString()}</span>
@@ -624,10 +624,10 @@ if (paymentMethod === 'card') {
                       placeholder="Special instructions for delivery..."
                     />
                   </div>
-                </div>
+</div>
               </div>
 
-{/* Payment Method */}
+              {/* Payment Method */}
               <div className="card p-6">
                 <h2 className="text-xl font-semibold mb-4">Payment Method</h2>
                 {availablePaymentMethods.length === 0 ? (
@@ -724,8 +724,9 @@ if (paymentMethod === 'card') {
                       </div>
                     ))}
                   </div>
-                )}
-{/* Payment Details for Non-Cash Methods */}
+)}
+                
+                {/* Payment Details for Non-Cash Methods */}
                 {paymentMethod !== 'cash' && (
                   <div className="mt-4 space-y-4">
                     {/* Transaction ID Input */}
@@ -823,9 +824,9 @@ if (paymentMethod === 'card') {
                   </div>
                 )}
               </div>
+</div>
 
               {/* Submit Button */}
-{/* Submit Button */}
               <div className="card p-6">
                 <Button
                   type="submit"
@@ -835,12 +836,12 @@ if (paymentMethod === 'card') {
                   {loading ? 'Processing...' : `Place Order - Rs. ${total.toLocaleString()}`}
                 </Button>
               </div>
-            </form>
-</div>
+</form>
+          </div>
         </div>
       </div>
     </div>
   );
-  }
+}
 
 export default Checkout;
