@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { CreditCard, Mail, MapPin, Phone, User } from "lucide-react";
-import { useCart } from "@/hooks/useCart";
-import { toast } from "react-hot-toast";
-import { formatCurrency } from "@/utils/currency";
-import { clearCart } from "@/store/cartSlice";
+import { CreditCard, Mail, MapPin, Phone, User } from 'lucide-react'
+  import { useCart } from '@/hooks/useCart'
+  import { toast } from 'react-toastify'
+  import { formatCurrency } from '@/utils/currency'
+  import { clearCart } from '@/store/cartSlice'
 import ApperIcon from "@/components/ApperIcon";
 import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
