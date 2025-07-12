@@ -837,7 +837,7 @@ className="w-full"
                 >
                   {loading ? 'Processing...' : `Place Order - Rs. ${total.toLocaleString()}`}
                 </Button>
-              </div>
+</div>
             </form>
           </div>
         </div>
