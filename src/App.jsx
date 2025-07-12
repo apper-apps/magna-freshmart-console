@@ -8,24 +8,10 @@ import { persistor, store } from "@/store/index";
 import { addRealTimeNotification, setConnectionStatus, updateApprovalStatus } from "@/store/approvalWorkflowSlice";
 import Layout from "@/components/organisms/Layout";
 import Loading from "@/components/ui/Loading";
-import PayrollManagement from "@/components/pages/PayrollManagement";
-import AdminDashboard from "@/components/pages/AdminDashboard";
 import Cart from "@/components/pages/Cart";
-import AIGenerate from "@/components/pages/AIGenerate";
-import ProductManagement from "@/components/pages/ProductManagement";
-import Analytics from "@/components/pages/Analytics";
-import Orders from "@/components/pages/Orders";
-import PaymentManagement from "@/components/pages/PaymentManagement";
-import VendorPortal from "@/components/pages/VendorPortal";
-import Category from "@/components/pages/Category";
-import OrderTracking from "@/components/pages/OrderTracking";
-import Account from "@/components/pages/Account";
-import DeliveryTracking from "@/components/pages/DeliveryTracking";
-import POS from "@/components/pages/POS";
 import Checkout from "@/components/pages/Checkout";
-import FinancialDashboard from "@/components/pages/FinancialDashboard";
 import Home from "@/components/pages/Home";
-import VendorManagement from "@/components/pages/VendorManagement";
+import ProductDetail from "@/components/pages/ProductDetail";
 import webSocketService from "@/services/api/websocketService";
 // Error boundary for lazy-loaded components
 class LazyErrorBoundary extends React.Component {
