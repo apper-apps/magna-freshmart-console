@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import { formatCurrency } from "@/utils/currency";
+import formatCurrency from "@/utils/currency";
 import ApperIcon from "@/components/ApperIcon";
 import Button from "@/components/atoms/Button";
 import Input from "@/components/atoms/Input";
@@ -1133,14 +1133,14 @@ const VendorProfileTab = ({ vendor, onProfileUpdate }) => {
                 ))}
               </div>
             </div>
+</div>
           </div>
         )}
       </div>
     </div>
-</div>
-        )}
-      </div>
-    </div>
+  );
+};
+
 // Vendor Orders Tab Component
 const VendorOrdersTab = ({ vendor }) => {
   const [orders, setOrders] = useState([]);
@@ -1346,5 +1346,7 @@ const VendorOrdersTab = ({ vendor }) => {
         </div>
       )}
     </div>
-  );
+);
 };
+
+export default VendorPortal;
