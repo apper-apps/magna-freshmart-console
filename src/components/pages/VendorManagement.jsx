@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-toastify';
 import ApperIcon from '@/components/ApperIcon';
 import { Button } from '@/components/atoms/Button';
@@ -8,6 +8,7 @@ import Loading from '@/components/ui/Loading';
 import Error from '@/components/ui/Error';
 import { vendorService } from '@/services/api/vendorService';
 import { productService } from '@/services/api/productService';
+import { paymentService } from '@/services/api/paymentService';
 import ProductAssignment from '@/components/molecules/ProductAssignment';
 
 const VendorManagement = () => {
@@ -32,9 +33,22 @@ const VendorManagement = () => {
   const [productAssignments, setProductAssignments] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
 
+  // Payment queue states
+  const [paymentQueue, setPaymentQueue] = useState([]);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verificationNotes, setVerificationNotes] = useState('');
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef(null);
 useEffect(() => {
     loadVendors();
     loadAvailableProducts();
+    loadPaymentQueue();
   }, []);
 
   const loadAvailableProducts = async () => {
@@ -193,8 +207,124 @@ const handleSubmit = async (e) => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+};
+
+  // Payment queue functions
+  const loadPaymentQueue = async () => {
+    try {
+      const proofQueue = await paymentService.getPaymentProofQueue();
+      setPaymentQueue(proofQueue);
+    } catch (err) {
+      console.error('Failed to load payment queue:', err);
+      toast.error('Failed to load payment queue');
+    }
   };
 
+  const handleUploadProof = (payment) => {
+    setSelectedPayment(payment);
+    setSelectedFile(null);
+    setShowUploadModal(true);
+  };
+
+  const handleViewProof = (payment) => {
+    setSelectedPayment(payment);
+    setShowViewModal(true);
+  };
+
+  const handleVerifyProof = (payment) => {
+    setSelectedPayment(payment);
+    setVerificationNotes('');
+    setShowVerifyModal(true);
+  };
+
+  const handleFileDrop = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      validateAndSetFile(files[0]);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      validateAndSetFile(file);
+    }
+  };
+
+  const validateAndSetFile = (file) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Only JPEG, PNG, and PDF files are allowed');
+      return;
+    }
+
+    if (file.size > maxSize) {
+      toast.error('File size must be less than 5MB');
+      return;
+    }
+
+    setSelectedFile(file);
+  };
+
+  const handleUploadSubmit = async () => {
+    if (!selectedFile || !selectedPayment) return;
+
+    setUploadLoading(true);
+    try {
+      const proofData = {
+        fileName: selectedFile.name,
+        fileType: selectedFile.type,
+        fileSize: selectedFile.size
+      };
+
+      await paymentService.uploadPaymentProof(selectedPayment.Id, proofData);
+      toast.success('Payment proof uploaded successfully');
+      setShowUploadModal(false);
+      setSelectedFile(null);
+      loadPaymentQueue();
+    } catch (err) {
+      toast.error(err.message || 'Failed to upload payment proof');
+    } finally {
+      setUploadLoading(false);
+    }
+  };
+
+  const handleVerifySubmit = async (approved) => {
+    if (!selectedPayment) return;
+
+    setVerifyLoading(true);
+    try {
+      const verificationData = {
+        approved,
+        notes: verificationNotes
+      };
+
+      await paymentService.verifyPaymentProof(selectedPayment.Id, verificationData);
+      toast.success(`Payment proof ${approved ? 'approved' : 'rejected'} successfully`);
+      setShowVerifyModal(false);
+      setVerificationNotes('');
+      loadPaymentQueue();
+    } catch (err) {
+      toast.error(err.message || 'Failed to verify payment proof');
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
   if (loading) return <Loading type="page" />;
   if (error) return <Error message={error} onRetry={loadVendors} />;
 
@@ -352,7 +482,397 @@ const handleSubmit = async (e) => {
         )}
       </div>
 
-{/* Add/Edit Vendor Modal */}
+{/* Vendor Payments Section */}
+      <div className="bg-white rounded-lg shadow-sm border mt-6">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Vendor Payment Queue</h2>
+              <p className="text-gray-600 text-sm mt-1">Manage payment proof uploads and verifications</p>
+            </div>
+            <Button
+              onClick={loadPaymentQueue}
+              variant="outline"
+              size="sm"
+              className="mt-3 sm:mt-0"
+            >
+              <ApperIcon name="RefreshCw" size={14} className="mr-2" />
+              Refresh
+            </Button>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Vendor
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Amount
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Submitted
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {paymentQueue.map((payment) => (
+                <tr key={payment.Id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{payment.vendorName}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">Rs. {payment.amount?.toLocaleString()}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">
+                      {payment.submittedAt ? new Date(payment.submittedAt).toLocaleDateString() : '-'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <Badge
+                      variant={payment.status === 'verified' ? 'success' : 
+                               payment.status === 'rejected' ? 'destructive' : 'secondary'}
+                      className="text-xs"
+                    >
+                      {payment.status === 'verified' ? '✓ Verified' : 
+                       payment.status === 'rejected' ? '✗ Rejected' : 'Pending'}
+                    </Badge>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex justify-end space-x-2">
+                      {payment.paymentProof && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewProof(payment)}
+                          className="text-blue-600"
+                        >
+                          <ApperIcon name="Eye" size={14} className="mr-1" />
+                          View
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleUploadProof(payment)}
+                        className="text-green-600"
+                      >
+                        <ApperIcon name="Upload" size={14} className="mr-1" />
+                        Upload
+                      </Button>
+                      {payment.status === 'pending' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleVerifyProof(payment)}
+                          className="text-purple-600"
+                        >
+                          <ApperIcon name="CheckCircle" size={14} className="mr-1" />
+                          Verify
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {paymentQueue.length === 0 && (
+          <div className="text-center py-12">
+            <ApperIcon name="FileCheck" size={48} className="mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No pending payments</h3>
+            <p className="text-gray-500">All vendor payments have been processed</p>
+          </div>
+        )}
+      </div>
+
+      {/* Upload Proof Modal */}
+      {showUploadModal && selectedPayment && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowUploadModal(false)}></div>
+            
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    Upload Payment Proof
+                  </h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowUploadModal(false)}
+                  >
+                    <ApperIcon name="X" size={16} />
+                  </Button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="text-sm text-gray-600">
+                    <p><strong>Vendor:</strong> {selectedPayment.vendorName}</p>
+                    <p><strong>Amount:</strong> Rs. {selectedPayment.amount?.toLocaleString()}</p>
+                  </div>
+                  
+                  {/* File Upload Area */}
+                  <div 
+                    className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                      isDragOver ? 'border-primary bg-primary/5' : 'border-gray-300'
+                    }`}
+                    onDrop={handleFileDrop}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                  >
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileSelect}
+                      accept="image/jpeg,image/png,application/pdf"
+                      className="hidden"
+                    />
+                    
+                    {selectedFile ? (
+                      <div className="space-y-2">
+                        <ApperIcon name="FileCheck" size={32} className="mx-auto text-green-500" />
+                        <p className="text-sm font-medium text-gray-900">{selectedFile.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedFile(null)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <ApperIcon name="Upload" size={32} className="mx-auto text-gray-400" />
+                        <p className="text-sm text-gray-600">
+                          Drop files here or{' '}
+                          <button
+                            type="button"
+                            className="text-primary font-medium hover:underline"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            browse
+                          </button>
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          JPEG, PNG, PDF up to 5MB
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <Button
+                  onClick={handleUploadSubmit}
+                  disabled={!selectedFile || uploadLoading}
+                  className="w-full sm:w-auto sm:ml-3 bg-primary text-white hover:bg-primary/90"
+                >
+                  {uploadLoading ? (
+                    <ApperIcon name="Loader2" size={16} className="animate-spin mr-2" />
+                  ) : null}
+                  Upload Proof
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowUploadModal(false)}
+                  className="mt-3 w-full sm:mt-0 sm:w-auto"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Proof Modal */}
+      {showViewModal && selectedPayment && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowViewModal(false)}></div>
+            
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    Payment Proof - {selectedPayment.vendorName}
+                  </h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowViewModal(false)}
+                  >
+                    <ApperIcon name="X" size={16} />
+                  </Button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium">Amount:</span> Rs. {selectedPayment.amount?.toLocaleString()}
+                    </div>
+                    <div>
+                      <span className="font-medium">Status:</span> {selectedPayment.status}
+                    </div>
+                    <div>
+                      <span className="font-medium">Submitted:</span> {
+                        selectedPayment.submittedAt ? new Date(selectedPayment.submittedAt).toLocaleString() : '-'
+                      }
+                    </div>
+                    <div>
+                      <span className="font-medium">File:</span> {selectedPayment.paymentProofFileName || 'No file'}
+                    </div>
+                  </div>
+                  
+                  {selectedPayment.paymentProof && (
+                    <div className="border rounded-lg p-4">
+                      <div className="text-center">
+                        {selectedPayment.paymentProof.startsWith('data:image/') ? (
+                          <img 
+                            src={selectedPayment.paymentProof} 
+                            alt="Payment Proof" 
+                            className="max-w-full max-h-96 mx-auto rounded"
+                          />
+                        ) : (
+                          <div className="py-8">
+                            <ApperIcon name="FileText" size={48} className="mx-auto text-gray-400 mb-2" />
+                            <p className="text-gray-600">PDF Document</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(selectedPayment.paymentProof, '_blank')}
+                              className="mt-2"
+                            >
+                              <ApperIcon name="ExternalLink" size={14} className="mr-2" />
+                              Open PDF
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowViewModal(false)}
+                  className="w-full sm:w-auto"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Verify Proof Modal */}
+      {showVerifyModal && selectedPayment && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setShowVerifyModal(false)}></div>
+            
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg leading-6 font-medium text-gray-900">
+                    Verify Payment Proof
+                  </h3>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowVerifyModal(false)}
+                  >
+                    <ApperIcon name="X" size={16} />
+                  </Button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="text-sm text-gray-600">
+                    <p><strong>Vendor:</strong> {selectedPayment.vendorName}</p>
+                    <p><strong>Amount:</strong> Rs. {selectedPayment.amount?.toLocaleString()}</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Verification Notes
+                    </label>
+                    <textarea
+                      value={verificationNotes}
+                      onChange={(e) => setVerificationNotes(e.target.value)}
+                      rows={3}
+                      placeholder="Add notes about the verification..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse space-x-3 space-x-reverse">
+                <Button
+                  onClick={() => handleVerifySubmit(true)}
+                  disabled={verifyLoading}
+                  className="w-full sm:w-auto bg-green-600 text-white hover:bg-green-700"
+                >
+                  {verifyLoading ? (
+                    <ApperIcon name="Loader2" size={16} className="animate-spin mr-2" />
+                  ) : (
+                    <ApperIcon name="CheckCircle" size={16} className="mr-2" />
+                  )}
+                  Approve
+                </Button>
+                <Button
+                  onClick={() => handleVerifySubmit(false)}
+                  disabled={verifyLoading}
+                  className="w-full sm:w-auto mt-3 sm:mt-0 bg-red-600 text-white hover:bg-red-700"
+                >
+                  {verifyLoading ? (
+                    <ApperIcon name="Loader2" size={16} className="animate-spin mr-2" />
+                  ) : (
+                    <ApperIcon name="XCircle" size={16} className="mr-2" />
+                  )}
+                  Reject
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowVerifyModal(false)}
+                  className="mt-3 w-full sm:mt-0 sm:w-auto"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Vendor Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
