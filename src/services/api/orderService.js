@@ -515,11 +515,16 @@ return {
     }).map(order => ({ ...order }));
   }
 
-  async getPendingAvailabilityRequests() {
+async getPendingAvailabilityRequests() {
     await this.delay();
     
     return this.orders.filter(order => {
       if (!order.items) return false;
+      
+      // Only include orders that haven't reached availability_confirmed stage
+      if (order.fulfillment_stage && order.fulfillment_stage !== 'pending') {
+        return false;
+      }
       
       // Check if any products still need vendor availability response
       const hasPendingAvailability = order.items.some(item => {
@@ -529,7 +534,37 @@ return {
       });
       
       return hasPendingAvailability;
-    }).map(order => ({ ...order }));
+    }).map(order => ({ 
+      ...order,
+      responseDeadline: this.calculateResponseDeadline(order.createdAt)
+    }));
+  }
+
+  calculateResponseDeadline(createdAt) {
+    const created = new Date(createdAt);
+    const deadline = new Date(created.getTime() + 2 * 60 * 60 * 1000); // 2 hours from creation
+    return deadline.toISOString();
+  }
+
+  async updateVendorAvailabilityBulk(vendorId, updates) {
+    await this.delay();
+    
+    const results = [];
+    for (const update of updates) {
+      try {
+        const result = await this.updateVendorAvailability(
+          update.orderId, 
+          vendorId, 
+          update.productId, 
+          update.availabilityData
+        );
+        results.push({ orderId: update.orderId, success: true, data: result });
+      } catch (error) {
+        results.push({ orderId: update.orderId, success: false, error: error.message });
+      }
+    }
+    
+    return results;
   }
 
   async getVendorAvailabilityStatus(orderId) {
@@ -546,8 +581,8 @@ return {
   delay() {
     return new Promise(resolve => setTimeout(resolve, 400));
   }
-// Fulfillment Workflow Methods
-  async updateFulfillmentStage(orderId, stage) {
+// Enhanced Fulfillment Workflow Methods with Status Timestamp Tracking
+  async updateFulfillmentStage(orderId, stage, additionalData = {}) {
     await this.delay();
     
     const validStages = [
@@ -569,13 +604,28 @@ return {
 
     const order = this.orders[orderIndex];
     
+    // Initialize order_status_timestamps if not exists
+    if (!order.order_status_timestamps) {
+      order.order_status_timestamps = {};
+    }
+    
     // Auto-assign delivery personnel when moving to packed stage
     if (stage === 'packed' && !order.assignedDelivery) {
       const deliveryAssignment = await this.autoAssignDeliveryPersonnel(order);
       order.assignedDelivery = deliveryAssignment;
     }
     
+    // Store stage-specific data
+    if (stage === 'packed' && additionalData) {
+      order.packingInfo = {
+        ...additionalData,
+        completedAt: new Date().toISOString()
+      };
+    }
+    
+    // Update fulfillment stage and timestamp
     order.fulfillment_stage = stage;
+    order.order_status_timestamps[stage] = new Date().toISOString();
     order.updatedAt = new Date().toISOString();
     
     // Update order status based on fulfillment stage
@@ -589,6 +639,7 @@ return {
     
     if (stageToStatusMap[stage]) {
       order.status = stageToStatusMap[stage];
+      order.order_status_timestamps[stageToStatusMap[stage]] = new Date().toISOString();
     }
     
     this.orders[orderIndex] = order;
@@ -685,3 +736,13 @@ return {
 }
 
 export const orderService = new OrderService();
+order.handoverTimestamp = handoverData.timestamp;
+    order.handoverVendorId = handoverData.vendorId;
+    order.status = 'shipped';
+    
+    // Update timestamps
+    if (!order.order_status_timestamps) {
+      order.order_status_timestamps = {};
+    }
+    order.order_status_timestamps.handed_over = handoverData.timestamp;
+    order.order_status_timestamps.shipped = handoverData.timestamp;

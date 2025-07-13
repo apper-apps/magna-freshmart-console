@@ -240,8 +240,9 @@ const VendorDashboard = ({ vendor, onLogout, onProfileUpdate }) => {
 
 const tabs = [
     { id: 'products', label: 'My Products', icon: 'Package' },
-    { id: 'orders', label: 'Order Availability', icon: 'ClipboardList' },
-    { id: 'fulfillment', label: 'Fulfillment', icon: 'Truck' },
+    { id: 'availability', label: 'Availability Confirmation', icon: 'CheckCircle', priority: 'critical' },
+    { id: 'packing', label: 'Packing Station', icon: 'Package2', priority: 'critical' },
+    { id: 'orders', label: 'Order History', icon: 'ClipboardList' },
     { id: 'profile', label: 'Profile', icon: 'User' }
   ];
 
@@ -336,12 +337,12 @@ const tabs = [
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white rounded-lg shadow">
           <div className="border-b border-gray-200">
-            <nav className="flex space-x-8">
+<nav className="flex space-x-8">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                  className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 relative ${
                     activeTab === tab.id
                       ? 'border-primary text-primary'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
@@ -349,6 +350,9 @@ const tabs = [
                 >
                   <ApperIcon name={tab.icon} size={16} />
                   <span>{tab.label}</span>
+                  {tab.priority === 'critical' && (
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                  )}
                 </button>
               ))}
             </nav>
@@ -368,13 +372,18 @@ const tabs = [
                     onProductUpdate={handleProductUpdate}
                   />
                 )}
-                {activeTab === 'orders' && (
-                  <VendorOrdersTab 
+                {activeTab === 'availability' && (
+                  <VendorAvailabilityTab 
                     vendor={vendor}
                   />
                 )}
-                {activeTab === 'fulfillment' && (
-                  <VendorFulfillmentTab 
+                {activeTab === 'packing' && (
+                  <VendorPackingTab 
+                    vendor={vendor}
+                  />
+                )}
+                {activeTab === 'orders' && (
+                  <VendorOrdersTab 
                     vendor={vendor}
                   />
                 )}
@@ -1146,6 +1155,668 @@ const VendorProfileTab = ({ vendor, onProfileUpdate }) => {
   );
 };
 
+// Enhanced Vendor Availability Tab Component
+const VendorAvailabilityTab = ({ vendor }) => {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedOrders, setSelectedOrders] = useState([]);
+  const [bulkAvailability, setBulkAvailability] = useState(null);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+
+  useEffect(() => {
+    loadPendingAvailabilityOrders();
+  }, [vendor]);
+
+  const loadPendingAvailabilityOrders = async () => {
+    if (!vendor) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const pendingOrders = await orderService.getPendingAvailabilityRequests();
+      const vendorOrders = pendingOrders.filter(order => {
+        return order.items?.some(item => (item.productId % 3 + 1) === vendor.Id);
+      });
+      setOrders(vendorOrders);
+    } catch (error) {
+      console.error('Error loading availability orders:', error);
+      setError(error.message);
+      toast.error('Failed to load pending orders');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAvailabilityUpdate = async (orderId, productId, available, notes = '') => {
+    try {
+      await orderService.updateVendorAvailability(orderId, vendor.Id, productId, {
+        available,
+        notes,
+        timestamp: new Date().toISOString(),
+        responseDeadline: getResponseDeadline()
+      });
+      
+      await loadPendingAvailabilityOrders();
+      toast.success(`Product availability updated successfully`);
+    } catch (error) {
+      toast.error('Failed to update availability: ' + error.message);
+    }
+  };
+
+  const handleBulkAvailabilityUpdate = async () => {
+    if (selectedOrders.length === 0 || bulkAvailability === null) {
+      toast.error('Please select orders and availability status');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const updatePromises = selectedOrders.map(orderId => {
+        const order = orders.find(o => o.id === orderId);
+        const vendorProducts = order.items.filter(item => (item.productId % 3 + 1) === vendor.Id);
+        
+        return Promise.all(vendorProducts.map(item => 
+          orderService.updateVendorAvailability(orderId, vendor.Id, item.productId, {
+            available: bulkAvailability,
+            notes: `Bulk ${bulkAvailability ? 'confirmed' : 'declined'} availability`,
+            timestamp: new Date().toISOString()
+          })
+        ));
+      });
+
+      await Promise.all(updatePromises);
+      await loadPendingAvailabilityOrders();
+      
+      setSelectedOrders([]);
+      setBulkAvailability(null);
+      setShowBulkModal(false);
+      toast.success(`Bulk availability ${bulkAvailability ? 'confirmed' : 'declined'} for ${selectedOrders.length} orders`);
+    } catch (error) {
+      toast.error('Bulk update failed: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getResponseDeadline = () => {
+    const deadline = new Date();
+    deadline.setHours(deadline.getHours() + 2); // 2 hour response time
+    return deadline.toISOString();
+  };
+
+  const getDeadlineStatus = (createdAt) => {
+    const created = new Date(createdAt);
+    const deadline = new Date(created.getTime() + 2 * 60 * 60 * 1000); // 2 hours
+    const now = new Date();
+    const timeLeft = deadline - now;
+    
+    if (timeLeft <= 0) return { status: 'overdue', color: 'bg-red-100 text-red-800', timeLeft: 'Overdue' };
+    if (timeLeft <= 30 * 60 * 1000) return { status: 'urgent', color: 'bg-orange-100 text-orange-800', timeLeft: `${Math.ceil(timeLeft / (60 * 1000))}m left` };
+    return { status: 'normal', color: 'bg-green-100 text-green-800', timeLeft: `${Math.ceil(timeLeft / (60 * 1000))}m left` };
+  };
+
+  const getAvailabilityStatus = (order, productId) => {
+    if (!order.vendor_availability) return 'pending';
+    const key = `${productId}_${vendor.Id}`;
+    const availability = order.vendor_availability[key];
+    
+    if (!availability) return 'pending';
+    return availability.available ? 'available' : 'unavailable';
+  };
+
+  const getProductCardColor = (order, productId) => {
+    const status = getAvailabilityStatus(order, productId);
+    switch (status) {
+      case 'available': return 'border-l-4 border-l-green-500 bg-green-50';
+      case 'unavailable': return 'border-l-4 border-l-red-500 bg-red-50';
+      default: return 'border-l-4 border-l-yellow-500 bg-yellow-50';
+    }
+  };
+
+  const filteredOrders = orders.filter(order => 
+    order.id.toString().includes(searchTerm) ||
+    order.deliveryAddress?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) return <Loading type="component" />;
+  if (error) return <Error message={error} />;
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Stats */}
+      <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-6 rounded-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold mb-2">Availability Confirmation</h2>
+            <p className="text-blue-100">Respond to availability requests within 2 hours</p>
+          </div>
+          <div className="text-right">
+            <div className="text-3xl font-bold">{filteredOrders.length}</div>
+            <div className="text-blue-100">Pending Responses</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Search and Bulk Actions */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex-1">
+          <Input
+            type="text"
+            placeholder="Search orders..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            icon="Search"
+          />
+        </div>
+        {selectedOrders.length > 0 && (
+          <div className="flex gap-2">
+            <Button
+              onClick={() => {
+                setBulkAvailability(true);
+                setShowBulkModal(true);
+              }}
+              variant="primary"
+              size="sm"
+            >
+              <ApperIcon name="CheckCircle" size={16} className="mr-2" />
+              Bulk Confirm ({selectedOrders.length})
+            </Button>
+            <Button
+              onClick={() => {
+                setBulkAvailability(false);
+                setShowBulkModal(true);
+              }}
+              variant="outline"
+              size="sm"
+            >
+              <ApperIcon name="XCircle" size={16} className="mr-2" />
+              Bulk Decline ({selectedOrders.length})
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Orders List */}
+      <div className="space-y-4">
+        {filteredOrders.map((order) => {
+          const deadline = getDeadlineStatus(order.createdAt);
+          const vendorProducts = order.items?.filter(item => (item.productId % 3 + 1) === vendor.Id) || [];
+          
+          return (
+            <div key={order.id} className="bg-white rounded-lg shadow-sm border overflow-hidden">
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-4">
+                    <input
+                      type="checkbox"
+                      checked={selectedOrders.includes(order.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedOrders([...selectedOrders, order.id]);
+                        } else {
+                          setSelectedOrders(selectedOrders.filter(id => id !== order.id));
+                        }
+                      }}
+                      className="rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <h3 className="font-semibold text-gray-900">Order #{order.id}</h3>
+                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                      {order.deliveryAddress?.name || 'N/A'}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <span className={`px-3 py-1 text-xs font-medium rounded-full ${deadline.color}`}>
+                      <ApperIcon name="Clock" size={12} className="mr-1 inline" />
+                      {deadline.timeLeft}
+                    </span>
+                    <span className="text-sm text-gray-600">
+                      {new Date(order.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Product Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {vendorProducts.map((item) => (
+                    <div key={item.productId} className={`p-3 rounded-lg border ${getProductCardColor(order, item.productId)}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-medium text-gray-900 text-sm">{item.name}</h4>
+                        <span className="text-xs text-gray-600">{item.quantity} {item.unit}</span>
+                      </div>
+                      
+                      {getAvailabilityStatus(order, item.productId) === 'pending' ? (
+                        <div className="flex space-x-2">
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => handleAvailabilityUpdate(order.id, item.productId, true)}
+                            className="flex-1"
+                          >
+                            <ApperIcon name="CheckCircle" size={12} className="mr-1" />
+                            Available
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleAvailabilityUpdate(order.id, item.productId, false)}
+                            className="flex-1"
+                          >
+                            <ApperIcon name="XCircle" size={12} className="mr-1" />
+                            Out of Stock
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <span className={`text-xs font-medium ${
+                            getAvailabilityStatus(order, item.productId) === 'available' 
+                              ? 'text-green-700' 
+                              : 'text-red-700'
+                          }`}>
+                            {getAvailabilityStatus(order, item.productId) === 'available' ? '✓ Confirmed' : '✗ Unavailable'}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              const currentStatus = getAvailabilityStatus(order, item.productId);
+                              handleAvailabilityUpdate(order.id, item.productId, currentStatus !== 'available');
+                            }}
+                          >
+                            <ApperIcon name="RefreshCw" size={12} />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {filteredOrders.length === 0 && (
+        <div className="text-center py-12">
+          <ApperIcon name="CheckCircle" size={48} className="mx-auto text-green-400 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">All caught up!</h3>
+          <p className="text-gray-500">No pending availability requests at the moment.</p>
+        </div>
+      )}
+
+      {/* Bulk Action Modal */}
+      {showBulkModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Bulk {bulkAvailability ? 'Confirm' : 'Decline'} Availability
+            </h3>
+            <p className="text-gray-600 mb-6">
+              This will {bulkAvailability ? 'confirm' : 'decline'} availability for all products in {selectedOrders.length} selected orders.
+            </p>
+            <div className="flex space-x-3">
+              <Button
+                onClick={() => setShowBulkModal(false)}
+                variant="outline"
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleBulkAvailabilityUpdate}
+                variant={bulkAvailability ? "primary" : "secondary"}
+                className="flex-1"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <ApperIcon name="Loader2" size={16} className="animate-spin mr-2" />
+                    Processing...
+                  </>
+                ) : (
+                  `${bulkAvailability ? 'Confirm' : 'Decline'} All`
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Enhanced Vendor Packing Tab Component
+const VendorPackingTab = ({ vendor }) => {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [packingData, setPackingData] = useState({});
+  const [photoCapture, setPhotoCapture] = useState(null);
+
+  useEffect(() => {
+    loadPackingOrders();
+  }, [vendor]);
+
+  const loadPackingOrders = async () => {
+    if (!vendor) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const fulfillmentOrders = await orderService.getFulfillmentOrders(vendor.Id);
+      // Filter orders ready for packing (availability confirmed)
+      const packingOrders = fulfillmentOrders.filter(order => 
+        order.fulfillment_stage === 'availability_confirmed' || order.fulfillment_stage === 'packed'
+      );
+      setOrders(packingOrders);
+    } catch (error) {
+      console.error('Error loading packing orders:', error);
+      setError(error.message);
+      toast.error('Failed to load packing orders');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartPacking = (order) => {
+    setSelectedOrder(order);
+    setPackingData({
+      orderId: order.id,
+      items: order.items?.filter(item => (item.productId % 3 + 1) === vendor.Id).map(item => ({
+        ...item,
+        packedQuantity: item.quantity,
+        actualWeight: '',
+        verified: false
+      })) || []
+    });
+  };
+
+  const handleItemVerification = (itemIndex, field, value) => {
+    setPackingData(prev => ({
+      ...prev,
+      items: prev.items.map((item, index) => 
+        index === itemIndex 
+          ? { ...item, [field]: value, verified: field === 'verified' ? value : item.verified }
+          : item
+      )
+    }));
+  };
+
+  const handlePhotoCapture = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPhotoCapture({
+          file: file,
+          dataUrl: e.target.result,
+          timestamp: new Date().toISOString()
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handlePackingComplete = async () => {
+    if (!selectedOrder || !packingData.items.every(item => item.verified)) {
+      toast.error('Please verify all items before completing packing');
+      return;
+    }
+
+    try {
+      const packingInfo = {
+        packingTimestamp: new Date().toISOString(),
+        vendorId: vendor.Id,
+        packedItems: packingData.items,
+        totalWeight: packingData.items.reduce((sum, item) => sum + (parseFloat(item.actualWeight) || 0), 0),
+        photo: photoCapture,
+        qualityChecked: true
+      };
+
+      await orderService.updateFulfillmentStage(selectedOrder.id, 'packed', packingInfo);
+      await loadPackingOrders();
+      
+      setSelectedOrder(null);
+      setPackingData({});
+      setPhotoCapture(null);
+      toast.success('Order packed successfully!');
+    } catch (error) {
+      toast.error('Failed to complete packing: ' + error.message);
+    }
+  };
+
+  const filteredOrders = orders.filter(order => 
+    order.id.toString().includes(searchTerm) ||
+    order.deliveryAddress?.name?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  if (loading) return <Loading type="component" />;
+  if (error) return <Error message={error} />;
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6 rounded-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold mb-2">Digital Packing Station</h2>
+            <p className="text-green-100">Pack confirmed orders with quality verification</p>
+          </div>
+          <div className="text-right">
+            <div className="text-3xl font-bold">{filteredOrders.length}</div>
+            <div className="text-green-100">Orders Ready</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Search */}
+      <div className="flex gap-4">
+        <div className="flex-1">
+          <Input
+            type="text"
+            placeholder="Search orders..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            icon="Search"
+          />
+        </div>
+      </div>
+
+      {/* Orders List */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {filteredOrders.map((order) => {
+          const vendorItems = order.items?.filter(item => (item.productId % 3 + 1) === vendor.Id) || [];
+          const isPacked = order.fulfillment_stage === 'packed';
+          
+          return (
+            <div key={order.id} className={`p-6 rounded-lg border-l-4 ${
+              isPacked ? 'border-l-green-500 bg-green-50' : 'border-l-yellow-500 bg-yellow-50'
+            } shadow-sm`}>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-semibold text-gray-900">Order #{order.id}</h3>
+                  <p className="text-sm text-gray-600">{order.deliveryAddress?.name}</p>
+                </div>
+                <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                  isPacked ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {isPacked ? '✓ Packed' : 'Ready for Packing'}
+                </span>
+              </div>
+              
+              <div className="space-y-2 mb-4">
+                {vendorItems.map((item) => (
+                  <div key={item.productId} className="flex items-center justify-between p-2 bg-white rounded border">
+                    <div>
+                      <span className="font-medium text-gray-900">{item.name}</span>
+                      <span className="text-sm text-gray-600 ml-2">{item.quantity} {item.unit}</span>
+                    </div>
+                    <span className="font-medium text-gray-900">
+                      {formatCurrency(item.price * item.quantity)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              
+              {!isPacked && (
+                <Button
+                  onClick={() => handleStartPacking(order)}
+                  variant="primary"
+                  className="w-full"
+                >
+                  <ApperIcon name="Package" size={16} className="mr-2" />
+                  Start Packing
+                </Button>
+              )}
+              
+              {isPacked && (
+                <div className="flex items-center text-green-700">
+                  <ApperIcon name="CheckCircle" size={16} className="mr-2" />
+                  <span className="text-sm font-medium">Packed and verified</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {filteredOrders.length === 0 && (
+        <div className="text-center py-12">
+          <ApperIcon name="Package" size={48} className="mx-auto text-gray-400 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No orders ready for packing</h3>
+          <p className="text-gray-500">Orders will appear here once availability is confirmed.</p>
+        </div>
+      )}
+
+      {/* Packing Modal */}
+      {selectedOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Packing Order #{selectedOrder.id}
+              </h3>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {/* Items Checklist */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-3">Items Verification</h4>
+                <div className="space-y-3">
+                  {packingData.items?.map((item, index) => (
+                    <div key={index} className="p-3 border rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-medium">{item.name}</span>
+                        <input
+                          type="checkbox"
+                          checked={item.verified}
+                          onChange={(e) => handleItemVerification(index, 'verified', e.target.checked)}
+                          className="rounded border-gray-300 text-primary focus:ring-primary"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Quantity</label>
+                          <input
+                            type="number"
+                            value={item.packedQuantity}
+                            onChange={(e) => handleItemVerification(index, 'packedQuantity', parseInt(e.target.value))}
+                            className="w-full px-2 py-1 border rounded text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Weight (kg)</label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={item.actualWeight}
+                            onChange={(e) => handleItemVerification(index, 'actualWeight', e.target.value)}
+                            className="w-full px-2 py-1 border rounded text-sm"
+                            placeholder="Actual weight"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Photo Capture */}
+              <div>
+                <h4 className="font-medium text-gray-900 mb-3">Package Photo</h4>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  {photoCapture ? (
+                    <div>
+                      <img 
+                        src={photoCapture.dataUrl} 
+                        alt="Package" 
+                        className="mx-auto max-h-32 rounded mb-2"
+                      />
+                      <p className="text-sm text-gray-600">Photo captured</p>
+                      <button
+                        onClick={() => setPhotoCapture(null)}
+                        className="text-red-600 text-xs hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      <ApperIcon name="Camera" size={32} className="mx-auto text-gray-400 mb-2" />
+                      <p className="text-sm text-gray-600 mb-3">Capture package photo</p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handlePhotoCapture}
+                        className="hidden"
+                        id="photo-capture"
+                      />
+                      <label
+                        htmlFor="photo-capture"
+                        className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg cursor-pointer hover:bg-primary-dark"
+                      >
+                        <ApperIcon name="Camera" size={16} className="mr-2" />
+                        Take Photo
+                      </label>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+              <Button
+                onClick={() => {
+                  setSelectedOrder(null);
+                  setPackingData({});
+                  setPhotoCapture(null);
+                }}
+                variant="outline"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handlePackingComplete}
+                variant="primary"
+                disabled={!packingData.items?.every(item => item.verified) || !photoCapture}
+              >
+                <ApperIcon name="CheckCircle" size={16} className="mr-2" />
+                Complete Packing
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Vendor Orders Tab Component
 const VendorOrdersTab = ({ vendor }) => {
   const [orders, setOrders] = useState([]);
@@ -1355,7 +2026,7 @@ const VendorOrdersTab = ({ vendor }) => {
   );
 };
 
-// Vendor Fulfillment Tab Component
+// Legacy Vendor Fulfillment Tab Component (kept for compatibility)
 const VendorFulfillmentTab = ({ vendor }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);

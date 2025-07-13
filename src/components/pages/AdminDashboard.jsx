@@ -1537,7 +1537,7 @@ action.isAction ? (
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
 
         {/* Real-time System Status */}
         <div className="card p-6">
@@ -1605,6 +1605,80 @@ action.isAction ? (
                 Last update: {format(new Date(realTimeUpdates.lastUpdate), 'HH:mm:ss')}
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Vendor Fulfillment Monitoring */}
+        <div className="card p-6">
+          <div className="flex items-center space-x-2 mb-4">
+            <ApperIcon name="Users" size={20} className="text-purple-600" />
+            <h2 className="text-xl font-semibold text-gray-900">Vendor Fulfillment Status</h2>
+          </div>
+          
+          <div className="space-y-4">
+            {/* Availability Response Tracking */}
+            <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="bg-purple-100 p-2 rounded-lg">
+                  <ApperIcon name="CheckCircle" size={20} className="text-purple-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">Availability Responses</p>
+                  <p className="text-sm text-purple-600">
+                    Avg response time: 1.2h
+                  </p>
+                </div>
+              </div>
+              <Badge variant="info" className="text-xs">92% on-time</Badge>
+            </div>
+
+            {/* Packing Completion Tracking */}
+            <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="bg-green-100 p-2 rounded-lg">
+                  <ApperIcon name="Package" size={20} className="text-green-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">Packing Completion</p>
+                  <p className="text-sm text-green-600">
+                    24 orders packed today
+                  </p>
+                </div>
+              </div>
+              <Badge variant="success" className="text-xs">98% accuracy</Badge>
+            </div>
+
+            {/* Real-time Vendor Status */}
+            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="bg-blue-100 p-2 rounded-lg">
+                  <ApperIcon name="Clock" size={20} className="text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">Active Vendors</p>
+                  <p className="text-sm text-blue-600">
+                    3 vendors processing orders
+                  </p>
+                </div>
+              </div>
+              <Badge variant="success" className="text-xs">All Online</Badge>
+            </div>
+
+            {/* Fulfillment Pipeline Status */}
+            <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="bg-yellow-100 p-2 rounded-lg">
+                  <ApperIcon name="Truck" size={20} className="text-yellow-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900">Pipeline Status</p>
+                  <p className="text-sm text-yellow-600">
+                    12 orders in fulfillment
+                  </p>
+                </div>
+              </div>
+              <Badge variant="warning" className="text-xs">Processing</Badge>
+            </div>
           </div>
         </div>
       </div>
