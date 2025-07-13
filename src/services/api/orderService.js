@@ -1,9 +1,7 @@
 import ordersData from "../mockData/orders.json";
-import React from "react";
 import Error from "@/components/ui/Error";
 import { productService } from "@/services/api/productService";
 import { paymentService } from "@/services/api/paymentService";
-
 class OrderService {
   constructor() {
     this.orders = [...ordersData];
@@ -734,15 +732,4 @@ async getPendingAvailabilityRequests() {
     return { ...order };
   }
 }
-
 export const orderService = new OrderService();
-order.handoverTimestamp = handoverData.timestamp;
-    order.handoverVendorId = handoverData.vendorId;
-    order.status = 'shipped';
-    
-    // Update timestamps
-    if (!order.order_status_timestamps) {
-      order.order_status_timestamps = {};
-    }
-    order.order_status_timestamps.handed_over = handoverData.timestamp;
-    order.order_status_timestamps.shipped = handoverData.timestamp;
