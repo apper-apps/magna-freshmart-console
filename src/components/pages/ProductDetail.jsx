@@ -137,8 +137,7 @@ const activeDeal = getActiveDeal();
   const calculateImageDimensions = () => {
     // Get viewport width for responsive sizing
     const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
-    
-    // Base size calculation with responsive scaling
+// Base size calculation with responsive scaling
     let baseSize = 600;
     
     // Responsive adjustments for mobile-first design
@@ -191,12 +190,12 @@ const activeDeal = getActiveDeal();
             >
               {/* Enhanced Progressive Image Loading with WebP Support */}
               <picture className="block w-full h-full">
-                <source
-                  srcSet={`${product.imageUrl}&fm=webp&w=${calculateImageDimensions().width}&h=${calculateImageDimensions().height}&fit=crop&crop=center 1x, ${product.imageUrl}&fm=webp&w=${calculateImageDimensions().width * 2}&h=${calculateImageDimensions().height * 2}&fit=crop&crop=center&dpr=2 2x`}
+<source
+                  srcSet={`${product.imageUrl}?w=${calculateImageDimensions().width}&h=${calculateImageDimensions().height}&fit=crop 1x, ${product.imageUrl}?w=${calculateImageDimensions().width * 2}&h=${calculateImageDimensions().height * 2}&fit=crop 2x`}
                   type="image/webp"
                 />
                 <img
-                  src={`${product.imageUrl}&w=${calculateImageDimensions().width}&h=${calculateImageDimensions().height}&fit=crop&crop=center`}
+                  src={`${product.imageUrl}?w=${calculateImageDimensions().width}&h=${calculateImageDimensions().height}&fit=crop`}
                   alt={product.name}
                   className="w-full h-full object-cover transition-all duration-500 hover:scale-105 image-loaded"
                   style={{ 
@@ -205,11 +204,10 @@ const activeDeal = getActiveDeal();
                   }}
                   loading="lazy"
                   onError={(e) => {
-                    e.target.src = "/api/placeholder/600/600";
+                    e.target.src = `https://via.placeholder.com/600x600/f3f4f6/64748b?text=${encodeURIComponent(product.name.substring(0, 20))}`;
                   }}
                 />
               </picture>
-              
               {/* Frame Compatibility Indicator */}
               <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-md">
                 <div className="flex items-center space-x-1">

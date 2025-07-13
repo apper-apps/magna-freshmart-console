@@ -837,16 +837,16 @@ width = targetHeight * aspectRatio;
   searchInternalImages(query, options = {}) {
     const { category } = options;
     const baseImages = [
-      {
-        url: "/api/placeholder/600/600",
-        thumbnail: "/api/placeholder/200/200",
+{
+        url: "https://via.placeholder.com/600x600/4CAF50/ffffff?text=Fresh+Product",
+        thumbnail: "https://via.placeholder.com/200x200/4CAF50/ffffff?text=Fresh",
         description: `Fresh ${query}`,
         source: 'internal',
         category: category !== 'all' ? category : 'Fresh Vegetables'
       },
-      {
-        url: "/api/placeholder/600/600",
-        thumbnail: "/api/placeholder/200/200", 
+{
+        url: "https://via.placeholder.com/600x600/2E7D32/ffffff?text=Organic+Product",
+        thumbnail: "https://via.placeholder.com/200x200/2E7D32/ffffff?text=Organic",
         description: `Organic ${query}`,
         source: 'internal',
         category: category !== 'all' ? category : 'Organic Produce'
@@ -900,9 +900,9 @@ width = targetHeight * aspectRatio;
       'Priscilla Du Preez', 'Markus Spiske', 'Freddy G', 'Taylor Kiser'
     ];
     
-    const mockUnsplashImages = Array.from({ length: loadMore ? 12 : 6 }, (_, index) => ({
-      url: `/api/placeholder/600/600?category=${encodeURIComponent(category)}&query=${encodeURIComponent(randomTerm)}&id=${index}`,
-      thumbnail: `/api/placeholder/200/200?category=${encodeURIComponent(category)}&query=${encodeURIComponent(randomTerm)}&id=${index}`,
+const mockUnsplashImages = Array.from({ length: loadMore ? 12 : 6 }, (_, index) => ({
+      url: `https://via.placeholder.com/600x600/FF6F00/ffffff?text=${encodeURIComponent(randomTerm.substring(0, 15))}`,
+      thumbnail: `https://via.placeholder.com/200x200/FF6F00/ffffff?text=${encodeURIComponent(randomTerm.substring(0, 8))}`,
       description: `${category !== 'all' ? category : 'Premium'} ${randomTerm}`,
       source: 'unsplash',
       category: category !== 'all' ? category : 'Food',
@@ -991,8 +991,8 @@ width = targetHeight * aspectRatio;
       
       // Simulate AI generation result
       const generatedImage = {
-        url: `/api/placeholder/600/600?ai=true&style=${style}&prompt=${encodeURIComponent(prompt)}&seed=${Date.now()}`,
-        thumbnail: `/api/placeholder/200/200?ai=true&style=${style}&prompt=${encodeURIComponent(prompt)}&seed=${Date.now()}`,
+url: `https://via.placeholder.com/600x600/2196F3/ffffff?text=AI+Generated+${encodeURIComponent(prompt.substring(0, 10))}`,
+        thumbnail: `https://via.placeholder.com/200x200/2196F3/ffffff?text=AI+Gen`,
         prompt: enhancedPrompt,
         originalPrompt: prompt,
         style: style,
