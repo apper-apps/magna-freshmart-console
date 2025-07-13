@@ -329,7 +329,7 @@ this.orders.forEach(order => {
     
     return revenueByMethod;
   }
-  // Payment Verification Methods
+// Enhanced Payment Verification Methods with Flow Tracking
 async getPendingVerifications() {
     await this.delay();
     return this.orders
@@ -346,10 +346,20 @@ async getPendingVerifications() {
         orderId: order?.id,
         transactionId: order?.transactionId || `TXN${order?.id}${Date.now().toString().slice(-4)}`,
 customerName: order?.deliveryAddress?.name || 'Unknown',
+        amount: order?.total || order?.totalAmount || 0,
+        paymentMethod: order?.paymentMethod || 'unknown',
         paymentProof: order?.paymentProof?.dataUrl || `/api/uploads/${order?.paymentProof?.fileName || order?.paymentProofFileName || 'default.jpg'}`,
         paymentProofFileName: order?.paymentProof?.fileName || order?.paymentProofFileName || 'unknown',
         submittedAt: order?.paymentProof?.uploadedAt || order?.paymentProofSubmittedAt || order?.createdAt,
         verificationStatus: order?.verificationStatus || 'pending',
+        // Enhanced Payment Flow Status Tracking
+        flowStage: order?.paymentFlowStage || 'vendor_processed',
+        vendorProcessed: order?.vendorProcessed || false,
+        adminConfirmed: order?.adminConfirmed || false,
+        proofStatus: order?.proofStatus || 'pending',
+        amountMatched: order?.amountMatched || false,
+        vendorConfirmed: order?.vendorConfirmed || false,
+        timestamp: order?.paymentTimestamp || order?.createdAt,
         // Enhanced approval workflow fields
         approvalStatus: order?.approvalStatus || 'pending',
         approvalRequestId: order?.approvalRequestId || null,
@@ -464,7 +474,7 @@ return {
     };
   }
 
-// Vendor Availability Methods
+// Enhanced Vendor Availability Methods with Real-time Tracking
   async updateVendorAvailability(orderId, vendorId, productId, availabilityData) {
     await this.delay();
     
@@ -487,13 +497,57 @@ return {
       notes: availabilityData.notes || '',
       timestamp: availabilityData.timestamp || new Date().toISOString(),
       vendorId: parseInt(vendorId),
-      productId: parseInt(productId)
+      productId: parseInt(productId),
+      // Enhanced real-time response tracking
+      responseDeadline: availabilityData.responseDeadline || this.calculateResponseDeadline(order.createdAt),
+      responseTime: this.calculateResponseTime(order.createdAt),
+      notificationSent: true,
+      escalationLevel: this.calculateEscalationLevel(order.createdAt)
     };
 
     order.updatedAt = new Date().toISOString();
+    
+    // Update payment flow stage if all items confirmed
+    if (this.areAllItemsConfirmed(order)) {
+      order.paymentFlowStage = 'availability_confirmed';
+      order.fulfillment_stage = 'availability_confirmed';
+    }
+    
     this.orders[orderIndex] = order;
     
     return { ...order };
+  }
+
+  // Helper method to check if all items are confirmed
+  areAllItemsConfirmed(order) {
+    if (!order.items || !order.vendor_availability) return false;
+    
+    return order.items.every(item => {
+      const vendorId = item.productId % 3 + 1; // Simplified vendor assignment
+      const availabilityKey = `${item.productId}_${vendorId}`;
+      const availability = order.vendor_availability[availabilityKey];
+      return availability && availability.available === true;
+    });
+  }
+
+  // Calculate response time for vendor availability
+  calculateResponseTime(orderCreatedAt) {
+    const created = new Date(orderCreatedAt);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now - created) / (1000 * 60));
+    return `${diffInMinutes} minutes`;
+  }
+
+  // Calculate escalation level based on response time
+  calculateEscalationLevel(orderCreatedAt) {
+    const created = new Date(orderCreatedAt);
+    const now = new Date();
+    const diffInHours = (now - created) / (1000 * 60 * 60);
+    
+    if (diffInHours > 2) return 'overdue';
+    if (diffInHours > 1.5) return 'urgent';
+    if (diffInHours > 1) return 'high';
+    return 'normal';
   }
 
   async getVendorOrders(vendorId) {
@@ -579,7 +633,7 @@ async getPendingAvailabilityRequests() {
   delay() {
     return new Promise(resolve => setTimeout(resolve, 400));
   }
-// Enhanced Fulfillment Workflow Methods with Status Timestamp Tracking
+// Enhanced Fulfillment Workflow Methods with Payment Flow Integration
   async updateFulfillmentStage(orderId, stage, additionalData = {}) {
     await this.delay();
     
@@ -607,17 +661,35 @@ async getPendingAvailabilityRequests() {
       order.order_status_timestamps = {};
     }
     
+    // Enhanced Payment Flow Integration
+    if (stage === 'payment_processed') {
+      order.vendorProcessed = true;
+      order.paymentFlowStage = 'vendor_processed';
+      order.paymentTimestamp = new Date().toISOString();
+      order.paymentProcessedBy = additionalData.vendorId || 'vendor';
+    }
+    
+    if (stage === 'admin_paid') {
+      order.adminConfirmed = true;
+      order.paymentFlowStage = 'admin_paid';
+      order.adminPaymentTimestamp = new Date().toISOString();
+      order.adminPaymentProof = additionalData.proofData || null;
+      order.amountMatched = this.checkAmountMatch(order, additionalData.paymentAmount);
+    }
+    
     // Auto-assign delivery personnel when moving to packed stage
     if (stage === 'packed' && !order.assignedDelivery) {
       const deliveryAssignment = await this.autoAssignDeliveryPersonnel(order);
       order.assignedDelivery = deliveryAssignment;
     }
     
-    // Store stage-specific data
+    // Store stage-specific data with payment flow tracking
     if (stage === 'packed' && additionalData) {
       order.packingInfo = {
         ...additionalData,
-        completedAt: new Date().toISOString()
+        completedAt: new Date().toISOString(),
+        qualityVerified: additionalData.qualityChecked || false,
+        packedBy: additionalData.vendorId || 'vendor'
       };
     }
     
@@ -626,7 +698,7 @@ async getPendingAvailabilityRequests() {
     order.order_status_timestamps[stage] = new Date().toISOString();
     order.updatedAt = new Date().toISOString();
     
-    // Update order status based on fulfillment stage
+    // Enhanced order status mapping with payment flow
     const stageToStatusMap = {
       'availability_confirmed': 'confirmed',
       'packed': 'packed',
@@ -640,8 +712,22 @@ async getPendingAvailabilityRequests() {
       order.order_status_timestamps[stageToStatusMap[stage]] = new Date().toISOString();
     }
     
+    // Vendor confirmation check for payment flow completion
+    if (stage === 'admin_paid' && order.amountMatched) {
+      order.vendorConfirmed = true;
+      order.paymentFlowStage = 'vendor_confirmed';
+      order.vendorConfirmationTimestamp = new Date().toISOString();
+    }
+    
     this.orders[orderIndex] = order;
     return { ...order };
+  }
+
+  // Check if payment amounts match between vendor and admin
+  checkAmountMatch(order, adminPaymentAmount) {
+    if (!adminPaymentAmount || !order.total) return false;
+    const tolerance = 0.01; // 1 cent tolerance
+    return Math.abs(adminPaymentAmount - order.total) <= tolerance;
   }
 
   async autoAssignDeliveryPersonnel(order) {

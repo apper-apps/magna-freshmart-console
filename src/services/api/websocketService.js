@@ -104,13 +104,19 @@ async connect(url = 'ws://localhost:8080/api/ws') {
     return mockWS;
   }
 
-// Start mock message simulation
+// Enhanced mock message simulation with payment flow updates
   startMockMessages(mockWS) {
     const messageTypes = [
       'approval_request_submitted',
       'approval_status_changed',
       'approval_comment_added',
       'price-approvals',
+      'payment_flow_update',
+      'vendor_payment_processed',
+      'admin_payment_confirmed',
+      'payment_proof_uploaded',
+      'amount_auto_matched',
+      'vendor_payment_confirmed',
       'system_notification'
     ];
 
@@ -126,7 +132,7 @@ async connect(url = 'ws://localhost:8080/api/ws') {
     }, 15000); // Every 15 seconds
   }
 
-  // Generate mock messages for demo
+// Enhanced mock message generation with payment flow updates
   generateMockMessage(type) {
     const baseMessage = {
       id: `msg_${Date.now()}`,
@@ -166,6 +172,82 @@ async connect(url = 'ws://localhost:8080/api/ws') {
             approvedBy: 'price_admin',
             priceChange: Math.floor(Math.random() * 1000) + 100,
             comments: 'Price approval processed automatically'
+          }
+        };
+
+      // Enhanced Payment Flow Messages
+      case 'payment_flow_update':
+        return {
+          ...baseMessage,
+          data: {
+            orderId: Math.floor(Math.random() * 100) + 1,
+            flowStage: ['vendor_processed', 'admin_paid', 'proof_uploaded', 'amount_matched', 'vendor_confirmed'][Math.floor(Math.random() * 5)],
+            amount: Math.floor(Math.random() * 5000) + 500,
+            vendor: 'Fresh Foods Co.',
+            status: 'updated'
+          }
+        };
+
+      case 'vendor_payment_processed':
+        return {
+          ...baseMessage,
+          data: {
+            orderId: Math.floor(Math.random() * 100) + 1,
+            vendorId: Math.floor(Math.random() * 3) + 1,
+            amount: Math.floor(Math.random() * 5000) + 500,
+            paymentMethod: ['jazzcash', 'easypaisa', 'bank'][Math.floor(Math.random() * 3)],
+            timestamp: new Date().toISOString(),
+            status: 'processed'
+          }
+        };
+
+      case 'admin_payment_confirmed':
+        return {
+          ...baseMessage,
+          data: {
+            orderId: Math.floor(Math.random() * 100) + 1,
+            adminId: 'admin_1',
+            amount: Math.floor(Math.random() * 5000) + 500,
+            proofUploaded: true,
+            timestamp: new Date().toISOString(),
+            status: 'confirmed'
+          }
+        };
+
+      case 'payment_proof_uploaded':
+        return {
+          ...baseMessage,
+          data: {
+            orderId: Math.floor(Math.random() * 100) + 1,
+            fileName: 'payment_proof_' + Date.now() + '.jpg',
+            uploadedBy: 'admin_1',
+            timestamp: new Date().toISOString(),
+            status: 'uploaded'
+          }
+        };
+
+      case 'amount_auto_matched':
+        return {
+          ...baseMessage,
+          data: {
+            orderId: Math.floor(Math.random() * 100) + 1,
+            vendorAmount: Math.floor(Math.random() * 5000) + 500,
+            adminAmount: Math.floor(Math.random() * 5000) + 500,
+            matched: true,
+            tolerance: 0.01,
+            timestamp: new Date().toISOString()
+          }
+        };
+
+      case 'vendor_payment_confirmed':
+        return {
+          ...baseMessage,
+          data: {
+            orderId: Math.floor(Math.random() * 100) + 1,
+            vendorId: Math.floor(Math.random() * 3) + 1,
+            confirmationMethod: 'receipt_verification',
+            timestamp: new Date().toISOString(),
+            status: 'confirmed'
           }
         };
 
@@ -325,7 +407,7 @@ async connect(url = 'ws://localhost:8080/api/ws') {
     };
   }
 
-// Specific methods for approval workflow
+// Enhanced methods for approval workflow and payment flow
   subscribeToApprovalUpdates(callback) {
     const unsubscribers = [
       this.subscribe('approval_request_submitted', callback),
@@ -340,6 +422,23 @@ async connect(url = 'ws://localhost:8080/api/ws') {
     };
   }
 
+  // Enhanced payment flow subscription
+  subscribeToPaymentFlowUpdates(callback) {
+    const unsubscribers = [
+      this.subscribe('payment_flow_update', callback),
+      this.subscribe('vendor_payment_processed', callback),
+      this.subscribe('admin_payment_confirmed', callback),
+      this.subscribe('payment_proof_uploaded', callback),
+      this.subscribe('amount_auto_matched', callback),
+      this.subscribe('vendor_payment_confirmed', callback)
+    ];
+    
+    // Return function to unsubscribe from all payment flow events
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+    };
+  }
+
   // Price approval specific subscription
   subscribeToPriceApprovals(callback) {
     return this.subscribe('price-approvals', callback);
@@ -349,6 +448,15 @@ async connect(url = 'ws://localhost:8080/api/ws') {
   sendApprovalMessage(type, data) {
     return this.send({
       type: `approval_${type}`,
+      data,
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  // Send payment flow messages
+  sendPaymentFlowMessage(type, data) {
+    return this.send({
+      type: `payment_${type}`,
       data,
       timestamp: new Date().toISOString()
     });

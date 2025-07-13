@@ -62,11 +62,28 @@ const [selectedApproval, setSelectedApproval] = useState(null);
   const [wsConnectionStatus, setWsConnectionStatus] = useState({ connected: false });
   const pollingRef = useRef(null);
   const wsUnsubscribeRef = useRef(null);
-  // Payment Verification Report State
+// Enhanced Payment Verification Report State with Real-time Tracking
   const [paymentVerificationData, setPaymentVerificationData] = useState({
     data: [],
-    summary: { totalPending: 0, totalAmount: 0, averageAmount: 0, recentActivity: 0, byPaymentMethod: {} },
-    metadata: { generatedAt: new Date().toISOString(), lastRefresh: new Date().toISOString() }
+    summary: { 
+      totalPending: 0, 
+      totalAmount: 0, 
+      averageAmount: 0, 
+      recentActivity: 0, 
+      byPaymentMethod: {},
+      // Payment Flow Metrics
+      vendorProcessed: 0,
+      adminConfirmed: 0,
+      proofUploaded: 0,
+      autoMatched: 0,
+      vendorConfirmed: 0
+    },
+    metadata: { 
+      generatedAt: new Date().toISOString(), 
+      lastRefresh: new Date().toISOString(),
+      realTimeEnabled: true,
+      flowStages: ['vendor_processed', 'admin_paid', 'proof_uploaded', 'amount_matched', 'vendor_confirmed']
+    }
   });
   const [reportLoading, setReportLoading] = useState(false);
   const [reportError, setReportError] = useState(null);
@@ -76,7 +93,9 @@ const [selectedApproval, setSelectedApproval] = useState(null);
     startDate: '',
     endDate: '',
     vendor: '',
-    paymentMethod: ''
+    paymentMethod: '',
+    flowStage: '',
+    verificationStatus: ''
   });
   const [exportLoading, setExportLoading] = useState(false);
   const reportRefreshRef = useRef(null);
@@ -143,13 +162,51 @@ const loadDashboardData = async () => {
     }
 };
 
-// Payment Verification Report Functions
+// Enhanced Payment Verification Report Functions with Real-time Tracking
 const loadPaymentVerificationReport = async (filters = {}) => {
   setReportLoading(true);
   setReportError(null);
   try {
     const reportData = await reportService.getPaymentVerificationReport(filters);
-    setPaymentVerificationData(reportData);
+    
+    // Enhanced report data with payment flow metrics
+    const enhancedReportData = {
+      ...reportData,
+      summary: {
+        ...reportData.summary,
+        // Payment Flow Stage Metrics
+        vendorProcessed: reportData.data.filter(item => item.flowStage === 'vendor_processed').length,
+        adminConfirmed: reportData.data.filter(item => item.flowStage === 'admin_paid').length,
+        proofUploaded: reportData.data.filter(item => item.proofStatus === 'uploaded').length,
+        autoMatched: reportData.data.filter(item => item.amountMatched === true).length,
+        vendorConfirmed: reportData.data.filter(item => item.vendorConfirmed === true).length,
+        // Real-time Flow Indicators
+        flowStageDistribution: {
+          vendor_processed: reportData.data.filter(item => item.flowStage === 'vendor_processed').length,
+          admin_paid: reportData.data.filter(item => item.flowStage === 'admin_paid').length,
+          proof_uploaded: reportData.data.filter(item => item.proofStatus === 'uploaded').length,
+          amount_matched: reportData.data.filter(item => item.amountMatched === true).length,
+          vendor_confirmed: reportData.data.filter(item => item.vendorConfirmed === true).length
+        }
+      },
+      metadata: {
+        ...reportData.metadata,
+        realTimeEnabled: true,
+        lastWebSocketUpdate: new Date().toISOString(),
+        flowStageTracking: true
+      }
+    };
+    
+    setPaymentVerificationData(enhancedReportData);
+    
+    // Update notification counts for payment flow
+    dispatch(updateCounts({
+      paymentVerification: enhancedReportData.summary.totalPending,
+      paymentProcessed: enhancedReportData.summary.vendorProcessed,
+      adminPaid: enhancedReportData.summary.adminConfirmed,
+      paymentProofPending: enhancedReportData.summary.proofUploaded
+    }));
+    
   } catch (error) {
     console.error('Error loading payment verification report:', error);
     setReportError('Failed to load payment verification report');
@@ -872,62 +929,120 @@ action.isAction ? (
             {/* Summary Tab */}
             {activeReportTab === 'summary' && (
               <div className="space-y-6">
-                {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+{/* Enhanced Payment Flow Status Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                   <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 rounded-lg">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-orange-100 text-sm">Pending Verifications</p>
-                        <p className="text-2xl font-bold">{paymentVerificationData.summary.totalPending}</p>
+                        <p className="text-orange-100 text-sm">💳 Payment Processed</p>
+                        <p className="text-2xl font-bold">{paymentVerificationData.summary.vendorProcessed || 0}</p>
+                        <p className="text-xs text-orange-200">Vendor Stage</p>
                       </div>
-                      <ApperIcon name="Clock" size={24} className="text-orange-100" />
+                      <ApperIcon name="CreditCard" size={24} className="text-orange-100" />
                     </div>
                   </div>
                   
                   <div className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white p-4 rounded-lg">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-blue-100 text-sm">Total Amount</p>
-                        <p className="text-2xl font-bold">Rs. {paymentVerificationData.summary.totalAmount.toLocaleString()}</p>
+                        <p className="text-blue-100 text-sm">✔️ Admin Paid</p>
+                        <p className="text-2xl font-bold">{paymentVerificationData.summary.adminConfirmed || 0}</p>
+                        <p className="text-xs text-blue-200">Admin Stage</p>
                       </div>
-                      <ApperIcon name="DollarSign" size={24} className="text-blue-100" />
+                      <ApperIcon name="CheckCircle" size={24} className="text-blue-100" />
                     </div>
                   </div>
                   
                   <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white p-4 rounded-lg">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-green-100 text-sm">Average Amount</p>
-                        <p className="text-2xl font-bold">Rs. {paymentVerificationData.summary.averageAmount.toLocaleString()}</p>
+                        <p className="text-green-100 text-sm">📄 Proof Uploaded</p>
+                        <p className="text-2xl font-bold">{paymentVerificationData.summary.proofUploaded || 0}</p>
+                        <p className="text-xs text-green-200">Verification Stage</p>
                       </div>
-                      <ApperIcon name="TrendingUp" size={24} className="text-green-100" />
+                      <ApperIcon name="Upload" size={24} className="text-green-100" />
                     </div>
                   </div>
                   
                   <div className="bg-gradient-to-r from-purple-500 to-pink-500 text-white p-4 rounded-lg">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-purple-100 text-sm">Recent Activity</p>
-                        <p className="text-2xl font-bold">{paymentVerificationData.summary.recentActivity}</p>
+                        <p className="text-purple-100 text-sm">🔍 Auto-Matched</p>
+                        <p className="text-2xl font-bold">{paymentVerificationData.summary.autoMatched || 0}</p>
+                        <p className="text-xs text-purple-200">System Verification</p>
                       </div>
-                      <ApperIcon name="Activity" size={24} className="text-purple-100" />
+                      <ApperIcon name="Search" size={24} className="text-purple-100" />
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white p-4 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-teal-100 text-sm">✅ Vendor Confirmed</p>
+                        <p className="text-2xl font-bold">{paymentVerificationData.summary.vendorConfirmed || 0}</p>
+                        <p className="text-xs text-teal-200">Final Stage</p>
+                      </div>
+                      <ApperIcon name="ShieldCheck" size={24} className="text-teal-100" />
                     </div>
                   </div>
                 </div>
 
-                {/* Payment Methods Breakdown */}
+                {/* Real-time Payment Flow Progress */}
+                <div className="bg-gray-50 p-6 rounded-lg">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="font-semibold text-gray-900">Payment Flow Progress</h3>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-xs text-green-600">Real-time</span>
+                    </div>
+                  </div>
+                  
+                  {/* Progress Flow Visualization */}
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    {[
+                      { stage: 'vendor_processed', label: 'Vendor Processing', icon: 'User', count: paymentVerificationData.summary.vendorProcessed || 0 },
+                      { stage: 'admin_paid', label: 'Admin Confirmation', icon: 'Shield', count: paymentVerificationData.summary.adminConfirmed || 0 },
+                      { stage: 'proof_uploaded', label: 'Proof Upload', icon: 'FileText', count: paymentVerificationData.summary.proofUploaded || 0 },
+                      { stage: 'amount_matched', label: 'Auto-Match', icon: 'Check', count: paymentVerificationData.summary.autoMatched || 0 },
+                      { stage: 'vendor_confirmed', label: 'Final Confirmation', icon: 'CheckCircle', count: paymentVerificationData.summary.vendorConfirmed || 0 }
+                    ].map((flow, index) => (
+                      <div key={flow.stage} className="relative">
+                        <div className="flex flex-col items-center p-4 bg-white rounded-lg border">
+                          <div className="bg-blue-100 p-3 rounded-full mb-2">
+                            <ApperIcon name={flow.icon} size={20} className="text-blue-600" />
+                          </div>
+                          <h4 className="font-medium text-gray-900 text-sm text-center mb-1">{flow.label}</h4>
+                          <span className="text-2xl font-bold text-blue-600">{flow.count}</span>
+                        </div>
+                        {index < 4 && (
+                          <div className="hidden md:block absolute top-1/2 -right-2 w-4 h-0.5 bg-gray-300 transform -translate-y-1/2">
+                            <ApperIcon name="ChevronRight" size={16} className="absolute -top-2 -right-1 text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Payment Methods with Flow Status */}
                 <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-gray-900 mb-3">Payment Methods</h3>
+                  <h3 className="font-semibold text-gray-900 mb-3">Payment Methods & Flow Distribution</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {Object.entries(paymentVerificationData.summary.byPaymentMethod).map(([method, count]) => (
+                    {Object.entries(paymentVerificationData.summary.byPaymentMethod || {}).map(([method, count]) => (
                       <div key={method} className="flex items-center justify-between p-3 bg-white rounded-lg">
                         <div className="flex items-center space-x-3">
                           <div className="bg-blue-100 p-2 rounded-lg">
                             <ApperIcon name="CreditCard" size={16} className="text-blue-600" />
                           </div>
-                          <span className="font-medium text-gray-900 capitalize">{method}</span>
+                          <div>
+                            <span className="font-medium text-gray-900 capitalize">{method}</span>
+                            <div className="text-xs text-gray-500">Flow Active</div>
+                          </div>
                         </div>
-                        <span className="text-gray-900 font-semibold">{count}</span>
+                        <div className="text-right">
+                          <span className="text-gray-900 font-semibold">{count}</span>
+                          <div className="w-2 h-2 bg-green-500 rounded-full ml-auto"></div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -939,9 +1054,9 @@ action.isAction ? (
             {activeReportTab === 'detailed' && (
               <div className="space-y-6">
                 {/* Filters */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-gray-900 mb-3">Filters</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+<div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-gray-900 mb-3">Enhanced Filters</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                       <input
@@ -983,6 +1098,35 @@ action.isAction ? (
                         <option value="bank">Bank Transfer</option>
                       </select>
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Flow Stage</label>
+                      <select
+                        value={reportFilters.flowStage}
+                        onChange={(e) => handleFilterChange('flowStage', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">All Stages</option>
+                        <option value="vendor_processed">💳 Vendor Processed</option>
+                        <option value="admin_paid">✔️ Admin Paid</option>
+                        <option value="proof_uploaded">📄 Proof Uploaded</option>
+                        <option value="amount_matched">🔍 Auto-Matched</option>
+                        <option value="vendor_confirmed">✅ Vendor Confirmed</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Verification Status</label>
+                      <select
+                        value={reportFilters.verificationStatus}
+                        onChange={(e) => handleFilterChange('verificationStatus', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="verified">Verified</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="matched">Auto-Matched</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
@@ -992,42 +1136,85 @@ action.isAction ? (
                     <h3 className="font-semibold text-gray-900">Pending Verifications</h3>
                   </div>
                   <div className="overflow-x-auto">
-                    <table className="w-full">
+<table className="w-full">
                       <thead className="bg-gray-50">
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Flow Stage</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {paymentVerificationData.data.map((verification) => (
-                          <tr key={verification.Id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              #{verification.orderId}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {verification.customerName}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              Rs. {(verification.amount || 0).toLocaleString()}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">
-                              {verification.paymentMethod || 'Unknown'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {format(new Date(verification.submittedAt), 'MMM dd, HH:mm')}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <Badge variant="warning" className="text-xs">
-                                {verification.verificationStatus}
-                              </Badge>
-                            </td>
-                          </tr>
-                        ))}
+{paymentVerificationData.data.map((verification) => {
+                          const flowStageIcons = {
+                            vendor_processed: { icon: 'CreditCard', color: 'text-orange-600' },
+                            admin_paid: { icon: 'CheckCircle', color: 'text-blue-600' },
+                            proof_uploaded: { icon: 'Upload', color: 'text-green-600' },
+                            amount_matched: { icon: 'Search', color: 'text-purple-600' },
+                            vendor_confirmed: { icon: 'ShieldCheck', color: 'text-teal-600' }
+                          };
+                          
+                          const currentStage = flowStageIcons[verification.flowStage] || { icon: 'Clock', color: 'text-gray-600' };
+                          
+                          return (
+                            <tr key={verification.Id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                #{verification.orderId}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {verification.customerName}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                Rs. {(verification.amount || 0).toLocaleString()}
+                                {verification.amountMatched && (
+                                  <div className="text-xs text-green-600">✓ Auto-matched</div>
+                                )}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">
+                                {verification.paymentMethod || 'Unknown'}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center space-x-2">
+                                  <ApperIcon name={currentStage.icon} size={16} className={currentStage.color} />
+                                  <span className="text-xs text-gray-600 capitalize">
+                                    {(verification.flowStage || 'pending').replace('_', ' ')}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {format(new Date(verification.submittedAt), 'MMM dd, HH:mm')}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <div className="flex items-center space-x-2">
+                                  <Badge variant="warning" className="text-xs">
+                                    {verification.verificationStatus}
+                                  </Badge>
+                                  {verification.vendorConfirmed && (
+                                    <Badge variant="success" className="text-xs">✓ Confirmed</Badge>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <div className="flex space-x-2">
+                                  <button className="text-blue-600 hover:text-blue-800">
+                                    <ApperIcon name="Eye" size={16} />
+                                  </button>
+                                  <button className="text-green-600 hover:text-green-800">
+                                    <ApperIcon name="Check" size={16} />
+                                  </button>
+                                  <button className="text-red-600 hover:text-red-800">
+                                    <ApperIcon name="X" size={16} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+})}
                       </tbody>
                     </table>
                   </div>

@@ -242,6 +242,7 @@ const tabs = [
     { id: 'products', label: 'My Products', icon: 'Package' },
     { id: 'availability', label: 'Availability Confirmation', icon: 'CheckCircle', priority: 'critical' },
     { id: 'packing', label: 'Packing Station', icon: 'Package2', priority: 'critical' },
+    { id: 'fulfillment', label: 'Payment Flow', icon: 'CreditCard', priority: 'critical' },
     { id: 'orders', label: 'Order History', icon: 'ClipboardList' },
     { id: 'profile', label: 'Profile', icon: 'User' }
   ];
@@ -377,8 +378,13 @@ const tabs = [
                     vendor={vendor}
                   />
                 )}
-                {activeTab === 'packing' && (
+{activeTab === 'packing' && (
                   <VendorPackingTab 
+                    vendor={vendor}
+                  />
+                )}
+                {activeTab === 'fulfillment' && (
+                  <VendorFulfillmentTab 
                     vendor={vendor}
                   />
                 )}

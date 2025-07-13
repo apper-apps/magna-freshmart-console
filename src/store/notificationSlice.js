@@ -25,7 +25,22 @@ const initialState = {
     verification: 0,
     management: 0,
     delivery: 0,
-    analytics: 0
+    analytics: 0,
+    // Payment Flow Status Tracking
+    paymentProcessed: 0,
+    adminPaid: 0,
+    paymentProofPending: 0,
+    paymentVerification: 0,
+    vendorPayments: 0,
+    fulfillmentProgress: 0
+  },
+  // Real-time Payment Status Indicators
+  paymentFlowStatus: {
+    vendorProcessing: false,
+    adminConfirmation: false,
+    proofUploaded: false,
+    amountMatched: false,
+    vendorConfirmed: false
   },
   loading: false,
   error: null,
@@ -34,7 +49,7 @@ const initialState = {
 const notificationSlice = createSlice({
   name: 'notifications',
   initialState,
-  reducers: {
+reducers: {
     updateCounts: (state, action) => {
       state.counts = { ...state.counts, ...action.payload };
       state.lastUpdated = new Date().toISOString();
@@ -46,7 +61,32 @@ const notificationSlice = createSlice({
         state.counts[key] = 0;
       }
     },
-setLoading: (state, action) => {
+    // Payment Flow Status Management
+    updatePaymentFlowStatus: (state, action) => {
+      state.paymentFlowStatus = { ...state.paymentFlowStatus, ...action.payload };
+      state.lastUpdated = new Date().toISOString();
+    },
+    updatePaymentStage: (state, action) => {
+      const { stage, status, metadata } = action.payload;
+      if (state.paymentFlowStatus.hasOwnProperty(stage)) {
+        state.paymentFlowStatus[stage] = status;
+      }
+      if (metadata) {
+        state.paymentFlowStatus = { ...state.paymentFlowStatus, ...metadata };
+      }
+      state.lastUpdated = new Date().toISOString();
+    },
+    resetPaymentFlow: (state) => {
+      state.paymentFlowStatus = {
+        vendorProcessing: false,
+        adminConfirmation: false,
+        proofUploaded: false,
+        amountMatched: false,
+        vendorConfirmed: false
+      };
+      state.lastUpdated = new Date().toISOString();
+    },
+    setLoading: (state, action) => {
       state.loading = action.payload;
     },
     setError: (state, action) => {
@@ -65,7 +105,13 @@ setLoading: (state, action) => {
         verification: 0,
         management: 0,
         delivery: 0,
-        analytics: 0
+        analytics: 0,
+        paymentProcessed: 0,
+        adminPaid: 0,
+        paymentProofPending: 0,
+        paymentVerification: 0,
+        vendorPayments: 0,
+        fulfillmentProgress: 0
       };
       state.lastUpdated = new Date().toISOString();
     }
@@ -93,6 +139,9 @@ export const {
   updateCounts,
   resetCount,
   resetAllCounts,
+  updatePaymentFlowStatus,
+  updatePaymentStage,
+  resetPaymentFlow,
   setLoading,
   setError,
   clearError
