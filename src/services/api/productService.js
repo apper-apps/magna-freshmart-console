@@ -5,34 +5,80 @@ class ProductService {
   }
 
 async getAll(userRole = 'customer') {
-    await this.delay();
-    const products = [...this.products];
-    
-    // Filter financial data for non-admin users
-    if (userRole !== 'admin') {
-      return products.map(product => {
-        const { purchasePrice, minSellingPrice, profitMargin, ...filteredProduct } = product;
-        return filteredProduct;
-      });
+    try {
+      await this.delay();
+      const products = [...this.products];
+      
+      if (!Array.isArray(products)) {
+        throw new Error('Product data is corrupted');
+      }
+      
+      // Filter financial data for non-admin users
+      if (userRole !== 'admin') {
+        return products.map(product => {
+          if (!product || typeof product !== 'object') {
+            console.warn('Invalid product data found, skipping');
+            return null;
+          }
+          const { purchasePrice, minSellingPrice, profitMargin, ...filteredProduct } = product;
+          return filteredProduct;
+        }).filter(Boolean);
+      }
+      
+      return products;
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      
+      if (error.message.includes('corrupted')) {
+        throw error;
+      } else if (error.message.includes('network') || error.message.includes('timeout')) {
+        throw new Error('Network error loading products. Please check your connection and try again.');
+      } else {
+        throw new Error('Failed to load products. Please try again later.');
+      }
     }
-    
-    return products;
   }
 
 async getById(id, userRole = 'customer') {
-    await this.delay();
-    const product = this.products.find(p => p.id === id);
-    if (!product) {
-      throw new Error('Product not found');
+    try {
+      await this.delay();
+      
+      if (!id || (typeof id !== 'number' && typeof id !== 'string')) {
+        throw new Error('Invalid product ID provided');
+      }
+      
+      const numericId = parseInt(id);
+      if (isNaN(numericId) || numericId <= 0) {
+        throw new Error('Product ID must be a positive number');
+      }
+      
+      const product = this.products.find(p => p.id === numericId);
+      if (!product) {
+        throw new Error('Product not found');
+      }
+      
+      if (!product || typeof product !== 'object') {
+        throw new Error('Product data is corrupted');
+      }
+      
+      // Filter financial data for non-admin users
+      if (userRole !== 'admin') {
+        const { purchasePrice, minSellingPrice, profitMargin, ...filteredProduct } = product;
+        return filteredProduct;
+      }
+      
+      return { ...product };
+    } catch (error) {
+      console.error('Error fetching product by ID:', error);
+      
+      if (error.message.includes('not found') || error.message.includes('Invalid') || error.message.includes('corrupted')) {
+        throw error;
+      } else if (error.message.includes('network') || error.message.includes('timeout')) {
+        throw new Error('Network error loading product. Please check your connection and try again.');
+      } else {
+        throw new Error('Failed to load product details. Please try again later.');
+      }
     }
-    
-    // Filter financial data for non-admin users
-    if (userRole !== 'admin') {
-      const { purchasePrice, minSellingPrice, profitMargin, ...filteredProduct } = product;
-      return filteredProduct;
-    }
-    
-    return { ...product };
   }
 
   async create(productData) {
@@ -396,14 +442,22 @@ console.error('Error calculating financial health:', error);
 async validateImage(file) {
     let objectUrl = null;
     try {
-      // Basic file validation
-      if (!file || !file.type.startsWith('image/')) {
-        return { isValid: false, error: 'Please select a valid image file' };
+      // Basic file validation with enhanced error handling
+      if (!file) {
+        return { isValid: false, error: 'No file provided for validation' };
       }
       
-      // Size validation
+      if (!file.type || !file.type.startsWith('image/')) {
+        return { isValid: false, error: 'Please select a valid image file (JPEG, PNG, WebP)' };
+      }
+      
+      // Size validation with specific guidance
       if (file.size > 10 * 1024 * 1024) {
-        return { isValid: false, error: 'Image file size must be less than 10MB' };
+        return { isValid: false, error: 'Image file size must be less than 10MB. Please compress your image and try again.' };
+      }
+      
+      if (file.size < 1024) {
+        return { isValid: false, error: 'Image file seems too small. Please ensure it\'s a valid image file.' };
       }
       
       // Create image element for comprehensive quality analysis
@@ -419,16 +473,25 @@ async validateImage(file) {
           }
         };
 
+        const timeout = setTimeout(() => {
+          cleanup();
+          resolve({ isValid: false, error: 'Image processing timeout. Please try with a different image.' });
+        }, 10000);
+
         img.onload = async () => {
           try {
+            clearTimeout(timeout);
             canvas.width = img.width;
             canvas.height = img.height;
             ctx.drawImage(img, 0, 0);
             
-            // Resolution validation
+            // Resolution validation with specific guidance
             if (img.width < 200 || img.height < 200) {
               cleanup();
-              resolve({ isValid: false, error: 'Image resolution too low. Minimum 200x200px required' });
+              resolve({ 
+                isValid: false, 
+                error: `Image resolution too low (${img.width}x${img.height}). Minimum 200x200px required for good quality display.` 
+              });
               return;
             }
             
@@ -439,7 +502,10 @@ async validateImage(file) {
             const variance = this.calculateImageVariance(imageData.data);
             if (variance < 150) {
               cleanup();
-              resolve({ isValid: false, error: 'Image appears to be too blurry or low quality. Please use a sharper image' });
+              resolve({ 
+                isValid: false, 
+                error: 'Image appears to be too blurry or low quality. Please use a sharper, well-lit image.' 
+              });
               return;
             }
             
@@ -449,7 +515,7 @@ async validateImage(file) {
               cleanup();
               resolve({ 
                 isValid: false, 
-                error: `Watermarks or text detected in image. Confidence: ${textDetection.confidence}%. Please use a clean product image without text overlays` 
+                error: `Watermarks or text detected in image (Confidence: ${textDetection.confidence}%). Please use a clean product image without text overlays.` 
               });
               return;
             }
@@ -460,7 +526,7 @@ async validateImage(file) {
               cleanup();
               resolve({ 
                 isValid: false, 
-                error: `Image quality too low (Score: ${Math.round(qualityAssessment.score * 100)}%). Please use a higher quality image` 
+                error: `Image quality too low (Score: ${Math.round(qualityAssessment.score * 100)}%). Please use a higher quality, well-lit image.` 
               });
               return;
             }
@@ -470,25 +536,31 @@ async validateImage(file) {
               isValid: true, 
               qualityScore: qualityAssessment.score,
               variance: variance,
-              textConfidence: textDetection.confidence
+              textConfidence: textDetection.confidence,
+              dimensions: { width: img.width, height: img.height },
+              fileSize: file.size
             });
-          } catch (error) {
+          } catch (processingError) {
+            console.error('Image processing error:', processingError);
             cleanup();
-            resolve({ isValid: false, error: 'Failed to process image for validation' });
+            resolve({ isValid: false, error: 'Failed to process image for validation. Please try with a different image.' });
           }
         };
         
         img.onerror = () => {
+          clearTimeout(timeout);
           cleanup();
-          resolve({ isValid: false, error: 'Invalid or corrupted image file' });
+          resolve({ isValid: false, error: 'Invalid or corrupted image file. Please try with a different image.' });
         };
 
         try {
           objectUrl = URL.createObjectURL(file);
           img.src = objectUrl;
-        } catch (error) {
+        } catch (urlError) {
+          clearTimeout(timeout);
           cleanup();
-          resolve({ isValid: false, error: 'Failed to create image URL for validation' });
+          console.error('URL creation error:', urlError);
+          resolve({ isValid: false, error: 'Failed to process image file. Please try with a different image.' });
         }
       });
       
@@ -496,7 +568,8 @@ async validateImage(file) {
       if (objectUrl) {
         URL.revokeObjectURL(objectUrl);
       }
-      return { isValid: false, error: 'Failed to validate image' };
+      console.error('Image validation error:', error);
+      return { isValid: false, error: 'Failed to validate image. Please try again with a different image.' };
     }
   }
 
@@ -1084,7 +1157,7 @@ url: `https://via.placeholder.com/600x600/2196F3/ffffff?text=AI+Generated+${enco
     return styleParams[style] || styleParams['realistic'];
   }
 
-// Enhanced pricing hierarchy validation with conflict detection
+// Enhanced pricing hierarchy validation with conflict detection and error recovery
   async validatePricingHierarchy(productData, allProducts = [], excludeId = null) {
     try {
       await this.delay(200);
@@ -1093,93 +1166,224 @@ url: `https://via.placeholder.com/600x600/2196F3/ffffff?text=AI+Generated+${enco
       const warnings = [];
       
       if (!productData) {
-        return { isValid: false, error: 'Invalid product data', conflicts, warnings };
+        return { isValid: false, error: 'Invalid product data provided', conflicts, warnings };
       }
 
-      const basePrice = parseFloat(productData.basePrice || productData.price) || 0;
-      const variationPrice = parseFloat(productData.variationPrice) || 0;
-      const seasonalDiscount = parseFloat(productData.seasonalDiscount) || 0;
+      // Validate and sanitize numeric inputs
+      let basePrice, variationPrice, seasonalDiscount;
+      
+      try {
+        basePrice = parseFloat(productData.basePrice || productData.price) || 0;
+        variationPrice = parseFloat(productData.variationPrice) || 0;
+        seasonalDiscount = parseFloat(productData.seasonalDiscount) || 0;
+      } catch (parseError) {
+        return { 
+          isValid: false, 
+          error: 'Invalid numeric values in pricing data', 
+          conflicts: [{ type: 'parse_error', details: 'Unable to parse price values' }], 
+          warnings 
+        };
+      }
+      
       const seasonalDiscountType = productData.seasonalDiscountType || 'Fixed Amount';
       const category = productData.category;
 
-      // Validate base price
+      // Enhanced price validation with specific error messages
       if (basePrice <= 0) {
         conflicts.push({
           type: 'invalid_base_price',
-          details: 'Base price must be greater than 0'
+          details: 'Base price must be greater than 0',
+          field: 'basePrice',
+          currentValue: basePrice
         });
       }
 
-      // Validate variation price hierarchy
-      if (variationPrice > 0 && variationPrice < basePrice * 0.8) {
-        warnings.push('Variation price is significantly lower than base price (less than 80%)');
+      if (basePrice > 1000000) {
+        conflicts.push({
+          type: 'excessive_base_price',
+          details: 'Base price exceeds maximum allowed value (Rs. 1,000,000)',
+          field: 'basePrice',
+          currentValue: basePrice
+        });
       }
 
-      // Validate seasonal discount hierarchy
+      // Validate variation price hierarchy with enhanced checks
+      if (variationPrice > 0) {
+        if (variationPrice < basePrice * 0.8) {
+          warnings.push({
+            type: 'low_variation_price',
+            message: 'Variation price is significantly lower than base price (less than 80%)',
+            suggestion: 'Consider adjusting variation price to maintain profit margins'
+          });
+        }
+        
+        if (variationPrice > basePrice * 2) {
+          warnings.push({
+            type: 'high_variation_price',
+            message: 'Variation price is significantly higher than base price (more than 200%)',
+            suggestion: 'Verify if this price difference is intentional'
+          });
+        }
+      }
+
+      // Enhanced seasonal discount validation
       if (seasonalDiscount > 0) {
         const applicablePrice = variationPrice > 0 ? variationPrice : basePrice;
         
-        if (seasonalDiscountType === 'Percentage' && seasonalDiscount > 70) {
+        // Validate discount type
+        if (!['Percentage', 'Fixed Amount'].includes(seasonalDiscountType)) {
           conflicts.push({
-            type: 'excessive_seasonal_discount',
-            details: 'Seasonal discount percentage exceeds 70%'
+            type: 'invalid_discount_type',
+            details: 'Seasonal discount type must be either "Percentage" or "Fixed Amount"',
+            field: 'seasonalDiscountType',
+            currentValue: seasonalDiscountType
           });
         }
-
-        if (seasonalDiscountType === 'Fixed Amount' && seasonalDiscount >= applicablePrice) {
-          conflicts.push({
-            type: 'invalid_seasonal_discount',
-            details: 'Seasonal discount amount equals or exceeds applicable price'
-          });
-        }
-
-        // Calculate final price after all hierarchy rules
-        let finalPrice = applicablePrice;
+        
         if (seasonalDiscountType === 'Percentage') {
-          finalPrice = applicablePrice * (1 - seasonalDiscount / 100);
-        } else {
-          finalPrice = Math.max(0, applicablePrice - seasonalDiscount);
+          if (seasonalDiscount > 70) {
+            conflicts.push({
+              type: 'excessive_seasonal_discount',
+              details: 'Seasonal discount percentage exceeds maximum allowed (70%)',
+              field: 'seasonalDiscount',
+              currentValue: seasonalDiscount,
+              maxAllowed: 70
+            });
+          }
+          
+          if (seasonalDiscount < 0) {
+            conflicts.push({
+              type: 'negative_discount',
+              details: 'Seasonal discount percentage cannot be negative',
+              field: 'seasonalDiscount',
+              currentValue: seasonalDiscount
+            });
+          }
+        }
+
+        if (seasonalDiscountType === 'Fixed Amount') {
+          if (seasonalDiscount >= applicablePrice) {
+            conflicts.push({
+              type: 'invalid_seasonal_discount',
+              details: 'Seasonal discount amount equals or exceeds applicable price',
+              field: 'seasonalDiscount',
+              currentValue: seasonalDiscount,
+              applicablePrice: applicablePrice
+            });
+          }
+          
+          if (seasonalDiscount < 0) {
+            conflicts.push({
+              type: 'negative_discount',
+              details: 'Seasonal discount amount cannot be negative',
+              field: 'seasonalDiscount',
+              currentValue: seasonalDiscount
+            });
+          }
+        }
+
+        // Calculate final price after all hierarchy rules with error handling
+        let finalPrice;
+        try {
+          finalPrice = applicablePrice;
+          if (seasonalDiscountType === 'Percentage') {
+            finalPrice = applicablePrice * (1 - seasonalDiscount / 100);
+          } else {
+            finalPrice = Math.max(0, applicablePrice - seasonalDiscount);
+          }
+        } catch (calculationError) {
+          conflicts.push({
+            type: 'calculation_error',
+            details: 'Error calculating final price with seasonal discount',
+            field: 'seasonalDiscount'
+          });
+          finalPrice = applicablePrice; // Fallback
         }
 
         // Check minimum viable price (at least 10% of base price)
         if (finalPrice < basePrice * 0.1) {
           conflicts.push({
             type: 'price_too_low',
-            details: 'Final price after hierarchy is too low (less than 10% of base price)'
+            details: 'Final price after hierarchy is too low (less than 10% of base price)',
+            finalPrice: finalPrice,
+            minimumPrice: basePrice * 0.1
           });
         }
 
-        // Check profit margin if purchase price is available
+        // Enhanced profit margin validation
         const purchasePrice = parseFloat(productData.purchasePrice) || 0;
         if (purchasePrice > 0) {
-          const profitMargin = ((finalPrice - purchasePrice) / purchasePrice) * 100;
-          if (profitMargin < 5) {
-            conflicts.push({
-              type: 'low_profit_margin',
-              details: `Final price results in ${profitMargin.toFixed(2)}% profit margin (minimum 5% recommended)`
+          try {
+            const profitMargin = ((finalPrice - purchasePrice) / purchasePrice) * 100;
+            if (profitMargin < 5) {
+              conflicts.push({
+                type: 'low_profit_margin',
+                details: `Final price results in ${profitMargin.toFixed(2)}% profit margin (minimum 5% recommended)`,
+                profitMargin: profitMargin,
+                minimumMargin: 5,
+                purchasePrice: purchasePrice,
+                finalPrice: finalPrice
+              });
+            }
+          } catch (marginError) {
+            warnings.push({
+              type: 'margin_calculation_error',
+              message: 'Unable to calculate profit margin',
+              suggestion: 'Please verify purchase price value'
             });
           }
         }
       }
 
-      // Check for conflicting seasonal discounts in same category
+      // Enhanced seasonal discount conflict detection
       if (seasonalDiscount > 0 && productData.seasonalDiscountStartDate && productData.seasonalDiscountEndDate) {
-        const conflictingProducts = allProducts.filter(p => 
-          p && p.category === category && 
-          p.id !== excludeId && 
-          p.seasonalDiscount > 0 &&
-          p.seasonalDiscountStartDate && p.seasonalDiscountEndDate
-        );
+        try {
+          const conflictingProducts = allProducts.filter(p => 
+            p && p.category === category && 
+            p.id !== excludeId && 
+            p.seasonalDiscount > 0 &&
+            p.seasonalDiscountStartDate && p.seasonalDiscountEndDate
+          );
 
-        for (const product of conflictingProducts) {
-          const existingStart = new Date(product.seasonalDiscountStartDate);
-          const existingEnd = new Date(product.seasonalDiscountEndDate);
-          const newStart = new Date(productData.seasonalDiscountStartDate);
-          const newEnd = new Date(productData.seasonalDiscountEndDate);
+          for (const product of conflictingProducts) {
+            try {
+              const existingStart = new Date(product.seasonalDiscountStartDate);
+              const existingEnd = new Date(product.seasonalDiscountEndDate);
+              const newStart = new Date(productData.seasonalDiscountStartDate);
+              const newEnd = new Date(productData.seasonalDiscountEndDate);
 
-          if (newStart <= existingEnd && newEnd >= existingStart) {
-            warnings.push(`Overlapping seasonal discount with ${product.name} (${product.seasonalDiscountStartDate} to ${product.seasonalDiscountEndDate})`);
+              if (isNaN(existingStart.getTime()) || isNaN(existingEnd.getTime()) || 
+                  isNaN(newStart.getTime()) || isNaN(newEnd.getTime())) {
+                warnings.push({
+                  type: 'invalid_date_format',
+                  message: 'Invalid date format detected in seasonal discount dates',
+                  productName: product.name
+                });
+                continue;
+              }
+
+              if (newStart <= existingEnd && newEnd >= existingStart) {
+                warnings.push({
+                  type: 'overlapping_discount',
+                  message: `Overlapping seasonal discount with ${product.name} (${product.seasonalDiscountStartDate} to ${product.seasonalDiscountEndDate})`,
+                  conflictingProduct: product.name,
+                  conflictingPeriod: `${product.seasonalDiscountStartDate} to ${product.seasonalDiscountEndDate}`
+                });
+              }
+            } catch (dateError) {
+              warnings.push({
+                type: 'date_comparison_error',
+                message: `Error comparing dates with product ${product.name}`,
+                suggestion: 'Please verify date formats'
+              });
+            }
           }
+        } catch (conflictCheckError) {
+          warnings.push({
+            type: 'conflict_check_error',
+            message: 'Unable to check for seasonal discount conflicts',
+            suggestion: 'Manual verification recommended'
+          });
         }
       }
 
@@ -1196,16 +1400,43 @@ url: `https://via.placeholder.com/600x600/2196F3/ffffff?text=AI+Generated+${enco
           seasonalDiscount,
           seasonalDiscountType,
           finalPrice: this.calculateHierarchyPrice(productData)
+        },
+        validationMetadata: {
+          validatedAt: new Date().toISOString(),
+          conflictCount: conflicts.length,
+          warningCount: warnings.length,
+          category: category
         }
       };
 
     } catch (error) {
       console.error('Error validating pricing hierarchy:', error);
+      
+      // Enhanced error classification
+      let errorType = 'unknown';
+      if (error.message.includes('network') || error.message.includes('timeout')) {
+        errorType = 'network';
+      } else if (error.message.includes('parse') || error.message.includes('invalid')) {
+        errorType = 'data';
+      } else if (error.message.includes('memory') || error.message.includes('overflow')) {
+        errorType = 'resource';
+      }
+      
       return {
         isValid: false,
-        error: 'Failed to validate pricing hierarchy',
-        conflicts: [],
-        warnings: []
+        error: 'Failed to validate pricing hierarchy due to system error',
+        conflicts: [{
+          type: 'validation_system_error',
+          details: error.message,
+          errorType: errorType
+        }],
+        warnings: [],
+        systemError: true,
+        errorMetadata: {
+          originalError: error.message,
+          errorType: errorType,
+          timestamp: new Date().toISOString()
+        }
       };
     }
   }
@@ -1718,110 +1949,216 @@ async updateVendorPrice(vendorId, productId, priceData) {
     };
   }
 
-  async validateVendorAccess(vendorId, productId) {
+async validateVendorAccess(vendorId, productId) {
     try {
-      const assignments = await this.getVendorProductAssignments(vendorId);
-      const hasAssignment = assignments.some(a => a.productId === parseInt(productId));
+      // Input validation
+      if (!vendorId || !productId) {
+        return {
+          valid: false,
+          error: 'Vendor ID and Product ID are required'
+        };
+      }
+      
+      const numericVendorId = parseInt(vendorId);
+      const numericProductId = parseInt(productId);
+      
+      if (isNaN(numericVendorId) || isNaN(numericProductId)) {
+        return {
+          valid: false,
+          error: 'Invalid vendor or product ID format'
+        };
+      }
+      
+      const assignments = await this.getVendorProductAssignments(numericVendorId);
+      const hasAssignment = assignments.some(a => a.productId === numericProductId);
       
       if (!hasAssignment) {
         return {
           valid: false,
-          error: 'You do not have permission to edit this product'
+          error: 'You do not have permission to edit this product',
+          reason: 'no_assignment'
         };
       }
       
       return { valid: true };
     } catch (error) {
+      console.error('Error validating vendor access:', error);
+      
+      if (error.message.includes('network') || error.message.includes('timeout')) {
+        return {
+          valid: false,
+          error: 'Network error occurred while validating access. Please try again.'
+        };
+      }
+      
       return {
         valid: false,
-        error: 'Unable to validate vendor access'
+        error: 'Unable to validate vendor access due to system error'
       };
     }
   }
 
 async validateVendorPricing(priceData, assignment, currentProduct) {
     try {
-      const newPrice = parseFloat(priceData.price) || currentProduct.price;
-      const newPurchasePrice = parseFloat(priceData.purchasePrice) || currentProduct.purchasePrice;
-      const newStock = parseInt(priceData.stock) !== undefined ? parseInt(priceData.stock) : currentProduct.stock;
-      const currentPurchasePrice = currentProduct.purchasePrice || 0;
+      // Enhanced input validation
+      if (!priceData || !assignment || !currentProduct) {
+        return {
+          isValid: false,
+          error: 'Missing required data for pricing validation'
+        };
+      }
       
-      // Check if vendor can edit cost price
+      // Safely parse and validate numeric inputs
+      let newPrice, newPurchasePrice, newStock;
+      
+      try {
+        newPrice = priceData.price !== undefined ? parseFloat(priceData.price) : currentProduct.price;
+        newPurchasePrice = priceData.purchasePrice !== undefined ? parseFloat(priceData.purchasePrice) : (currentProduct.purchasePrice || 0);
+        newStock = priceData.stock !== undefined ? parseInt(priceData.stock) : currentProduct.stock;
+      } catch (parseError) {
+        return {
+          isValid: false,
+          error: 'Invalid numeric values in pricing data'
+        };
+      }
+      
+      // Validate parsed values
+      if (isNaN(newPrice) || newPrice < 0) {
+        return {
+          isValid: false,
+          error: 'Invalid price value'
+        };
+      }
+      
+      if (isNaN(newPurchasePrice) || newPurchasePrice < 0) {
+        return {
+          isValid: false,
+          error: 'Invalid purchase price value'
+        };
+      }
+      
+      if (isNaN(newStock)) {
+        return {
+          isValid: false,
+          error: 'Invalid stock value'
+        };
+      }
+      
+      // Permission validation
       if (priceData.purchasePrice !== undefined && !assignment.canEditCost) {
         return {
           isValid: false,
-          error: 'You do not have permission to edit cost prices'
+          error: 'You do not have permission to edit cost prices',
+          permissionType: 'cost_edit'
         };
       }
       
-      // Check if vendor can edit selling price
       if (priceData.price !== undefined && !assignment.canEditPrice) {
         return {
           isValid: false,
-          error: 'You do not have permission to edit selling prices'
+          error: 'You do not have permission to edit selling prices',
+          permissionType: 'price_edit'
         };
       }
       
-      // Stock validation - Stock ≥ 0
+      // Enhanced stock validation
       if (newStock < 0) {
         return {
           isValid: false,
-          error: 'Stock cannot be negative'
+          error: 'Stock cannot be negative',
+          field: 'stock',
+          currentValue: newStock
         };
       }
       
-      // Selling price > buying price validation
+      if (newStock > 10000) {
+        return {
+          isValid: false,
+          error: 'Stock value exceeds maximum limit (10,000)',
+          field: 'stock',
+          currentValue: newStock,
+          maxAllowed: 10000
+        };
+      }
+      
+      // Enhanced price relationship validation
       if (newPurchasePrice > 0 && newPrice <= newPurchasePrice) {
         return {
           isValid: false,
-          error: 'Selling price must be greater than buying price'
+          error: `Selling price (Rs. ${newPrice}) must be greater than buying price (Rs. ${newPurchasePrice})`,
+          field: 'price_relationship',
+          sellingPrice: newPrice,
+          buyingPrice: newPurchasePrice
         };
       }
       
-      // Validate minimum margin requirement
+      // Enhanced margin validation
       if (newPurchasePrice > 0) {
         const margin = ((newPrice - newPurchasePrice) / newPurchasePrice) * 100;
         if (margin < assignment.minMargin) {
           return {
             isValid: false,
-            error: `Profit margin must be at least ${assignment.minMargin}%`
+            error: `Profit margin (${margin.toFixed(2)}%) must be at least ${assignment.minMargin}%`,
+            field: 'margin',
+            currentMargin: margin,
+            requiredMargin: assignment.minMargin
           };
         }
       }
       
-      // Max 20% price change per update validation
+      // Enhanced price change validation
       if (currentProduct.price > 0 && priceData.price !== undefined) {
         const priceChangePercent = Math.abs(((newPrice - currentProduct.price) / currentProduct.price) * 100);
         if (priceChangePercent > 20) {
           return {
             isValid: false,
-            error: 'Maximum 20% price change allowed per update'
+            error: `Price change (${priceChangePercent.toFixed(2)}%) exceeds maximum allowed (20%)`,
+            field: 'price_change',
+            changePercent: priceChangePercent,
+            maxAllowed: 20,
+            originalPrice: currentProduct.price,
+            newPrice: newPrice
           };
         }
       }
       
-      // Validate maximum discount limit (for price decreases)
+      // Enhanced discount validation
       if (currentProduct.price > 0 && newPrice < currentProduct.price) {
         const discountPercentage = ((currentProduct.price - newPrice) / currentProduct.price) * 100;
         if (discountPercentage > assignment.maxDiscount) {
           return {
             isValid: false,
-            error: `Maximum discount allowed is ${assignment.maxDiscount}%`
+            error: `Discount (${discountPercentage.toFixed(2)}%) exceeds maximum allowed (${assignment.maxDiscount}%)`,
+            field: 'discount',
+            discountPercent: discountPercentage,
+            maxAllowed: assignment.maxDiscount
           };
         }
       }
       
-      // Apply general product validation
-      const generalValidation = this.validateProfitRules({
-        ...currentProduct,
-        ...priceData,
-        price: newPrice,
-        purchasePrice: newPurchasePrice,
-        stock: newStock
-      });
-      
-      if (!generalValidation.isValid) {
-        return generalValidation;
+      // Enhanced business rules validation
+      try {
+        const generalValidation = this.validateProfitRules({
+          ...currentProduct,
+          ...priceData,
+          price: newPrice,
+          purchasePrice: newPurchasePrice,
+          stock: newStock
+        });
+        
+        if (!generalValidation.isValid) {
+          return {
+            ...generalValidation,
+            source: 'business_rules'
+          };
+        }
+      } catch (validationError) {
+        console.error('Business rules validation error:', validationError);
+        return {
+          isValid: false,
+          error: 'Error validating business rules. Please try again.',
+          source: 'business_rules_error'
+        };
       }
       
       return { 
@@ -1830,15 +2167,34 @@ async validateVendorPricing(priceData, assignment, currentProduct) {
           price: newPrice,
           purchasePrice: newPurchasePrice,
           stock: newStock
+        },
+        validationMetadata: {
+          margin: newPurchasePrice > 0 ? ((newPrice - newPurchasePrice) / newPurchasePrice) * 100 : null,
+          priceChange: currentProduct.price > 0 ? ((newPrice - currentProduct.price) / currentProduct.price) * 100 : null,
+          validatedAt: new Date().toISOString()
         }
       };
       
     } catch (error) {
       console.error('Error validating vendor pricing:', error);
-      return {
-        isValid: false,
-        error: 'Unable to validate pricing'
-      };
+      
+      // Enhanced error classification
+      if (error.message.includes('network') || error.message.includes('timeout')) {
+        return {
+          isValid: false,
+          error: 'Network error occurred during validation. Please try again.'
+        };
+      } else if (error.message.includes('permission') || error.message.includes('access')) {
+        return {
+          isValid: false,
+          error: 'Access validation failed. Please contact administrator.'
+        };
+      } else {
+        return {
+          isValid: false,
+          error: 'Unable to validate pricing due to system error'
+        };
+      }
     }
   }
 

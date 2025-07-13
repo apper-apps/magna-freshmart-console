@@ -19,17 +19,29 @@ const Cart = () => {
   const cartCount = useSelector(selectCartItemCount);
 
   // Validate cart prices on component mount
-  useEffect(() => {
+useEffect(() => {
     if (cart.length > 0) {
-      dispatch(validateCartPrices());
+      try {
+        dispatch(validateCartPrices());
+      } catch (error) {
+        console.error('Error validating cart prices:', error);
+        // Continue without blocking the UI
+      }
     }
   }, [dispatch, cart.length]);
-  if (cart.length === 0) {
+if (cart.length === 0) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Empty 
           type="cart" 
-          onAction={() => navigate('/category/All')}
+          onAction={() => {
+            try {
+              navigate('/category/All');
+            } catch (error) {
+              console.error('Navigation error:', error);
+              window.location.href = '/category/All';
+            }
+          }}
         />
       </div>
     );

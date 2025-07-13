@@ -1,6 +1,7 @@
 import ordersData from "../mockData/orders.json";
 import React from "react";
 import Error from "@/components/ui/Error";
+import { productService } from "@/services/api/productService";
 import { paymentService } from "@/services/api/paymentService";
 
 class OrderService {
@@ -14,72 +15,88 @@ class OrderService {
   }
 
 async getById(id) {
-    await this.delay();
-    
-    console.log('OrderService.getById: Called with ID:', id, 'Type:', typeof id);
-    
-    // Enhanced ID validation with comprehensive checks
-    if (id === null || id === undefined) {
-      const error = new Error('Order ID is required - cannot be null or undefined');
-      console.error('OrderService.getById: Missing ID parameter');
-      throw error;
-    }
-    
-    // Ensure ID is an integer with detailed validation
-    const numericId = parseInt(id);
-    if (isNaN(numericId) || numericId <= 0) {
-      const error = new Error(`Invalid order ID format - must be a positive integer. Received: "${id}" (${typeof id})`);
-      console.error('OrderService.getById: Invalid ID format:', { id, numericId, type: typeof id });
-      throw error;
-    }
-    
-    console.log('OrderService.getById: Searching for order with numeric ID:', numericId);
-    console.log('OrderService.getById: Available order IDs:', this.orders.map(o => o.id));
-    
-    const order = this.orders.find(o => o.id === numericId);
-    if (!order) {
-      const error = new Error(`Order with ID ${numericId} not found in database`);
-      console.error('OrderService.getById: Order not found:', {
-        searchId: numericId,
-        availableIds: this.orders.map(o => o.id),
-        totalOrders: this.orders.length
+    try {
+      await this.delay();
+      
+      console.log('OrderService.getById: Called with ID:', id, 'Type:', typeof id);
+      
+      // Enhanced ID validation with comprehensive checks
+      if (id === null || id === undefined) {
+        const error = new Error('Order ID is required - cannot be null or undefined');
+        console.error('OrderService.getById: Missing ID parameter');
+        throw error;
+      }
+      
+      // Ensure ID is an integer with detailed validation
+      const numericId = parseInt(id);
+      if (isNaN(numericId) || numericId <= 0) {
+        const error = new Error(`Invalid order ID format - must be a positive integer. Received: "${id}" (${typeof id})`);
+        console.error('OrderService.getById: Invalid ID format:', { id, numericId, type: typeof id });
+        throw error;
+      }
+      
+      console.log('OrderService.getById: Searching for order with numeric ID:', numericId);
+      console.log('OrderService.getById: Available order IDs:', this.orders.map(o => o.id));
+      
+      const order = this.orders.find(o => o.id === numericId);
+      if (!order) {
+        const error = new Error(`Order with ID ${numericId} not found in database`);
+        console.error('OrderService.getById: Order not found:', {
+          searchId: numericId,
+          availableIds: this.orders.map(o => o.id),
+          totalOrders: this.orders.length
+        });
+        throw error;
+      }
+      
+      console.log('OrderService.getById: Found order:', {
+        id: order.id,
+        hasItems: !!order.items,
+        itemCount: order.items?.length || 0,
+        status: order.status
       });
-      throw error;
+      
+      // Comprehensive order data integrity validation before returning
+      if (!order.items || !Array.isArray(order.items)) {
+        console.warn(`OrderService.getById: Order ${numericId} has invalid items data, initializing empty array`);
+        order.items = [];
+      }
+      
+      // Validate essential order properties
+      if (!order.hasOwnProperty('status')) {
+        console.warn(`OrderService.getById: Order ${numericId} missing status, setting default`);
+        order.status = 'pending';
+      }
+      
+      if (!order.hasOwnProperty('total') || order.total <= 0) {
+        console.warn(`OrderService.getById: Order ${numericId} has invalid total, calculating from items`);
+        order.total = order.items.reduce((sum, item) => 
+          sum + ((item.price || 0) * (item.quantity || 0)), 0) + (order.deliveryCharge || 0);
+      }
+      
+      // Ensure critical timestamps exist
+      if (!order.createdAt) {
+        console.warn(`OrderService.getById: Order ${numericId} missing createdAt, using current time`);
+        order.createdAt = new Date().toISOString();
+      }
+      
+      console.log('OrderService.getById: Returning validated order data for ID:', numericId);
+      return { ...order };
+      
+    } catch (error) {
+      console.error('OrderService.getById: Comprehensive error handling:', error);
+      
+      // Classify error type for better handling
+      if (error.message.includes('not found')) {
+        throw new Error(`Order #${id} not found. It may have been deleted or the ID is incorrect.`);
+      } else if (error.message.includes('Invalid') || error.message.includes('required')) {
+        throw error; // Re-throw validation errors as-is
+      } else if (error.message.includes('network') || error.message.includes('timeout')) {
+        throw new Error('Network error occurred while fetching order. Please check your connection and try again.');
+      } else {
+        throw new Error('Unable to fetch order details. Please try again later.');
+      }
     }
-    
-    console.log('OrderService.getById: Found order:', {
-      id: order.id,
-      hasItems: !!order.items,
-      itemCount: order.items?.length || 0,
-      status: order.status
-    });
-    
-    // Comprehensive order data integrity validation before returning
-    if (!order.items || !Array.isArray(order.items)) {
-      console.warn(`OrderService.getById: Order ${numericId} has invalid items data, initializing empty array`);
-      order.items = [];
-    }
-    
-    // Validate essential order properties
-    if (!order.hasOwnProperty('status')) {
-      console.warn(`OrderService.getById: Order ${numericId} missing status, setting default`);
-      order.status = 'pending';
-    }
-    
-    if (!order.hasOwnProperty('total') || order.total <= 0) {
-      console.warn(`OrderService.getById: Order ${numericId} has invalid total, calculating from items`);
-      order.total = order.items.reduce((sum, item) => 
-        sum + ((item.price || 0) * (item.quantity || 0)), 0) + (order.deliveryCharge || 0);
-    }
-    
-    // Ensure critical timestamps exist
-    if (!order.createdAt) {
-      console.warn(`OrderService.getById: Order ${numericId} missing createdAt, using current time`);
-      order.createdAt = new Date().toISOString();
-    }
-    
-    console.log('OrderService.getById: Returning validated order data for ID:', numericId);
-    return { ...order };
   }
 
 async create(orderData) {
@@ -230,138 +247,78 @@ async updateDeliveryStatus(orderId, deliveryStatus, actualDelivery = null) {
     
     const updatedOrder = {
       ...order,
-      deliveryStatus,
-      // Automatically sync order status when delivery status changes
-      ...(correspondingOrderStatus && { status: correspondingOrderStatus }),
-      ...(actualDelivery && { actualDelivery }),
-      updatedAt: new Date().toISOString(),
-      // Track when delivery status was last updated for audit purposes
-      deliveryStatusUpdatedAt: new Date().toISOString()
-    };
-    
-    return await this.update(orderId, updatedOrder);
-  }
-
-  async updateOrderStatus(orderId, orderStatus) {
-    await this.delay();
-    const order = await this.getById(orderId);
-    const updatedOrder = {
-      ...order,
-      status: orderStatus,
+      deliveryStatus: deliveryStatus,
+      status: correspondingOrderStatus || order.status,
       updatedAt: new Date().toISOString()
     };
+    
+    if (actualDelivery) {
+      updatedOrder.actualDelivery = actualDelivery;
+    }
+    
     return await this.update(orderId, updatedOrder);
-  }
-
-  async getOrdersByDeliveryPerson(deliveryPersonId) {
-    await this.delay();
-    return this.orders.filter(order => order.deliveryPersonId === deliveryPersonId);
-  }
-
-  async getOrdersByDeliveryStatus(deliveryStatus) {
-return this.orders.filter(order => order.deliveryStatus === deliveryStatus);
-  }
-
-// Payment Integration Methods
-  async updatePaymentStatus(orderId, paymentStatus, paymentResult = null) {
-    await this.delay();
-    const order = await this.getById(orderId);
-    const updatedOrder = {
-      ...order,
-      paymentStatus,
-      paymentResult,
-      updatedAt: new Date().toISOString(),
-      ...(paymentStatus === 'completed' && { paidAt: new Date().toISOString() }),
-      ...(paymentStatus === 'completed' && order.status === 'payment_pending' && { status: 'confirmed' })
-    };
-    return await this.update(orderId, updatedOrder);
-  }
-
-  async getOrdersByPaymentStatus(paymentStatus) {
-    await this.delay();
-    return this.orders.filter(order => order.paymentStatus === paymentStatus);
-  }
-
-  async getOrdersByPaymentMethod(paymentMethod) {
-    await this.delay();
-    return this.orders.filter(order => order.paymentMethod === paymentMethod);
   }
 
   async verifyOrderPayment(orderId, verificationData) {
-    await this.delay();
-    const order = await this.getById(orderId);
-    
-    if (order.paymentStatus !== 'pending_verification') {
-      throw new Error('Order payment does not require verification');
-    }
-    
     try {
-      const verificationResult = await paymentService.verifyPayment(
-        order.paymentResult.transactionId, 
-        verificationData
-      );
+      await this.delay();
+      const order = await this.getById(orderId);
       
-      if (verificationResult.verified) {
-        const updatedOrder = await this.updatePaymentStatus(orderId, 'completed', verificationResult.transaction);
-        return updatedOrder;
-      } else {
-        throw new Error('Payment verification failed');
+      if (order.paymentStatus !== 'pending_verification') {
+        throw new Error('Order payment does not require verification');
+      }
+      
+      if (!order.paymentResult || !order.paymentResult.transactionId) {
+        throw new Error('Order missing payment transaction information');
+      }
+      
+      try {
+        const verificationResult = await paymentService.verifyPayment(
+          order.paymentResult.transactionId, 
+          verificationData
+        );
+        
+        if (verificationResult.verified) {
+          const updatedOrder = await this.updatePaymentStatus(orderId, 'completed', verificationResult.transaction);
+          return updatedOrder;
+        } else {
+          throw new Error('Payment verification failed: ' + (verificationResult.reason || 'Unknown verification error'));
+        }
+      } catch (verificationError) {
+        console.error('Payment verification error:', verificationError);
+        
+        if (verificationError.message.includes('network') || verificationError.message.includes('timeout')) {
+          throw new Error('Network error during payment verification. Please try again.');
+        } else if (verificationError.message.includes('invalid') || verificationError.message.includes('not found')) {
+          throw new Error('Payment transaction could not be verified. Please contact support.');
+        } else {
+          throw new Error('Payment verification error: ' + verificationError.message);
+        }
       }
     } catch (error) {
-      throw new Error('Payment verification error: ' + error.message);
-    }
+      console.error('Order payment verification failed:', error);
+      
+      if (error.message.includes('require verification') || error.message.includes('missing payment')) {
+        throw error;
+      }
+      
+      throw new Error('Unable to verify payment. Please try again or contact support.');
+}
   }
 
-async retryPayment(orderId, newPaymentData) {
+  async getMonthlyRevenue() {
     await this.delay();
-    const order = await this.getById(orderId);
-    
-    if (order.paymentStatus === 'completed') {
-      throw new Error('Payment already completed');
-    }
-    
-    const updatedOrder = {
-      ...order,
-      ...newPaymentData,
-      paymentStatus: 'completed',
-      paymentRetries: (order.paymentRetries || 0) + 1,
-      updatedAt: new Date().toISOString(),
-      paidAt: new Date().toISOString()
-    };
-    
-    return await this.update(orderId, updatedOrder);
-  }
-  async processRefund(orderId, refundAmount, reason) {
-    await this.delay();
-const order = await this.getById(orderId);
-    const refund = {
-      id: Date.now(), // Use timestamp for refund ID
-      orderId,
-      amount: refundAmount,
-      reason,
-      status: 'pending',
-      requestedAt: new Date().toISOString()
-    };
-    
-    const updatedOrder = {
-      ...order,
-      refundRequested: true,
-      refund,
-      status: 'refund_requested'
-    };
-return await this.update(orderId, updatedOrder);
-  }
-
-async getMonthlyRevenue() {
-    await this.delay();
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
+    const currentDate = new Date();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
     
     const monthlyOrders = this.orders.filter(order => {
+      if (!order.createdAt) return false;
       const orderDate = new Date(order.createdAt);
       return orderDate.getMonth() === currentMonth && orderDate.getFullYear() === currentYear;
-});
-return monthlyOrders.reduce((sum, order) => sum + (order?.total || order?.totalAmount || 0), 0);
+    });
+    
+    return monthlyOrders.reduce((sum, order) => sum + (order?.total || order?.totalAmount || 0), 0);
   }
   async getRevenueByPaymentMethod() {
     await this.delay();

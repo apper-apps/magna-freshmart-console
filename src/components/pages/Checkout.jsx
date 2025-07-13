@@ -445,36 +445,74 @@ const order = await orderService.create(orderData);
 } catch (error) {
       console.error('Order submission error:', error);
       
-      // Enhanced error handling with specific messaging
+      // Track error for monitoring
+      if (typeof window !== 'undefined' && window.performanceMonitor) {
+        window.performanceMonitor.trackError(error, 'checkout-submission');
+      }
+      
+      // Enhanced error handling with specific messaging and recovery
       let errorMessage = 'Order failed: ' + error.message;
       let showRetry = false;
       let retryDelay = 2000;
+      let errorType = 'general';
       
-      // Handle specific payment errors
+      // Comprehensive error classification
       if (error.code === 'WALLET_PAYMENT_FAILED') {
         errorMessage = error.userGuidance || error.message;
         showRetry = error.retryable !== false;
-        retryDelay = 3000; // Longer delay for wallet errors
+        retryDelay = 3000;
+        errorType = 'wallet';
       } else if (error.message.includes('payment')) {
-        // Generic payment error handling
         showRetry = !isRetry;
         errorMessage = `Payment processing failed. ${error.message}`;
-      } else if (error.message.includes('network') || error.message.includes('connectivity')) {
+        errorType = 'payment';
+      } else if (error.message.includes('network') || error.message.includes('connectivity') || error.message.includes('fetch')) {
         showRetry = true;
         errorMessage = 'Network error occurred. Please check your internet connection and try again.';
-      } else if (error.message.includes('timeout')) {
+        errorType = 'network';
+      } else if (error.message.includes('timeout') || error.message.includes('deadline')) {
         showRetry = true;
         errorMessage = 'Request timed out. Please try again.';
+        errorType = 'timeout';
+      } else if (error.message.includes('validation') || error.message.includes('invalid')) {
+        errorMessage = 'Please check your order details and try again.';
+        errorType = 'validation';
+      } else if (error.message.includes('server') || error.message.includes('500') || error.message.includes('503')) {
+        showRetry = true;
+        errorMessage = 'Server error occurred. Please try again in a few moments.';
+        errorType = 'server';
+        retryDelay = 5000;
       }
       
-      toast.error(errorMessage);
+      toast.error(errorMessage, {
+        duration: errorType === 'network' ? 6000 : 4000,
+        action: showRetry && !isRetry ? {
+          label: 'Retry',
+          onClick: () => handleSubmit(e, true)
+        } : undefined
+      });
       
-      // Offer retry for applicable errors
+      // Offer retry for applicable errors with enhanced messaging
       if (showRetry && !isRetry) {
         setTimeout(() => {
-          const retryMessage = error.code === 'WALLET_PAYMENT_FAILED' 
-            ? `${error.walletType} payment failed. Would you like to try again or choose a different payment method?`
-            : 'Payment failed. Would you like to retry?';
+          let retryMessage;
+          
+          switch (errorType) {
+            case 'wallet':
+              retryMessage = `${error.walletType || 'Wallet'} payment failed. Would you like to try again or choose a different payment method?`;
+              break;
+            case 'network':
+              retryMessage = 'Network issue detected. Would you like to retry the order?';
+              break;
+            case 'timeout':
+              retryMessage = 'The request timed out. Would you like to try again?';
+              break;
+            case 'server':
+              retryMessage = 'Server error occurred. Would you like to retry your order?';
+              break;
+            default:
+              retryMessage = 'Order failed. Would you like to retry?';
+          }
             
           if (window.confirm(retryMessage)) {
             handleSubmit(e, true);
@@ -483,7 +521,7 @@ const order = await orderService.create(orderData);
       }
     } finally {
       setLoading(false);
-}
+    }
   }
 
   // Redirect if cart is empty

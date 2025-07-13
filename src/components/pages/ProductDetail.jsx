@@ -26,14 +26,33 @@ const ProductDetail = () => {
     loadProduct();
   }, [productId]);
 
-  const loadProduct = async () => {
+const loadProduct = async () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Enhanced error handling with retry logic
       const data = await productService.getById(parseInt(productId));
+      
+      if (!data) {
+        throw new Error('Product not found');
+      }
+      
       setProduct(data);
     } catch (err) {
-      setError(err.message);
+      console.error('Error loading product:', err);
+      
+      // Classify error type for better user experience
+      let errorType = 'general';
+      if (err.message.includes('not found')) {
+        errorType = 'not-found';
+      } else if (err.message.includes('network') || err.message.includes('fetch')) {
+        errorType = 'network';
+      } else if (err.message.includes('timeout')) {
+        errorType = 'timeout';
+      }
+      
+      setError({ message: err.message, type: errorType });
     } finally {
       setLoading(false);
     }
@@ -114,10 +133,14 @@ const getPriceChange = () => {
     );
   }
 
-  if (error) {
+if (error) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Error message={error} onRetry={loadProduct} type="not-found" />
+        <Error 
+          message={error.message || error} 
+          onRetry={loadProduct} 
+          type={error.type || 'general'} 
+        />
       </div>
     );
   }
@@ -125,7 +148,11 @@ const getPriceChange = () => {
   if (!product) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Error message="Product not found" onRetry={() => navigate('/category/All')} type="not-found" />
+        <Error 
+          message="Product not found or could not be loaded" 
+          onRetry={() => navigate('/category/All')} 
+          type="not-found" 
+        />
       </div>
     );
   }
@@ -203,7 +230,8 @@ const activeDeal = getActiveDeal();
                     aspectRatio: '1 / 1'
                   }}
                   loading="lazy"
-                  onError={(e) => {
+onError={(e) => {
+                    console.warn('Product image failed to load, using fallback');
                     e.target.src = `https://via.placeholder.com/600x600/f3f4f6/64748b?text=${encodeURIComponent(product.name.substring(0, 20))}`;
                   }}
                 />

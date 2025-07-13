@@ -125,6 +125,26 @@ case 'table':
         return <DashboardSkeleton />;
       case 'financial':
         return <FinancialSkeleton />;
+      case 'page':
+        return (
+          <div className="min-h-screen flex items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading page...</p>
+            </div>
+          </div>
+        );
+      case 'error':
+        return (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center p-8">
+              <div className="animate-pulse bg-red-100 rounded-full h-16 w-16 mx-auto mb-4 flex items-center justify-center">
+                <div className="h-8 w-8 bg-red-300 rounded-full"></div>
+              </div>
+              <p className="text-red-600">Loading failed, attempting recovery...</p>
+            </div>
+          </div>
+        );
       default:
         return (
           <div className="flex items-center justify-center h-64">
@@ -140,5 +160,4 @@ case 'table':
     </div>
   );
 };
-
 export default Loading;

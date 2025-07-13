@@ -6,15 +6,37 @@ let lastId = Math.max(...attendanceData.map(att => att.Id), 0);
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 const attendanceService = {
-  async getAll() {
-    await delay(300);
-    return [...attendanceData];
+async getAll() {
+    try {
+      await delay(300);
+      return [...attendanceData];
+    } catch (error) {
+      console.error('Error fetching all attendance records:', error);
+      throw new Error('Failed to fetch attendance records. Please try again.');
+    }
   },
 
-  async getById(id) {
-    await delay(200);
-    const record = attendanceData.find(att => att.Id === parseInt(id));
-    return record ? { ...record } : null;
+async getById(id) {
+    try {
+      await delay(200);
+      
+      if (!id || isNaN(parseInt(id))) {
+        throw new Error('Invalid attendance record ID');
+      }
+      
+      const record = attendanceData.find(att => att.Id === parseInt(id));
+      if (!record) {
+        throw new Error('Attendance record not found');
+      }
+      
+      return { ...record };
+    } catch (error) {
+      console.error('Error fetching attendance record:', error);
+      if (error.message.includes('Invalid') || error.message.includes('not found')) {
+        throw error;
+      }
+      throw new Error('Failed to fetch attendance record. Please try again.');
+    }
   },
 
   async create(attendanceRecord) {
@@ -60,11 +82,26 @@ const attendanceService = {
     return { ...deletedRecord };
   },
 
-  async getByEmployeeId(employeeId) {
-    await delay(250);
-    return attendanceData
-      .filter(att => att.employeeId === parseInt(employeeId))
-      .map(att => ({ ...att }));
+async getByEmployeeId(employeeId) {
+    try {
+      await delay(250);
+      
+      if (!employeeId || isNaN(parseInt(employeeId))) {
+        throw new Error('Invalid employee ID');
+      }
+      
+      const records = attendanceData
+        .filter(att => att.employeeId === parseInt(employeeId))
+        .map(att => ({ ...att }));
+      
+      return records;
+    } catch (error) {
+      console.error('Error fetching attendance by employee:', error);
+      if (error.message.includes('Invalid')) {
+        throw error;
+      }
+      throw new Error('Failed to fetch employee attendance records. Please try again.');
+    }
   },
 
   async getByDate(date) {
@@ -81,17 +118,43 @@ const attendanceService = {
       .map(att => ({ ...att }));
   },
 
-  async getByEmployeeAndDateRange(employeeId, startDate, endDate) {
-    await delay(300);
-    return attendanceData
-      .filter(att => {
-        const recordDate = new Date(att.date);
-        const start = new Date(startDate);
-        const end = new Date(endDate);
-        return att.employeeId === parseInt(employeeId) && 
-               recordDate >= start && recordDate <= end;
-      })
-      .map(att => ({ ...att }));
+async getByEmployeeAndDateRange(employeeId, startDate, endDate) {
+    try {
+      await delay(300);
+      
+      if (!employeeId || isNaN(parseInt(employeeId))) {
+        throw new Error('Invalid employee ID');
+      }
+      
+      if (!startDate || !endDate) {
+        throw new Error('Start date and end date are required');
+      }
+      
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        throw new Error('Invalid date format');
+      }
+      
+      if (start > end) {
+        throw new Error('Start date cannot be later than end date');
+      }
+      
+      return attendanceData
+        .filter(att => {
+          const recordDate = new Date(att.date);
+          return att.employeeId === parseInt(employeeId) && 
+                 recordDate >= start && recordDate <= end;
+        })
+        .map(att => ({ ...att }));
+    } catch (error) {
+      console.error('Error fetching attendance by date range:', error);
+      if (error.message.includes('Invalid') || error.message.includes('required')) {
+        throw error;
+      }
+      throw new Error('Failed to fetch attendance records for the specified date range. Please try again.');
+    }
   },
 
   async getByDateRange(startDate, endDate) {

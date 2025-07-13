@@ -6,6 +6,7 @@ import { ToastContainer } from "react-toastify";
 import App from "@/App";
 import { store } from "@/store/index";
 import ErrorComponent from "@/components/ui/Error";
+import { toast } from "react-toastify";
 
 // Polyfill for structuredClone if not available
 if (typeof structuredClone === 'undefined') {
@@ -483,9 +484,9 @@ static async loadInBackground() {
       
     } catch (error) {
       console.warn('SDK background loading failed:', error);
-      performanceMonitor.trackError(error, 'sdk-load-error');
+performanceMonitor.trackError(error, 'sdk-load-error');
       
-      // Attempt recovery if retries available
+      // Enhanced error recovery with user notification
       if (this.retryCount < this.maxRetries) {
         this.retryCount++;
         console.log(`Retrying SDK load (${this.retryCount}/${this.maxRetries})`);
@@ -494,11 +495,26 @@ static async loadInBackground() {
         setTimeout(() => {
           this.loadInBackground();
         }, this.retryDelay * this.retryCount);
-console.warn('Max SDK recovery attempts reached, using fallback mode');
-        // Implement fallback functionality
+      } else {
+        console.warn('Max SDK recovery attempts reached, using fallback mode');
+        
+        // Implement comprehensive fallback functionality
         window.dispatchEvent(new window.CustomEvent('apper-sdk-fallback', {
-          detail: { error: error.message, timestamp: Date.now() }
+          detail: { 
+            error: error.message, 
+            timestamp: Date.now(),
+            fallbackMode: true,
+            recoveryAttempts: this.retryCount
+          }
         }));
+        
+        // Notify user of SDK issues (non-blocking)
+        if (typeof toast !== 'undefined') {
+          toast.warn('Some features may be limited due to connectivity issues', {
+            toastId: 'sdk-fallback',
+            autoClose: 5000
+          });
+        }
       }
       
       return () => {}; // Return cleanup function
@@ -506,16 +522,41 @@ console.warn('Max SDK recovery attempts reached, using fallback mode');
   }
   
   static async initializeSDK() {
-    // Placeholder for actual SDK initialization
-    // This would contain the actual SDK loading logic
-    return new Promise((resolve) => {
-      setTimeout(resolve, 100);
+    // Enhanced SDK initialization with timeout and error handling
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('SDK initialization timeout'));
+      }, 3000);
+      
+      try {
+        // Placeholder for actual SDK initialization
+        setTimeout(() => {
+          clearTimeout(timeout);
+          resolve();
+        }, 100);
+      } catch (error) {
+        clearTimeout(timeout);
+        reject(error);
+      }
     });
   }
   
   static handleSDKError(event) {
     console.error('SDK Error:', event.detail);
     performanceMonitor.trackError(new Error(event.detail.message), 'sdk-runtime-error');
+    
+    // Enhanced error reporting with classification
+    if (event.detail?.message) {
+      const errorType = this.classifyError(event.detail.message);
+      performanceMonitor.trackError(new Error(event.detail.message), `sdk-${errorType}-error`);
+    }
+  }
+  
+  static classifyError(errorMessage) {
+    if (errorMessage.includes('network') || errorMessage.includes('timeout')) return 'network';
+    if (errorMessage.includes('permission') || errorMessage.includes('access')) return 'permission';
+    if (errorMessage.includes('parse') || errorMessage.includes('invalid')) return 'data';
+    return 'runtime';
   }
 };
 
@@ -666,6 +707,13 @@ function setupGlobalErrorHandler() {
 const performanceMonitor = {
   marks: {},
   errors: [],
+  errorCategories: {
+    network: 0,
+    timeout: 0,
+    validation: 0,
+    server: 0,
+    unknown: 0
+  },
   
   mark(name) {
     try {
@@ -693,17 +741,76 @@ const performanceMonitor = {
   },
   
   trackError(error, source = 'unknown') {
-    this.errors.push({
+    const errorData = {
       message: error.message,
       source,
       timestamp: Date.now(),
-      stack: error.stack
-    });
+      stack: error.stack,
+      category: this.categorizeError(error.message),
+      userAgent: navigator.userAgent,
+      url: window.location.href
+    };
+    
+    this.errors.push(errorData);
+    
+    // Update error category counters
+    if (this.errorCategories.hasOwnProperty(errorData.category)) {
+      this.errorCategories[errorData.category]++;
+    } else {
+      this.errorCategories.unknown++;
+    }
     
     // Keep only last 50 errors to prevent memory issues
-if (this.errors.length > 50) {
+    if (this.errors.length > 50) {
       this.errors = this.errors.slice(-50);
     }
+    
+    // Alert for critical error patterns
+    this.checkCriticalErrorPatterns();
+  },
+  
+  categorizeError(errorMessage) {
+    const message = errorMessage.toLowerCase();
+    if (message.includes('network') || message.includes('fetch') || message.includes('connection')) return 'network';
+    if (message.includes('timeout') || message.includes('deadline')) return 'timeout';
+    if (message.includes('validation') || message.includes('invalid') || message.includes('parse')) return 'validation';
+    if (message.includes('server') || message.includes('500') || message.includes('503')) return 'server';
+    return 'unknown';
+  },
+  
+  checkCriticalErrorPatterns() {
+    const recentErrors = this.errors.slice(-10);
+    const networkErrors = recentErrors.filter(e => e.category === 'network').length;
+    const serverErrors = recentErrors.filter(e => e.category === 'server').length;
+    
+    // Alert if too many network errors in recent history
+    if (networkErrors >= 5) {
+      console.error('Critical: High network error rate detected');
+      window.dispatchEvent(new window.CustomEvent('critical-error-pattern', {
+        detail: { type: 'network', count: networkErrors }
+      }));
+    }
+    
+    // Alert if too many server errors
+    if (serverErrors >= 3) {
+      console.error('Critical: High server error rate detected');
+      window.dispatchEvent(new window.CustomEvent('critical-error-pattern', {
+        detail: { type: 'server', count: serverErrors }
+      }));
+    }
+  },
+  
+  getErrorSummary() {
+    return {
+      totalErrors: this.errors.length,
+      categories: { ...this.errorCategories },
+      recentErrors: this.errors.slice(-5).map(e => ({
+        message: e.message,
+        source: e.source,
+        category: e.category,
+        timestamp: new Date(e.timestamp).toISOString()
+      }))
+    };
   }
 };
 

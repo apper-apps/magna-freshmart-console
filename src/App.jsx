@@ -17,16 +17,46 @@ import webSocketService from "@/services/api/websocketService";
 class LazyErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { 
+      hasError: false, 
+      error: null,
+      retryCount: 0,
+      isRecovering: false
+    };
+    this.maxRetries = 2;
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true };
+    return { hasError: true, error };
   }
 
   componentDidCatch(error, errorInfo) {
     console.error('Lazy component failed to load:', error, errorInfo);
+    
+    // Track error for monitoring
+    if (typeof window !== 'undefined' && window.performanceMonitor) {
+      window.performanceMonitor.trackError(error, 'lazy-component-load');
+    }
   }
+
+  handleRetry = () => {
+    if (this.state.retryCount < this.maxRetries) {
+      this.setState({ isRecovering: true });
+      
+      setTimeout(() => {
+        this.setState({
+          hasError: false,
+          error: null,
+          retryCount: this.state.retryCount + 1,
+          isRecovering: false
+        });
+      }, 1000);
+    }
+  };
+
+  handleRefresh = () => {
+    window.location.reload();
+  };
 
   render() {
     if (this.state.hasError) {
@@ -34,12 +64,35 @@ class LazyErrorBoundary extends React.Component {
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center p-8">
             <h2 className="text-xl font-semibold text-gray-800 mb-4">Failed to load component</h2>
-            <p className="text-gray-600 mb-4">There was an error loading this page.</p>
+            <p className="text-gray-600 mb-4">
+              {this.state.error?.message?.includes('Loading chunk') 
+                ? 'Network issue loading page component. Please check your connection.'
+                : 'There was an error loading this page.'
+              }
+            </p>
+            
+            {this.state.retryCount < this.maxRetries ? (
+              <button
+                onClick={this.handleRetry}
+                disabled={this.state.isRecovering}
+                className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 disabled:opacity-50 mr-2"
+              >
+                {this.state.isRecovering ? 'Retrying...' : `Retry (${this.state.retryCount}/${this.maxRetries})`}
+              </button>
+            ) : (
+              <button
+                onClick={this.handleRefresh}
+                className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 mr-2"
+              >
+                Refresh Page
+              </button>
+            )}
+            
             <button
-              onClick={() => window.location.reload()}
-              className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90"
+              onClick={() => window.history.back()}
+              className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600"
             >
-              Refresh Page
+              Go Back
             </button>
           </div>
         </div>
@@ -52,38 +105,75 @@ class LazyErrorBoundary extends React.Component {
 
 // Safe lazy loading with error handling
 const createLazyComponent = (importFn, componentName) => {
-  return React.lazy(() => 
-    importFn().catch(error => {
-      console.error(`Failed to load ${componentName}:`, error);
+  let retryCount = 0;
+  const maxRetries = 3;
+  
+  const loadWithRetry = async () => {
+    try {
+      return await importFn();
+    } catch (error) {
+      console.error(`Failed to load ${componentName} (attempt ${retryCount + 1}):`, error);
+      
+      // Enhanced error tracking
+      if (typeof window !== 'undefined' && window.performanceMonitor) {
+        window.performanceMonitor.trackError(error, `lazy-load-${componentName}`);
+      }
+      
+      // Detailed error logging with recovery suggestions
       console.error('Error details:', {
         message: error?.message,
         stack: error?.stack,
         name: error?.name,
         componentName,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        retryAttempt: retryCount + 1,
+        networkStatus: navigator.onLine ? 'online' : 'offline'
       });
       
-      // Log additional debugging information
-      if (error?.message?.includes('404')) {
+      // Provide specific error guidance
+      if (error?.message?.includes('Loading chunk')) {
+        console.error(`Network issue loading ${componentName}: Check internet connection`);
+      } else if (error?.message?.includes('404')) {
         console.error(`File not found: Check if ${componentName} exists in the correct path`);
-      }
-      if (error?.message?.includes('SyntaxError')) {
+      } else if (error?.message?.includes('SyntaxError')) {
         console.error(`Syntax error in ${componentName}: Check for JavaScript syntax issues`);
-      }
-      if (error?.message?.includes('import')) {
+      } else if (error?.message?.includes('import')) {
         console.error(`Import error in ${componentName}: Check import statements and exports`);
       }
       
-      // Return a fallback component instead of failing
+      // Retry logic for network-related errors
+      if (retryCount < maxRetries && 
+          (error?.message?.includes('Loading chunk') || 
+           error?.message?.includes('fetch') ||
+           error?.message?.includes('network'))) {
+        retryCount++;
+        console.log(`Retrying ${componentName} load (${retryCount}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        return loadWithRetry();
+      }
+      
+      // Return enhanced fallback component with retry capability
       return {
         default: () => (
           <div className="flex items-center justify-center min-h-[400px]">
             <div className="text-center p-8 max-w-md mx-auto">
               <h2 className="text-xl font-semibold text-gray-800 mb-4">Component Unavailable</h2>
-              <p className="text-gray-600 mb-4">The {componentName} component could not be loaded.</p>
+              <p className="text-gray-600 mb-4">
+                The {componentName} component could not be loaded.
+                {!navigator.onLine && (
+                  <span className="block text-orange-600 mt-2">
+                    You appear to be offline. Please check your internet connection.
+                  </span>
+                )}
+              </p>
               <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-left">
                 <p className="text-sm text-red-700 font-medium mb-1">Error Details:</p>
                 <p className="text-xs text-red-600 break-all">{error?.message || 'Unknown error'}</p>
+                {retryCount > 0 && (
+                  <p className="text-xs text-orange-600 mt-1">
+                    Failed after {retryCount} retry attempts
+                  </p>
+                )}
               </div>
               <div className="flex flex-col space-y-2">
                 <button
@@ -93,18 +183,28 @@ const createLazyComponent = (importFn, componentName) => {
                   Refresh Page
                 </button>
                 <button
-                  onClick={() => console.log('Full error object:', error)}
-                  className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200 text-sm"
+                  onClick={() => window.history.back()}
+                  className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600"
                 >
-                  Log Error to Console
+                  Go Back
                 </button>
+                {import.meta.env.DEV && (
+                  <button
+                    onClick={() => console.log('Full error object:', error)}
+                    className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200 text-sm"
+                  >
+                    Log Error to Console
+                  </button>
+                )}
               </div>
             </div>
           </div>
         )
       };
-    })
-  );
+    }
+  };
+
+  return React.lazy(loadWithRetry);
 };
 
 // Lazy load heavy components for better performance with error handling
@@ -129,51 +229,102 @@ const RoleAssignment = createLazyComponent(() => import('@/components/pages/Role
 const WebSocketProvider = ({ children }) => {
   const dispatch = useDispatch();
 
-  useEffect(() => {
-    // Initialize WebSocket connection for price approvals
+useEffect(() => {
+    // Initialize WebSocket connection with comprehensive error handling
     const initializeWebSocket = async () => {
-      try {
-        await webSocketService.connect();
-        dispatch(setConnectionStatus(true));
+      let reconnectAttempts = 0;
+      const maxReconnectAttempts = 5;
+      
+      const connect = async () => {
+        try {
+          await webSocketService.connect();
+          dispatch(setConnectionStatus(true));
+          reconnectAttempts = 0; // Reset on successful connection
 
-        // Subscribe to price approval updates
-        const unsubscribeApprovals = webSocketService.subscribe('price-approvals', (data) => {
-          dispatch(updateApprovalStatus(data));
-          dispatch(addRealTimeNotification({
-            id: Date.now(),
-            type: 'approval_update',
-            message: `Price approval ${data.status} for order #${data.orderId}`,
-            timestamp: new Date().toISOString()
-          }));
-        });
+          // Subscribe to price approval updates with error handling
+          const unsubscribeApprovals = webSocketService.subscribe('price-approvals', (data) => {
+            try {
+              dispatch(updateApprovalStatus(data));
+              dispatch(addRealTimeNotification({
+                id: Date.now(),
+                type: 'approval_update',
+                message: `Price approval ${data.status} for order #${data.orderId}`,
+                timestamp: new Date().toISOString()
+              }));
+            } catch (error) {
+              console.error('Error processing approval update:', error);
+            }
+          });
 
-        // Handle approval update events
-        const handleApprovalUpdate = (data) => {
-          dispatch(updateApprovalStatus({
-            requestId: data.requestId || data.orderId,
-            status: data.status,
-            approvedBy: data.approvedBy,
-            comments: data.comments
-          }));
-        };
+          // Handle approval update events with error boundaries
+          const handleApprovalUpdate = (data) => {
+            try {
+              dispatch(updateApprovalStatus({
+                requestId: data.requestId || data.orderId,
+                status: data.status,
+                approvedBy: data.approvedBy,
+                comments: data.comments
+              }));
+            } catch (error) {
+              console.error('Error handling approval update:', error);
+            }
+          };
 
-        const unsubscribeStatusChanges = webSocketService.subscribe('approval_status_changed', handleApprovalUpdate);
+          const unsubscribeStatusChanges = webSocketService.subscribe('approval_status_changed', handleApprovalUpdate);
 
-        return () => {
-          unsubscribeApprovals();
-          unsubscribeStatusChanges();
-          webSocketService.disconnect();
-        };
-      } catch (error) {
-        console.warn('WebSocket connection failed:', error);
-        dispatch(setConnectionStatus(false));
-      }
+          return () => {
+            try {
+              unsubscribeApprovals();
+              unsubscribeStatusChanges();
+              webSocketService.disconnect();
+            } catch (error) {
+              console.error('Error cleaning up WebSocket subscriptions:', error);
+            }
+          };
+        } catch (error) {
+          console.warn('WebSocket connection failed:', error);
+          dispatch(setConnectionStatus(false));
+          
+          // Track WebSocket errors
+          if (typeof window !== 'undefined' && window.performanceMonitor) {
+            window.performanceMonitor.trackError(error, 'websocket-connection');
+          }
+          
+          // Implement exponential backoff reconnection
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectAttempts++;
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+            console.log(`Attempting WebSocket reconnection in ${delay}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+            
+            setTimeout(() => {
+              connect();
+            }, delay);
+          } else {
+            console.error('Max WebSocket reconnection attempts reached');
+            // Dispatch error notification
+            dispatch(addRealTimeNotification({
+              id: Date.now(),
+              type: 'connection_error',
+              message: 'Real-time updates unavailable. Please refresh the page.',
+              timestamp: new Date().toISOString()
+            }));
+          }
+        }
+      };
+      
+      return connect();
     };
 
     const cleanup = initializeWebSocket();
     
     return () => {
-      cleanup.then(cleanupFn => cleanupFn && cleanupFn());
+      cleanup.then(cleanupFn => {
+        if (cleanupFn && typeof cleanupFn === 'function') {
+          cleanupFn();
+        }
+      }).catch(error => {
+        console.error('Error during WebSocket cleanup:', error);
+      });
     };
   }, [dispatch]);
 
