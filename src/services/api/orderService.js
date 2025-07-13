@@ -15,10 +15,29 @@ class OrderService {
 
 async getById(id) {
     await this.delay();
-    const order = this.orders.find(o => o.id === id);
-    if (!order) {
-      throw new Error('Order not found');
+    
+    // Enhanced ID validation
+    if (id === null || id === undefined) {
+      throw new Error('Order ID is required');
     }
+    
+    // Ensure ID is an integer
+    const numericId = parseInt(id);
+    if (isNaN(numericId) || numericId <= 0) {
+      throw new Error('Invalid order ID format - must be a positive integer');
+    }
+    
+    const order = this.orders.find(o => o.id === numericId);
+    if (!order) {
+      throw new Error(`Order with ID ${numericId} not found`);
+    }
+    
+    // Validate order data integrity before returning
+    if (!order.items || !Array.isArray(order.items)) {
+      console.warn(`Order ${numericId} has invalid items data`);
+      order.items = [];
+    }
+    
     return { ...order };
   }
 

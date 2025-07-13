@@ -22,10 +22,21 @@ const OrderSummary = () => {
     loadOrderSummary();
   }, [orderId]);
 
-  const loadOrderSummary = async () => {
-    if (!orderId) {
+const loadOrderSummary = async () => {
+    // Enhanced validation for orderId
+    if (!orderId || orderId.trim() === '') {
       setError('Order ID is required');
       setLoading(false);
+      toast.error('No order ID provided');
+      return;
+    }
+
+    // Validate orderId is numeric
+    const numericOrderId = parseInt(orderId);
+    if (isNaN(numericOrderId) || numericOrderId <= 0) {
+      setError('Invalid order ID format');
+      setLoading(false);
+      toast.error('Invalid order ID format');
       return;
     }
 
@@ -33,9 +44,16 @@ const OrderSummary = () => {
       setLoading(true);
       setError(null);
 
-      const orderData = await orderService.getById(parseInt(orderId));
+      // Enhanced service call with proper error handling
+      const orderData = await orderService.getById(numericOrderId);
+      
       if (!orderData) {
-        throw new Error('Order not found');
+        throw new Error(`Order #${numericOrderId} not found`);
+      }
+
+      // Validate order data structure
+      if (!orderData.id || !orderData.items) {
+        throw new Error('Invalid order data received');
       }
 
       setOrder(orderData);
@@ -49,10 +67,13 @@ const OrderSummary = () => {
       const adminCheck = localStorage.getItem('userRole') === 'admin';
       setIsAdmin(adminCheck);
 
+      toast.success('Order summary loaded successfully');
+
     } catch (error) {
       console.error('Error loading order summary:', error);
-      setError(error.message);
-      toast.error('Failed to load order summary');
+      const errorMessage = error.message || 'Failed to load order summary';
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -144,13 +165,35 @@ const OrderSummary = () => {
     return <Error message={error} />;
   }
 
-  if (!order) {
+if (!order) {
     return (
       <div className="min-h-screen bg-background py-8">
         <div className="container mx-auto px-4">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">Order not found</h1>
-            <Button onClick={() => navigate('/orders')}>Back to Orders</Button>
+          <div className="text-center max-w-md mx-auto">
+            <div className="card p-8">
+              <ApperIcon name="Package" size={48} className="mx-auto text-gray-400 mb-4" />
+              <h1 className="text-2xl font-bold text-gray-900 mb-4">Order Not Found</h1>
+              <p className="text-gray-600 mb-6">
+                {orderId ? `Order #${orderId} could not be found.` : 'No order ID was provided.'}
+              </p>
+              <div className="space-y-3">
+                <Button 
+                  onClick={() => navigate('/orders')} 
+                  className="w-full"
+                >
+                  <ApperIcon name="ArrowLeft" size={16} className="mr-2" />
+                  Back to Orders
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={() => navigate('/')} 
+                  className="w-full"
+                >
+                  <ApperIcon name="Home" size={16} className="mr-2" />
+                  Go Home
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
