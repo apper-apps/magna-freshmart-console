@@ -50,10 +50,121 @@ const OrderTracking = () => {
     }));
   };
 
-  if (loading) {
+if (loading) {
     return (
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Loading type="default" />
+        {/* Header Skeleton */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-2">
+            <div className="w-5 h-5 bg-gray-200 rounded shimmer"></div>
+            <div className="w-24 h-6 bg-gray-200 rounded shimmer"></div>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className="w-20 h-6 bg-gray-200 rounded shimmer"></div>
+            <div className="w-16 h-6 bg-gray-200 rounded-full shimmer"></div>
+          </div>
+        </div>
+
+        {/* Order Header Skeleton */}
+        <div className="card p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="w-32 h-8 bg-gray-200 rounded shimmer mb-2"></div>
+              <div className="w-48 h-5 bg-gray-200 rounded shimmer"></div>
+            </div>
+            <div className="text-right">
+              <div className="w-24 h-8 bg-gray-200 rounded shimmer mb-2"></div>
+              <div className="w-16 h-5 bg-gray-200 rounded shimmer"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Order Status Timeline Skeleton */}
+        <div className="card p-6 mb-6">
+          <div className="w-32 h-6 bg-gray-200 rounded shimmer mb-6"></div>
+          <div className="space-y-6">
+            {[1, 2, 3, 4, 5].map((item) => (
+              <div key={item} className="flex items-center">
+                <div className="w-10 h-10 bg-gray-200 rounded-full shimmer"></div>
+                <div className="ml-4 flex-1">
+                  <div className="w-24 h-5 bg-gray-200 rounded shimmer mb-1"></div>
+                  {item === 2 && <div className="w-20 h-4 bg-gray-200 rounded shimmer"></div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Content Grid Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Order Items Skeleton */}
+          <div className="card p-6">
+            <div className="w-24 h-6 bg-gray-200 rounded shimmer mb-4"></div>
+            <div className="space-y-4">
+              {[1, 2, 3].map((item) => (
+                <div key={item} className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="w-32 h-5 bg-gray-200 rounded shimmer mb-1"></div>
+                    <div className="w-24 h-4 bg-gray-200 rounded shimmer"></div>
+                  </div>
+                  <div className="w-16 h-5 bg-gray-200 rounded shimmer"></div>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-gray-200 pt-4 mt-4 space-y-2">
+              <div className="flex justify-between">
+                <div className="w-16 h-5 bg-gray-200 rounded shimmer"></div>
+                <div className="w-20 h-5 bg-gray-200 rounded shimmer"></div>
+              </div>
+              <div className="flex justify-between">
+                <div className="w-24 h-5 bg-gray-200 rounded shimmer"></div>
+                <div className="w-16 h-5 bg-gray-200 rounded shimmer"></div>
+              </div>
+              <div className="flex justify-between items-center border-t border-gray-200 pt-2">
+                <div className="w-12 h-6 bg-gray-200 rounded shimmer"></div>
+                <div className="w-24 h-6 bg-gray-200 rounded shimmer"></div>
+              </div>
+            </div>
+          </div>
+
+          {/* Delivery & Payment Information Skeleton */}
+          <div className="space-y-6">
+            {/* Delivery Info Skeleton */}
+            <div className="card p-6">
+              <div className="w-36 h-6 bg-gray-200 rounded shimmer mb-4"></div>
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((item) => (
+                  <div key={item} className="flex items-center space-x-3">
+                    <div className="w-4 h-4 bg-gray-200 rounded shimmer"></div>
+                    <div className="w-32 h-5 bg-gray-200 rounded shimmer"></div>
+                  </div>
+                ))}
+                <div className="flex items-start space-x-3">
+                  <div className="w-4 h-4 bg-gray-200 rounded shimmer mt-1"></div>
+                  <div className="flex-1">
+                    <div className="w-full h-5 bg-gray-200 rounded shimmer mb-1"></div>
+                    <div className="w-24 h-4 bg-gray-200 rounded shimmer"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Info Skeleton */}
+            <div className="card p-6">
+              <div className="w-32 h-6 bg-gray-200 rounded shimmer mb-4"></div>
+              <div className="space-y-3">
+                <div className="flex items-center space-x-3">
+                  <div className="w-4 h-4 bg-gray-200 rounded shimmer"></div>
+                  <div className="w-20 h-5 bg-gray-200 rounded shimmer"></div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-4 h-4 bg-gray-200 rounded shimmer"></div>
+                  <div className="w-28 h-5 bg-gray-200 rounded shimmer"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
