@@ -89,6 +89,7 @@ const DeliveryTracking = createLazyComponent(() => import('@/components/pages/De
 const AIGenerate = createLazyComponent(() => import('@/components/pages/AIGenerate'), 'AI Generate');
 const Category = createLazyComponent(() => import('@/components/pages/Category'), 'Category');
 const Orders = createLazyComponent(() => import('@/components/pages/Orders'), 'Orders');
+const OrderSummary = createLazyComponent(() => import('@/components/pages/OrderSummary'), 'Order Summary');
 const OrderTracking = createLazyComponent(() => import('@/components/pages/OrderTracking'), 'Order Tracking');
 const Account = createLazyComponent(() => import('@/components/pages/Account'), 'Account');
 const VendorPortal = createLazyComponent(() => import('@/components/pages/VendorPortal'), 'Vendor Portal');
@@ -289,6 +290,13 @@ return (
                     <LazyErrorBoundary>
                       <Suspense fallback={<Loading type="page" />}>
                         <Orders />
+                      </Suspense>
+                    </LazyErrorBoundary>
+                  } />
+                  <Route path="order-summary/:orderId" element={
+                    <LazyErrorBoundary>
+                      <Suspense fallback={<Loading type="page" />}>
+                        <OrderSummary />
                       </Suspense>
                     </LazyErrorBoundary>
                   } />

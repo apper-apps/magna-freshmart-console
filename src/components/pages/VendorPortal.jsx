@@ -6,7 +6,9 @@ import Button from "@/components/atoms/Button";
 import Input from "@/components/atoms/Input";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
+import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
+import { orderService } from "@/services/api/orderService";
 import { vendorService } from "@/services/api/vendorService";
 import { productService } from "@/services/api/productService";
 
@@ -236,8 +238,9 @@ const VendorDashboard = ({ vendor, onLogout, onProfileUpdate }) => {
     }
   };
 
-  const tabs = [
+const tabs = [
     { id: 'products', label: 'My Products', icon: 'Package' },
+    { id: 'orders', label: 'Order Availability', icon: 'ClipboardList' },
     { id: 'profile', label: 'Profile', icon: 'User' }
   ];
 
@@ -356,12 +359,17 @@ const VendorDashboard = ({ vendor, onLogout, onProfileUpdate }) => {
             ) : error ? (
               <Error message={error} />
             ) : (
-              <>
+<>
                 {activeTab === 'products' && (
                   <VendorProductsTab 
                     products={products}
                     vendor={vendor}
                     onProductUpdate={handleProductUpdate}
+                  />
+                )}
+                {activeTab === 'orders' && (
+                  <VendorOrdersTab 
+                    vendor={vendor}
                   />
                 )}
                 {activeTab === 'profile' && (
@@ -1129,7 +1137,214 @@ const VendorProfileTab = ({ vendor, onProfileUpdate }) => {
         )}
       </div>
     </div>
+</div>
+        )}
+      </div>
+    </div>
+// Vendor Orders Tab Component
+const VendorOrdersTab = ({ vendor }) => {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('pending');
+
+  useEffect(() => {
+    loadVendorOrders();
+  }, [vendor]);
+
+  const loadVendorOrders = async () => {
+    if (!vendor) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const vendorOrders = await orderService.getVendorOrders(vendor.Id);
+      setOrders(vendorOrders);
+    } catch (error) {
+      console.error('Error loading vendor orders:', error);
+      setError(error.message);
+      toast.error('Failed to load orders');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAvailabilityUpdate = async (orderId, productId, available, notes = '') => {
+    try {
+      await orderService.updateVendorAvailability(orderId, vendor.Id, productId, {
+        available,
+        notes,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Reload orders to reflect changes
+      await loadVendorOrders();
+      
+      toast.success(`Product availability updated successfully`);
+    } catch (error) {
+      toast.error('Failed to update availability: ' + error.message);
+    }
+  };
+
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch = order.id.toString().includes(searchTerm) ||
+                         order.deliveryAddress?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || 
+                         (statusFilter === 'pending' && order.status === 'pending') ||
+                         (statusFilter === 'responded' && order.vendor_availability);
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  const getAvailabilityStatus = (order, productId) => {
+    if (!order.vendor_availability) return 'pending';
+    const key = `${productId}_${vendor.Id}`;
+    const availability = order.vendor_availability[key];
+    
+    if (!availability) return 'pending';
+    return availability.available ? 'available' : 'unavailable';
+  };
+
+  if (loading) {
+    return <Loading type="component" />;
+  }
+
+  if (error) {
+    return <Error message={error} />;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Search and Filter */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1">
+          <Input
+            type="text"
+            placeholder="Search orders..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            icon="Search"
+          />
+        </div>
+        <div className="sm:w-48">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+          >
+            <option value="all">All Orders</option>
+            <option value="pending">Pending Response</option>
+            <option value="responded">Responded</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Orders List */}
+      <div className="space-y-4">
+        {filteredOrders.map((order) => (
+          <div key={order.id} className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <h3 className="font-semibold text-gray-900">Order #{order.id}</h3>
+                <Badge variant="info" size="small">
+                  {order.deliveryAddress?.name}
+                </Badge>
+              </div>
+              <div className="text-sm text-gray-600">
+                {new Date(order.createdAt).toLocaleDateString()}
+              </div>
+            </div>
+            
+            <div className="p-4">
+              <div className="space-y-3">
+                {order.items?.filter(item => 
+                  // Filter items assigned to this vendor (simplified logic)
+                  item.productId % 3 + 1 === vendor.Id
+                ).map((item) => (
+                  <div key={item.productId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-1">
+                      <h4 className="font-medium text-gray-900">{item.name}</h4>
+                      <p className="text-sm text-gray-600">
+                        Qty: {item.quantity} {item.unit} × {formatCurrency(item.price)}
+                      </p>
+                    </div>
+                    
+                    <div className="flex items-center space-x-3">
+                      <span className="font-medium text-gray-900">
+                        {formatCurrency(item.price * item.quantity)}
+                      </span>
+                      
+                      {/* Availability Status & Actions */}
+                      <div className="flex items-center space-x-2">
+                        {getAvailabilityStatus(order, item.productId) === 'pending' ? (
+                          <div className="flex space-x-2">
+                            <Button
+                              size="sm"
+                              variant="primary"
+                              onClick={() => handleAvailabilityUpdate(order.id, item.productId, true)}
+                            >
+                              <ApperIcon name="CheckCircle" size={14} className="mr-1" />
+                              Available
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleAvailabilityUpdate(order.id, item.productId, false)}
+                            >
+                              <ApperIcon name="XCircle" size={14} className="mr-1" />
+                              Unavailable
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Badge 
+                              variant={getAvailabilityStatus(order, item.productId) === 'available' ? 'success' : 'danger'}
+                              size="small"
+                            >
+                              <ApperIcon 
+                                name={getAvailabilityStatus(order, item.productId) === 'available' ? 'CheckCircle' : 'XCircle'} 
+                                size={12} 
+                                className="mr-1" 
+                              />
+                              {getAvailabilityStatus(order, item.productId) === 'available' ? 'Available' : 'Unavailable'}
+                            </Badge>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                const currentStatus = getAvailabilityStatus(order, item.productId);
+                                handleAvailabilityUpdate(order.id, item.productId, currentStatus !== 'available');
+                              }}
+                            >
+                              <ApperIcon name="RefreshCw" size={14} />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {filteredOrders.length === 0 && (
+        <div className="text-center py-12">
+          <ApperIcon name="ClipboardList" size={48} className="mx-auto text-gray-400 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No orders found</h3>
+          <p className="text-gray-500">
+            {searchTerm || statusFilter !== 'all' 
+              ? 'Try adjusting your search or filter criteria.'
+              : 'No orders requiring availability response yet.'
+            }
+          </p>
+        </div>
+      )}
+    </div>
   );
 };
-
-export default VendorPortal;

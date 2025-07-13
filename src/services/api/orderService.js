@@ -42,6 +42,9 @@ async create(orderData) {
         }
       }
     }
+
+    // Initialize vendor availability tracking
+    const vendorAvailability = orderData.vendor_availability || {};
     
 const newOrder = {
       id: this.getNextId(),
@@ -56,6 +59,8 @@ const newOrder = {
       approvalStatus: orderData.approvalStatus || 'pending',
       approvalRequestId: orderData.approvalRequestId || null,
       priceApprovalRequired: orderData.priceApprovalRequired || false,
+      // Vendor availability tracking (JSONB structure)
+      vendor_availability: vendorAvailability,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -442,6 +447,83 @@ return {
       total: order.total,
       isCalculated: false
     };
+  }
+
+// Vendor Availability Methods
+  async updateVendorAvailability(orderId, vendorId, productId, availabilityData) {
+    await this.delay();
+    
+    const orderIndex = this.orders.findIndex(o => o.id === parseInt(orderId));
+    if (orderIndex === -1) {
+      throw new Error('Order not found');
+    }
+
+    const order = this.orders[orderIndex];
+    
+    // Initialize vendor_availability if not exists
+    if (!order.vendor_availability) {
+      order.vendor_availability = {};
+    }
+
+    // Store availability data with composite key: productId_vendorId
+    const availabilityKey = `${productId}_${vendorId}`;
+    order.vendor_availability[availabilityKey] = {
+      available: availabilityData.available,
+      notes: availabilityData.notes || '',
+      timestamp: availabilityData.timestamp || new Date().toISOString(),
+      vendorId: parseInt(vendorId),
+      productId: parseInt(productId)
+    };
+
+    order.updatedAt = new Date().toISOString();
+    this.orders[orderIndex] = order;
+    
+    return { ...order };
+  }
+
+  async getVendorOrders(vendorId) {
+    await this.delay();
+    
+    // Filter orders that contain products assigned to this vendor
+    // In a real system, this would be based on product-vendor mappings
+    return this.orders.filter(order => {
+      if (!order.items) return false;
+      
+      // Simplified vendor assignment logic for demo
+      const hasVendorProducts = order.items.some(item => 
+        (item.productId % 3 + 1) === parseInt(vendorId)
+      );
+      
+      return hasVendorProducts;
+    }).map(order => ({ ...order }));
+  }
+
+  async getPendingAvailabilityRequests() {
+    await this.delay();
+    
+    return this.orders.filter(order => {
+      if (!order.items) return false;
+      
+      // Check if any products still need vendor availability response
+      const hasPendingAvailability = order.items.some(item => {
+        const vendorId = item.productId % 3 + 1; // Simplified assignment
+        const availabilityKey = `${item.productId}_${vendorId}`;
+        return !order.vendor_availability || !order.vendor_availability[availabilityKey];
+      });
+      
+      return hasPendingAvailability;
+    }).map(order => ({ ...order }));
+  }
+
+  async getVendorAvailabilityStatus(orderId) {
+    await this.delay();
+    
+    const order = await this.getById(parseInt(orderId));
+    if (!order) {
+      throw new Error('Order not found');
+    }
+
+    return order.vendor_availability || {};
   }
 
   delay() {
