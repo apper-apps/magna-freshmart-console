@@ -23,57 +23,110 @@ const OrderSummary = () => {
   }, [orderId]);
 
 const loadOrderSummary = async () => {
-    // Enhanced validation for orderId
+    // Enhanced validation for orderId with comprehensive error recovery
     if (!orderId || orderId.trim() === '') {
-      setError('Order ID is required');
+      const errorMsg = 'Order ID is required to view order summary';
+      setError(errorMsg);
       setLoading(false);
-      toast.error('No order ID provided');
+      toast.error(errorMsg);
+      console.error('OrderSummary: Missing orderId parameter');
       return;
     }
 
-    // Validate orderId is numeric
+    // Validate orderId is numeric with detailed logging
     const numericOrderId = parseInt(orderId);
     if (isNaN(numericOrderId) || numericOrderId <= 0) {
-      setError('Invalid order ID format');
+      const errorMsg = `Invalid order ID format: "${orderId}" - must be a positive integer`;
+      setError(errorMsg);
       setLoading(false);
       toast.error('Invalid order ID format');
+      console.error('OrderSummary: Invalid orderId format:', { orderId, numericOrderId });
       return;
     }
 
     try {
       setLoading(true);
       setError(null);
+      console.log('OrderSummary: Loading order data for ID:', numericOrderId);
 
-      // Enhanced service call with proper error handling
+      // Enhanced service call with comprehensive error handling and logging
       const orderData = await orderService.getById(numericOrderId);
       
+      // Multiple validation layers to prevent blank screen
       if (!orderData) {
-        throw new Error(`Order #${numericOrderId} not found`);
+        throw new Error(`Order #${numericOrderId} not found in database`);
       }
 
-      // Validate order data structure
-      if (!orderData.id || !orderData.items) {
-        throw new Error('Invalid order data received');
+      // Validate critical order data structure with detailed checks
+      if (typeof orderData !== 'object') {
+        throw new Error(`Invalid order data type received: ${typeof orderData}`);
       }
+
+      if (!orderData.hasOwnProperty('id') || orderData.id !== numericOrderId) {
+        throw new Error(`Order ID mismatch: expected ${numericOrderId}, received ${orderData.id}`);
+      }
+
+      if (!orderData.items || !Array.isArray(orderData.items)) {
+        console.warn(`Order ${numericOrderId} has invalid items data, initializing empty array`);
+        orderData.items = [];
+      }
+
+      // Validate order totals and set defaults if missing
+      if (!orderData.total || orderData.total <= 0) {
+        console.warn(`Order ${numericOrderId} has invalid total, calculating from items`);
+        orderData.total = orderData.items.reduce((sum, item) => 
+          sum + ((item.price || 0) * (item.quantity || 0)), 0) + (orderData.deliveryCharge || 0);
+      }
+
+      console.log('OrderSummary: Successfully loaded order data:', {
+        orderId: orderData.id,
+        itemCount: orderData.items?.length || 0,
+        total: orderData.total,
+        status: orderData.status
+      });
 
       setOrder(orderData);
       
-      // Load vendor availability data
-      if (orderData.vendor_availability) {
-        setVendorAvailability(orderData.vendor_availability);
+      // Load vendor availability data with error recovery
+      try {
+        if (orderData.vendor_availability) {
+          setVendorAvailability(orderData.vendor_availability);
+        }
+      } catch (vendorError) {
+        console.warn('Failed to load vendor availability data:', vendorError);
+        // Don't fail the entire load for vendor data
       }
 
-      // Check admin status (simplified - in real app would check user roles)
-      const adminCheck = localStorage.getItem('userRole') === 'admin';
-      setIsAdmin(adminCheck);
+      // Check admin status with error recovery
+      try {
+        const adminCheck = localStorage.getItem('userRole') === 'admin';
+        setIsAdmin(adminCheck);
+      } catch (adminError) {
+        console.warn('Failed to check admin status:', adminError);
+        setIsAdmin(false);
+      }
 
       toast.success('Order summary loaded successfully');
 
     } catch (error) {
-      console.error('Error loading order summary:', error);
+      console.error('OrderSummary: Critical error loading order summary:', {
+        orderId: numericOrderId,
+        error: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
+      });
+      
       const errorMessage = error.message || 'Failed to load order summary';
       setError(errorMessage);
       toast.error(errorMessage);
+      
+      // Additional error reporting for debugging
+      if (error.name === 'TypeError') {
+        console.error('OrderSummary: Possible service or data structure issue');
+      }
+      if (error.message.includes('fetch') || error.message.includes('network')) {
+        console.error('OrderSummary: Network or API issue detected');
+      }
     } finally {
       setLoading(false);
     }
@@ -176,9 +229,21 @@ if (!order) {
               <p className="text-gray-600 mb-6">
                 {orderId ? `Order #${orderId} could not be found.` : 'No order ID was provided.'}
               </p>
+              
+              {/* Enhanced error details for debugging */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-left">
+                  <h3 className="text-sm font-medium text-red-800 mb-2">Error Details:</h3>
+                  <p className="text-sm text-red-700 break-words">{error}</p>
+                </div>
+              )}
+              
               <div className="space-y-3">
                 <Button 
-                  onClick={() => navigate('/orders')} 
+                  onClick={() => {
+                    console.log('OrderSummary: User navigating back to orders');
+                    navigate('/orders');
+                  }} 
                   className="w-full"
                 >
                   <ApperIcon name="ArrowLeft" size={16} className="mr-2" />
@@ -186,11 +251,28 @@ if (!order) {
                 </Button>
                 <Button 
                   variant="outline"
-                  onClick={() => navigate('/')} 
+                  onClick={() => {
+                    console.log('OrderSummary: User navigating to home');
+                    navigate('/');
+                  }} 
                   className="w-full"
                 >
                   <ApperIcon name="Home" size={16} className="mr-2" />
                   Go Home
+                </Button>
+                
+                {/* Retry button for debugging */}
+                <Button 
+                  variant="outline"
+                  onClick={() => {
+                    console.log('OrderSummary: User retrying order load');
+                    loadOrderSummary();
+                  }} 
+                  className="w-full"
+                  size="sm"
+                >
+                  <ApperIcon name="RefreshCw" size={16} className="mr-2" />
+                  Retry Loading
                 </Button>
               </div>
             </div>

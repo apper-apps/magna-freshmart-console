@@ -324,7 +324,7 @@ return (
                       </Suspense>
                     </LazyErrorBoundary>
                   } />
-                  <Route path="order-summary/:orderId" element={
+<Route path="order-summary/:orderId" element={
                     <LazyErrorBoundary>
                       <Suspense fallback={<Loading type="page" />}>
                         <OrderSummary />

@@ -16,28 +16,69 @@ class OrderService {
 async getById(id) {
     await this.delay();
     
-    // Enhanced ID validation
+    console.log('OrderService.getById: Called with ID:', id, 'Type:', typeof id);
+    
+    // Enhanced ID validation with comprehensive checks
     if (id === null || id === undefined) {
-      throw new Error('Order ID is required');
+      const error = new Error('Order ID is required - cannot be null or undefined');
+      console.error('OrderService.getById: Missing ID parameter');
+      throw error;
     }
     
-    // Ensure ID is an integer
+    // Ensure ID is an integer with detailed validation
     const numericId = parseInt(id);
     if (isNaN(numericId) || numericId <= 0) {
-      throw new Error('Invalid order ID format - must be a positive integer');
+      const error = new Error(`Invalid order ID format - must be a positive integer. Received: "${id}" (${typeof id})`);
+      console.error('OrderService.getById: Invalid ID format:', { id, numericId, type: typeof id });
+      throw error;
     }
+    
+    console.log('OrderService.getById: Searching for order with numeric ID:', numericId);
+    console.log('OrderService.getById: Available order IDs:', this.orders.map(o => o.id));
     
     const order = this.orders.find(o => o.id === numericId);
     if (!order) {
-      throw new Error(`Order with ID ${numericId} not found`);
+      const error = new Error(`Order with ID ${numericId} not found in database`);
+      console.error('OrderService.getById: Order not found:', {
+        searchId: numericId,
+        availableIds: this.orders.map(o => o.id),
+        totalOrders: this.orders.length
+      });
+      throw error;
     }
     
-    // Validate order data integrity before returning
+    console.log('OrderService.getById: Found order:', {
+      id: order.id,
+      hasItems: !!order.items,
+      itemCount: order.items?.length || 0,
+      status: order.status
+    });
+    
+    // Comprehensive order data integrity validation before returning
     if (!order.items || !Array.isArray(order.items)) {
-      console.warn(`Order ${numericId} has invalid items data`);
+      console.warn(`OrderService.getById: Order ${numericId} has invalid items data, initializing empty array`);
       order.items = [];
     }
     
+    // Validate essential order properties
+    if (!order.hasOwnProperty('status')) {
+      console.warn(`OrderService.getById: Order ${numericId} missing status, setting default`);
+      order.status = 'pending';
+    }
+    
+    if (!order.hasOwnProperty('total') || order.total <= 0) {
+      console.warn(`OrderService.getById: Order ${numericId} has invalid total, calculating from items`);
+      order.total = order.items.reduce((sum, item) => 
+        sum + ((item.price || 0) * (item.quantity || 0)), 0) + (order.deliveryCharge || 0);
+    }
+    
+    // Ensure critical timestamps exist
+    if (!order.createdAt) {
+      console.warn(`OrderService.getById: Order ${numericId} missing createdAt, using current time`);
+      order.createdAt = new Date().toISOString();
+    }
+    
+    console.log('OrderService.getById: Returning validated order data for ID:', numericId);
     return { ...order };
   }
 
