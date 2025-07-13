@@ -241,6 +241,7 @@ const VendorDashboard = ({ vendor, onLogout, onProfileUpdate }) => {
 const tabs = [
     { id: 'products', label: 'My Products', icon: 'Package' },
     { id: 'orders', label: 'Order Availability', icon: 'ClipboardList' },
+    { id: 'fulfillment', label: 'Fulfillment', icon: 'Truck' },
     { id: 'profile', label: 'Profile', icon: 'User' }
   ];
 
@@ -369,6 +370,11 @@ const tabs = [
                 )}
                 {activeTab === 'orders' && (
                   <VendorOrdersTab 
+                    vendor={vendor}
+                  />
+                )}
+                {activeTab === 'fulfillment' && (
+                  <VendorFulfillmentTab 
                     vendor={vendor}
                   />
                 )}
@@ -1345,6 +1351,446 @@ const VendorOrdersTab = ({ vendor }) => {
           </p>
         </div>
       )}
+    </div>
+  );
+};
+
+// Vendor Fulfillment Tab Component
+const VendorFulfillmentTab = ({ vendor }) => {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [stageFilter, setStageFilter] = useState('all');
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+
+  useEffect(() => {
+    loadFulfillmentOrders();
+  }, [vendor]);
+
+  const loadFulfillmentOrders = async () => {
+    if (!vendor) return;
+    
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const fulfillmentOrders = await orderService.getFulfillmentOrders(vendor.Id);
+      setOrders(fulfillmentOrders);
+    } catch (error) {
+      console.error('Error loading fulfillment orders:', error);
+      setError(error.message);
+      toast.error('Failed to load fulfillment orders');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStageUpdate = async (orderId, newStage) => {
+    try {
+      await orderService.updateFulfillmentStage(orderId, newStage);
+      await loadFulfillmentOrders();
+      toast.success(`Order updated to ${newStage.replace('_', ' ')}`);
+    } catch (error) {
+      toast.error('Failed to update fulfillment stage: ' + error.message);
+    }
+  };
+
+  const handlePackProducts = async (orderId) => {
+    try {
+      const updatedOrder = await orderService.updateFulfillmentStage(orderId, 'packed');
+      await loadFulfillmentOrders();
+      toast.success('Products packed successfully');
+    } catch (error) {
+      toast.error('Failed to pack products: ' + error.message);
+    }
+  };
+
+  const handleProcessPayment = async (orderId) => {
+    try {
+      await orderService.updateFulfillmentStage(orderId, 'payment_processed');
+      await loadFulfillmentOrders();
+      toast.success('Payment processed');
+    } catch (error) {
+      toast.error('Failed to process payment: ' + error.message);
+    }
+  };
+
+  const handleHandover = (order) => {
+    setSelectedOrder(order);
+    setShowSignatureModal(true);
+  };
+
+  const handleSignatureComplete = async (signatureData) => {
+    try {
+      await orderService.confirmHandover(selectedOrder.id, {
+        signature: signatureData,
+        vendorId: vendor.Id,
+        timestamp: new Date().toISOString()
+      });
+      
+      setShowSignatureModal(false);
+      setSelectedOrder(null);
+      await loadFulfillmentOrders();
+      toast.success('Order handed over to delivery successfully');
+    } catch (error) {
+      toast.error('Failed to complete handover: ' + error.message);
+    }
+  };
+
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch = order.id.toString().includes(searchTerm) ||
+                         order.deliveryAddress?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesStage = stageFilter === 'all' || order.fulfillment_stage === stageFilter;
+    
+    return matchesSearch && matchesStage;
+  });
+
+  const getStageColor = (stage) => {
+    switch (stage) {
+      case 'availability_confirmed': return 'bg-blue-100 text-blue-800';
+      case 'packed': return 'bg-green-100 text-green-800';
+      case 'payment_processed': return 'bg-yellow-100 text-yellow-800';
+      case 'admin_paid': return 'bg-purple-100 text-purple-800';
+      case 'handed_over': return 'bg-gray-100 text-gray-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getCardColor = (stage) => {
+    switch (stage) {
+      case 'packed':
+      case 'payment_processed':
+      case 'admin_paid':
+        return 'border-l-4 border-l-green-500 bg-green-50';
+      case 'availability_confirmed':
+        return 'border-l-4 border-l-yellow-500 bg-yellow-50';
+      default:
+        return 'border-l-4 border-l-gray-300 bg-white';
+    }
+  };
+
+  const getNextAction = (stage) => {
+    switch (stage) {
+      case 'availability_confirmed':
+        return { action: 'pack', label: 'Pack Products', icon: 'Package' };
+      case 'packed':
+        return { action: 'process_payment', label: 'Process Payment', icon: 'CreditCard' };
+      case 'payment_processed':
+        return { action: 'await_admin', label: 'Awaiting Admin Payment', icon: 'Clock', disabled: true };
+      case 'admin_paid':
+        return { action: 'handover', label: 'Handover to Delivery', icon: 'Truck' };
+      case 'handed_over':
+        return { action: 'completed', label: 'Completed', icon: 'CheckCircle', disabled: true };
+      default:
+        return null;
+    }
+  };
+
+  if (loading) {
+    return <Loading type="component" />;
+  }
+
+  if (error) {
+    return <Error message={error} />;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Search and Filter */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1">
+          <Input
+            type="text"
+            placeholder="Search orders..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            icon="Search"
+          />
+        </div>
+        <div className="sm:w-64">
+          <select
+            value={stageFilter}
+            onChange={(e) => setStageFilter(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+          >
+            <option value="all">All Stages</option>
+            <option value="availability_confirmed">Availability Confirmed</option>
+            <option value="packed">Packed</option>
+            <option value="payment_processed">Payment Processed</option>
+            <option value="admin_paid">Admin Paid</option>
+            <option value="handed_over">Handed Over</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Orders List */}
+      <div className="space-y-4">
+        {filteredOrders.map((order) => {
+          const nextAction = getNextAction(order.fulfillment_stage);
+          
+          return (
+            <div key={order.id} className={`rounded-lg overflow-hidden shadow-sm ${getCardColor(order.fulfillment_stage)}`}>
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-4">
+                    <h3 className="font-semibold text-gray-900">Order #{order.id}</h3>
+                    <span className={`px-3 py-1 text-xs font-medium rounded-full ${getStageColor(order.fulfillment_stage)}`}>
+                      {order.fulfillment_stage?.replace('_', ' ').toUpperCase() || 'PENDING'}
+                    </span>
+                    <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
+                      {order.deliveryAddress?.name || 'N/A'}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {formatCurrency(order.total)}
+                  </div>
+                </div>
+
+                {/* Order Items */}
+                <div className="mb-4">
+                  <div className="space-y-2">
+                    {order.items?.filter(item => 
+                      (item.productId % 3 + 1) === vendor.Id
+                    ).map((item) => (
+                      <div key={item.productId} className="flex items-center justify-between p-2 bg-white rounded border">
+                        <div>
+                          <span className="font-medium text-gray-900">{item.name}</span>
+                          <span className="text-sm text-gray-600 ml-2">
+                            {item.quantity} {item.unit} × {formatCurrency(item.price)}
+                          </span>
+                        </div>
+                        <span className="font-medium text-gray-900">
+                          {formatCurrency(item.price * item.quantity)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Delivery Assignment Info */}
+                {order.assignedDelivery && (
+                  <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                    <div className="flex items-center mb-2">
+                      <ApperIcon name="Truck" size={16} className="text-blue-600 mr-2" />
+                      <span className="font-medium text-blue-900">Delivery Assignment</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <span className="text-gray-600">Personnel:</span>
+                        <span className="ml-2 font-medium">{order.assignedDelivery.name}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Phone:</span>
+                        <span className="ml-2 font-medium">{order.assignedDelivery.phone}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">ETA:</span>
+                        <span className="ml-2 font-medium">{order.assignedDelivery.eta}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Vehicle:</span>
+                        <span className="ml-2 font-medium">{order.assignedDelivery.vehicle}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action Button */}
+                {nextAction && (
+                  <div className="flex justify-end">
+                    <Button
+                      onClick={() => {
+                        if (nextAction.action === 'pack') {
+                          handlePackProducts(order.id);
+                        } else if (nextAction.action === 'process_payment') {
+                          handleProcessPayment(order.id);
+                        } else if (nextAction.action === 'handover') {
+                          handleHandover(order);
+                        }
+                      }}
+                      variant={nextAction.disabled ? "outline" : "primary"}
+                      size="sm"
+                      disabled={nextAction.disabled}
+                    >
+                      <ApperIcon name={nextAction.icon} size={16} className="mr-2" />
+                      {nextAction.label}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {filteredOrders.length === 0 && (
+        <div className="text-center py-12">
+          <ApperIcon name="Truck" size={48} className="mx-auto text-gray-400 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No fulfillment orders found</h3>
+          <p className="text-gray-500">
+            {searchTerm || stageFilter !== 'all' 
+              ? 'Try adjusting your search or filter criteria.'
+              : 'No orders require fulfillment processing yet.'
+            }
+          </p>
+        </div>
+      )}
+
+      {/* Signature Modal */}
+      {showSignatureModal && selectedOrder && (
+        <SignatureModal
+          order={selectedOrder}
+          onSignatureComplete={handleSignatureComplete}
+          onClose={() => {
+            setShowSignatureModal(false);
+            setSelectedOrder(null);
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+// Signature Capture Modal Component
+const SignatureModal = ({ order, onSignatureComplete, onClose }) => {
+  const canvasRef = React.useRef(null);
+  const [isDrawing, setIsDrawing] = React.useState(false);
+  const [signature, setSignature] = React.useState(null);
+
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+    }
+  }, []);
+
+  const startDrawing = (e) => {
+    setIsDrawing(true);
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const ctx = canvas.getContext('2d');
+    
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+  };
+
+  const draw = (e) => {
+    if (!isDrawing) return;
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const ctx = canvas.getContext('2d');
+    
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    setIsDrawing(false);
+    const canvas = canvasRef.current;
+    const signatureData = canvas.toDataURL();
+    setSignature(signatureData);
+  };
+
+  const clearSignature = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setSignature(null);
+  };
+
+  const handleSubmit = () => {
+    if (!signature) {
+      toast.error('Please provide your signature');
+      return;
+    }
+    onSignatureComplete(signature);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Handover Signature
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <ApperIcon name="X" size={20} />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div className="bg-gray-50 p-3 rounded-lg">
+            <p className="text-sm text-gray-700 mb-2">
+              <strong>Order:</strong> #{order.id}
+            </p>
+            <p className="text-sm text-gray-700 mb-2">
+              <strong>Customer:</strong> {order.deliveryAddress?.name}
+            </p>
+            <p className="text-sm text-gray-700">
+              <strong>Total:</strong> {formatCurrency(order.total)}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Vendor Signature
+            </label>
+            <div className="border-2 border-gray-300 rounded-lg">
+              <canvas
+                ref={canvasRef}
+                width={350}
+                height={150}
+                className="w-full cursor-crosshair"
+                onMouseDown={startDrawing}
+                onMouseMove={draw}
+                onMouseUp={stopDrawing}
+                onMouseLeave={stopDrawing}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Sign above to confirm handover to delivery personnel
+            </p>
+          </div>
+
+          <div className="flex space-x-3">
+            <Button
+              onClick={clearSignature}
+              variant="outline"
+              size="sm"
+              className="flex-1"
+            >
+              <ApperIcon name="RotateCcw" size={16} className="mr-2" />
+              Clear
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              variant="primary"
+              size="sm"
+              className="flex-1"
+              disabled={!signature}
+            >
+              <ApperIcon name="Check" size={16} className="mr-2" />
+              Confirm Handover
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

@@ -529,6 +529,142 @@ return {
   delay() {
     return new Promise(resolve => setTimeout(resolve, 400));
   }
+// Fulfillment Workflow Methods
+  async updateFulfillmentStage(orderId, stage) {
+    await this.delay();
+    
+    const validStages = [
+      'availability_confirmed',
+      'packed', 
+      'payment_processed',
+      'admin_paid',
+      'handed_over'
+    ];
+    
+    if (!validStages.includes(stage)) {
+      throw new Error(`Invalid fulfillment stage: ${stage}`);
+    }
+    
+    const orderIndex = this.orders.findIndex(o => o.id === parseInt(orderId));
+    if (orderIndex === -1) {
+      throw new Error('Order not found');
+    }
+
+    const order = this.orders[orderIndex];
+    
+    // Auto-assign delivery personnel when moving to packed stage
+    if (stage === 'packed' && !order.assignedDelivery) {
+      const deliveryAssignment = await this.autoAssignDeliveryPersonnel(order);
+      order.assignedDelivery = deliveryAssignment;
+    }
+    
+    order.fulfillment_stage = stage;
+    order.updatedAt = new Date().toISOString();
+    
+    // Update order status based on fulfillment stage
+    const stageToStatusMap = {
+      'availability_confirmed': 'confirmed',
+      'packed': 'packed',
+      'payment_processed': 'payment_processed',
+      'admin_paid': 'ready_for_delivery',
+      'handed_over': 'shipped'
+    };
+    
+    if (stageToStatusMap[stage]) {
+      order.status = stageToStatusMap[stage];
+    }
+    
+    this.orders[orderIndex] = order;
+    return { ...order };
+  }
+
+  async autoAssignDeliveryPersonnel(order) {
+    await this.delay(200);
+    
+    // Simulate delivery personnel assignment
+    const availablePersonnel = [
+      {
+        name: "Ali Raza",
+        phone: "+923001234567",
+        eta: "13:30-14:00",
+        vehicle: "Bike-15"
+      },
+      {
+        name: "Hassan Ahmed", 
+        phone: "+923009876543",
+        eta: "14:00-14:30",
+        vehicle: "Car-08"
+      },
+      {
+        name: "Usman Khan",
+        phone: "+923005555666",
+        eta: "12:45-13:15", 
+        vehicle: "Bike-22"
+      }
+    ];
+    
+    // Simple assignment based on order location/city
+    const cityToPersonnelMap = {
+      'Lahore': 0,
+      'Karachi': 1,
+      'Islamabad': 2
+    };
+    
+    const city = order.deliveryAddress?.city || 'Lahore';
+    const personnelIndex = cityToPersonnelMap[city] || 0;
+    
+    return availablePersonnel[personnelIndex];
+  }
+
+  async getFulfillmentOrders(vendorId) {
+    await this.delay();
+    
+    // Get orders that have vendor products and need fulfillment
+    return this.orders.filter(order => {
+      if (!order.items) return false;
+      
+      // Check if order has products assigned to this vendor
+      const hasVendorProducts = order.items.some(item => 
+        (item.productId % 3 + 1) === parseInt(vendorId)
+      );
+      
+      // Only include orders that have confirmed availability
+      const hasConfirmedAvailability = order.vendor_availability && 
+        Object.values(order.vendor_availability).some(avail => 
+          avail.vendorId === parseInt(vendorId) && avail.available === true
+        );
+      
+      return hasVendorProducts && hasConfirmedAvailability;
+    }).map(order => {
+      // Ensure fulfillment_stage is set
+      if (!order.fulfillment_stage) {
+        order.fulfillment_stage = 'availability_confirmed';
+      }
+      return { ...order };
+    });
+  }
+
+  async confirmHandover(orderId, handoverData) {
+    await this.delay();
+    
+    const orderIndex = this.orders.findIndex(o => o.id === parseInt(orderId));
+    if (orderIndex === -1) {
+      throw new Error('Order not found');
+    }
+
+    const order = this.orders[orderIndex];
+    
+    order.fulfillment_stage = 'handed_over';
+    order.handoverSignature = handoverData.signature;
+    order.handoverTimestamp = handoverData.timestamp;
+    order.handoverVendorId = handoverData.vendorId;
+    order.status = 'shipped';
+    order.deliveryStatus = 'picked_up';
+    order.updatedAt = new Date().toISOString();
+    
+    this.orders[orderIndex] = order;
+    return { ...order };
+  }
 }
 
 export const orderService = new OrderService();
