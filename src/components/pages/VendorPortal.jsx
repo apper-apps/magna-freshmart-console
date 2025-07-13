@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import formatCurrency from "@/utils/currency";
+import { formatCurrency } from "@/utils/currency";
 import ApperIcon from "@/components/ApperIcon";
 import Button from "@/components/atoms/Button";
 import Input from "@/components/atoms/Input";
@@ -1249,9 +1249,9 @@ const VendorOrdersTab = ({ vendor }) => {
             <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <h3 className="font-semibold text-gray-900">Order #{order.id}</h3>
-                <Badge variant="info" size="small">
-                  {order.deliveryAddress?.name}
-                </Badge>
+<span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                  {order.deliveryAddress?.name || 'N/A'}
+                </span>
               </div>
               <div className="text-sm text-gray-600">
                 {new Date(order.createdAt).toLocaleDateString()}
@@ -1300,17 +1300,18 @@ const VendorOrdersTab = ({ vendor }) => {
                           </div>
                         ) : (
                           <div className="flex items-center space-x-2">
-                            <Badge 
-                              variant={getAvailabilityStatus(order, item.productId) === 'available' ? 'success' : 'danger'}
-                              size="small"
-                            >
+<span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              getAvailabilityStatus(order, item.productId) === 'available' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}>
                               <ApperIcon 
                                 name={getAvailabilityStatus(order, item.productId) === 'available' ? 'CheckCircle' : 'XCircle'} 
                                 size={12} 
                                 className="mr-1" 
                               />
                               {getAvailabilityStatus(order, item.productId) === 'available' ? 'Available' : 'Unavailable'}
-                            </Badge>
+                            </span>
                             <Button
                               size="sm"
                               variant="ghost"
@@ -1349,4 +1350,12 @@ const VendorOrdersTab = ({ vendor }) => {
 );
 };
 
-export default VendorPortal;
+// Ensure proper default export for React.lazy compatibility
+const VendorPortalComponent = VendorPortal;
+
+// Validate export before exporting
+if (typeof VendorPortalComponent !== 'function') {
+  console.error('VendorPortal: Invalid component export - expected function, got:', typeof VendorPortalComponent);
+}
+
+export default VendorPortalComponent;

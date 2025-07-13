@@ -55,19 +55,50 @@ const createLazyComponent = (importFn, componentName) => {
   return React.lazy(() => 
     importFn().catch(error => {
       console.error(`Failed to load ${componentName}:`, error);
+      console.error('Error details:', {
+        message: error?.message,
+        stack: error?.stack,
+        name: error?.name,
+        componentName,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Log additional debugging information
+      if (error?.message?.includes('404')) {
+        console.error(`File not found: Check if ${componentName} exists in the correct path`);
+      }
+      if (error?.message?.includes('SyntaxError')) {
+        console.error(`Syntax error in ${componentName}: Check for JavaScript syntax issues`);
+      }
+      if (error?.message?.includes('import')) {
+        console.error(`Import error in ${componentName}: Check import statements and exports`);
+      }
+      
       // Return a fallback component instead of failing
       return {
         default: () => (
           <div className="flex items-center justify-center min-h-[400px]">
-            <div className="text-center p-8">
+            <div className="text-center p-8 max-w-md mx-auto">
               <h2 className="text-xl font-semibold text-gray-800 mb-4">Component Unavailable</h2>
               <p className="text-gray-600 mb-4">The {componentName} component could not be loaded.</p>
-              <button
-                onClick={() => window.location.reload()}
-                className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90"
-              >
-                Refresh Page
-              </button>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-left">
+                <p className="text-sm text-red-700 font-medium mb-1">Error Details:</p>
+                <p className="text-xs text-red-600 break-all">{error?.message || 'Unknown error'}</p>
+              </div>
+              <div className="flex flex-col space-y-2">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90"
+                >
+                  Refresh Page
+                </button>
+                <button
+                  onClick={() => console.log('Full error object:', error)}
+                  className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200 text-sm"
+                >
+                  Log Error to Console
+                </button>
+              </div>
             </div>
           </div>
         )
