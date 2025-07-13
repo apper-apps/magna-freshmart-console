@@ -506,10 +506,11 @@ const handleWalletAction = async (action, amount = 0) => {
 const quickActions = [
     // Critical Priority
     { label: 'Payment Verification', path: '/admin/payments?tab=verification', icon: 'Shield', color: 'from-orange-500 to-red-500', notificationKey: 'verification', priority: 'critical' },
+    { label: 'Order Summary', path: '/order-summary', icon: 'Clipboard', color: 'from-blue-500 to-indigo-500', notificationKey: 'orderSummary', priority: 'critical' },
     { label: 'View Orders', path: '/orders', icon: 'ShoppingCart', color: 'from-purple-500 to-pink-500', notificationKey: 'orders', priority: 'critical' },
     { label: 'POS Terminal', path: '/admin/pos', icon: 'Calculator', color: 'from-green-500 to-emerald-500', notificationKey: 'pos', priority: 'critical' },
     
-    // High Priority  
+    // High Priority
     { label: 'Financial Dashboard', path: '/admin/financial-dashboard', icon: 'DollarSign', color: 'from-emerald-500 to-teal-500', notificationKey: 'financial', priority: 'high' },
     { label: 'Payment Management', path: '/admin/payments', icon: 'CreditCard', color: 'from-teal-500 to-cyan-500', notificationKey: 'payments', priority: 'high' },
     { label: 'Delivery Tracking', path: '/admin/delivery-dashboard', icon: 'MapPin', color: 'from-indigo-500 to-purple-500', notificationKey: 'delivery', priority: 'high' },
