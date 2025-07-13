@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
 import { useDispatch, useSelector } from "react-redux";
@@ -14,7 +14,7 @@ import Loading from "@/components/ui/Loading";
 import Orders from "@/components/pages/Orders";
 import { orderService } from "@/services/api/orderService";
 import { approvalWorkflowService } from "@/services/api/approvalWorkflowService";
-import webSocketService from "@/services/api/websocketService";
+import webSocketService, { webSocketService } from "@/services/api/websocketService";
 import { reportService } from "@/services/api/reportService";
 import { vendorService } from "@/services/api/vendorService";
 import { productService } from "@/services/api/productService";
@@ -23,6 +23,7 @@ import { paymentService } from "@/services/api/paymentService";
 
 const AdminDashboard = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const notificationCounts = useSelector(state => state.notifications.counts);
   const pendingApprovals = useSelector(selectPendingApprovals);
   const approvalLoading = useSelector(selectApprovalLoading);
@@ -217,13 +218,53 @@ const stopAutoRefresh = () => {
     }
   }, [dispatch]);
 
-  const handleTabClick = useCallback((path) => {
+const handleTabClick = useCallback((path) => {
     const notificationKey = notificationService.getNotificationKey(path);
     if (notificationKey && notificationCounts[notificationKey] > 0) {
       dispatch(resetCount({ key: notificationKey }));
       notificationService.markAsRead(notificationKey);
     }
   }, [dispatch, notificationCounts]);
+
+  const handleOrderSummaryClick = useCallback(() => {
+    // Navigate to Order Summary with proper orderId parameter
+    if (recentOrders && recentOrders.length > 0) {
+      // Navigate to the most recent order's summary
+      const mostRecentOrderId = recentOrders[0]?.id;
+      if (mostRecentOrderId) {
+        console.log('AdminDashboard: Navigating to Order Summary for order ID:', mostRecentOrderId);
+        navigate(`/order-summary/${mostRecentOrderId}`);
+        
+        // Clear notification count
+        const notificationKey = notificationService.getNotificationKey('/order-summary');
+        if (notificationKey && notificationCounts[notificationKey] > 0) {
+          dispatch(resetCount({ key: notificationKey }));
+          notificationService.markAsRead(notificationKey);
+        }
+        
+        toast.success(`Opening summary for Order #${mostRecentOrderId}`);
+      } else {
+        console.warn('AdminDashboard: Recent order found but missing ID');
+        toast.error('Unable to open order summary - order ID missing');
+      }
+    } else if (sortedOrders && sortedOrders.length > 0) {
+      // Fallback to any available order
+      const fallbackOrderId = sortedOrders[0]?.id;
+      if (fallbackOrderId) {
+        console.log('AdminDashboard: Using fallback order for summary:', fallbackOrderId);
+        navigate(`/order-summary/${fallbackOrderId}`);
+        toast.info(`Opening summary for Order #${fallbackOrderId}`);
+      } else {
+        console.warn('AdminDashboard: Fallback order found but missing ID');
+        toast.error('Unable to open order summary - no valid order ID found');
+      }
+    } else {
+      // No orders available - redirect to orders page
+      console.log('AdminDashboard: No orders available, redirecting to orders page');
+      navigate('/orders');
+      toast.info('No orders available. Please create an order first.');
+    }
+  }, [recentOrders, sortedOrders, navigate, dispatch, notificationCounts]);
 
   // Setup polling for notification counts
 // Setup polling for notification counts
@@ -506,7 +547,7 @@ const handleWalletAction = async (action, amount = 0) => {
 const quickActions = [
     // Critical Priority
     { label: 'Payment Verification', path: '/admin/payments?tab=verification', icon: 'Shield', color: 'from-orange-500 to-red-500', notificationKey: 'verification', priority: 'critical' },
-    { label: 'Order Summary', path: '/order-summary', icon: 'Clipboard', color: 'from-blue-500 to-indigo-500', notificationKey: 'orderSummary', priority: 'critical' },
+    { label: 'Order Summary', path: '/order-summary', icon: 'Clipboard', color: 'from-blue-500 to-indigo-500', notificationKey: 'orderSummary', priority: 'critical', isAction: true },
     { label: 'View Orders', path: '/orders', icon: 'ShoppingCart', color: 'from-purple-500 to-pink-500', notificationKey: 'orders', priority: 'critical' },
     { label: 'POS Terminal', path: '/admin/pos', icon: 'Calculator', color: 'from-green-500 to-emerald-500', notificationKey: 'pos', priority: 'critical' },
     
@@ -628,10 +669,16 @@ const priorityConfig = {
               const priorityInfo = priorityConfig[action.priority];
               
               return (
-                action.isAction ? (
+action.isAction ? (
                   <button
                     key={action.path}
-                    onClick={() => action.path === '#vendor-control' && setShowVendorControl(!showVendorControl)}
+                    onClick={() => {
+                      if (action.path === '#vendor-control') {
+                        setShowVendorControl(!showVendorControl);
+                      } else if (action.path === '/order-summary') {
+                        handleOrderSummaryClick();
+                      }
+                    }}
                     className="group w-full text-left"
                   >
                     <div className="relative p-4 rounded-lg border border-gray-200 hover:border-primary hover:shadow-md transition-all duration-200">
