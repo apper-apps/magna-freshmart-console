@@ -4,11 +4,10 @@ import storage from "redux-persist/lib/storage";
 import cartSlice from "./cartSlice";
 import notificationSlice from "./notificationSlice";
 import approvalWorkflowSlice from "./approvalWorkflowSlice";
-
 const persistConfig = {
   key: 'root',
   storage,
-  whitelist: ['cart', 'approvalWorkflow'] // Persist cart and approval workflow state
+  whitelist: ['cart', 'approvalWorkflow', 'priceVisibility'] // Persist cart, approval workflow, and price visibility state
 };
 
 const rootReducer = combineReducers({
@@ -30,9 +29,9 @@ export const store = configureStore({
           'approvalWorkflow/setConnectionStatus',
           'approvalWorkflow/addRealTimeNotification'
 ]
-      }
+}
     }),
-  devTools: typeof process !== 'undefined' && process.env.NODE_ENV !== 'production'
+  devTools: typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production'
 });
 
 export const persistor = persistStore(store);

@@ -902,6 +902,177 @@ async getPendingAvailabilityRequests() {
     
     this.orders[orderIndex] = order;
     return { ...order };
+}
+
+  // Enhanced Price Summary Data Retrieval with Role-Based Filtering
+  async getPriceSummaryData(orderId, options = {}) {
+    try {
+      await this.delay();
+      
+      const order = await this.getById(parseInt(orderId));
+      if (!order || !order.items) {
+        throw new Error(`Order #${orderId} not found or has no items`);
+      }
+
+      const { userRole = 'customer', vendorId = null, includeCategories = true, includeVendorBreakdown = true } = options;
+      
+      // Security: Customers cannot access cost prices
+      const canViewCostPrices = userRole === 'admin' || userRole === 'vendor';
+      
+      console.log('OrderService.getPriceSummaryData: Loading price data for order:', orderId, 'Role:', userRole);
+
+      // Enhanced price data with mock cost prices
+      const enhancedItems = order.items.map(item => {
+        const costPrice = canViewCostPrices ? this.generateCostPrice(item.price) : null;
+        const margin = canViewCostPrices ? item.price - costPrice : null;
+        const marginPercentage = canViewCostPrices && costPrice > 0 ? ((margin / costPrice) * 100).toFixed(1) : null;
+
+        return {
+          ...item,
+          costPrice: costPrice,
+          sellingPrice: item.price,
+          margin: margin,
+          marginPercentage: marginPercentage,
+          profitPerUnit: margin,
+          totalCost: canViewCostPrices ? costPrice * item.quantity : null,
+          totalSelling: item.price * item.quantity,
+          totalProfit: canViewCostPrices ? margin * item.quantity : null,
+          vendorId: item.productId % 3 + 1, // Simplified vendor assignment
+          vendor: this.getVendorName(item.productId % 3 + 1),
+          category: this.getItemCategory(item.name)
+        };
+      });
+
+      // Filter items for vendor users
+      const filteredItems = userRole === 'vendor' && vendorId 
+        ? enhancedItems.filter(item => item.vendorId === parseInt(vendorId))
+        : enhancedItems;
+
+      // Group by categories if requested
+      const categories = includeCategories ? this.groupPricesByCategory(filteredItems) : {};
+      
+      // Calculate totals
+      const totalCost = canViewCostPrices ? filteredItems.reduce((sum, item) => sum + (item.totalCost || 0), 0) : null;
+      const totalSelling = filteredItems.reduce((sum, item) => sum + item.totalSelling, 0);
+      const totalProfit = canViewCostPrices ? filteredItems.reduce((sum, item) => sum + (item.totalProfit || 0), 0) : null;
+      const totalItems = filteredItems.length;
+      const averageMargin = canViewCostPrices && totalCost > 0 ? ((totalProfit / totalCost) * 100).toFixed(1) : null;
+
+      const priceSummaryData = {
+        orderId: order.id,
+        orderStatus: order.status,
+        paymentStatus: order.paymentStatus,
+        userRole: userRole,
+        canViewCostPrices: canViewCostPrices,
+        totalCost: totalCost,
+        totalSelling: totalSelling,
+        totalProfit: totalProfit,
+        totalItems: totalItems,
+        averageMargin: averageMargin,
+        deliveryCharge: order.deliveryCharge || 0,
+        grandTotal: totalSelling + (order.deliveryCharge || 0),
+        categories: categories,
+        items: filteredItems,
+        generatedAt: new Date().toISOString()
+      };
+
+      console.log('OrderService.getPriceSummaryData: Generated price summary:', {
+        orderId: orderId,
+        totalItems: totalItems,
+        canViewCostPrices: canViewCostPrices,
+        totalSelling: totalSelling,
+        categoriesCount: Object.keys(categories).length
+      });
+
+      return priceSummaryData;
+
+    } catch (error) {
+      console.error('OrderService.getPriceSummaryData: Error loading price summary:', error);
+      
+      if (error.message.includes('not found')) {
+        throw new Error(`Order #${orderId} not found`);
+      } else if (error.message.includes('network')) {
+        throw new Error('Network error loading price summary. Please try again.');
+      } else {
+        throw new Error('Unable to load price summary. Please try again later.');
+      }
+    }
+  }
+
+  // Generate realistic cost prices (typically 60-80% of selling price)
+  generateCostPrice(sellingPrice) {
+    const costRatio = 0.65 + (Math.random() * 0.15); // 65-80% cost ratio
+    return Math.round(sellingPrice * costRatio * 100) / 100;
+  }
+
+  // Group enhanced price data by categories
+  groupPricesByCategory(items) {
+    const grouped = {};
+    
+    items.forEach(item => {
+      const category = item.category;
+      
+      if (!grouped[category]) {
+        grouped[category] = {
+          totalCost: 0,
+          totalSelling: 0,
+          totalProfit: 0,
+          totalItems: 0,
+          vendorData: {}
+        };
+      }
+      
+      const categoryData = grouped[category];
+      const vendorName = item.vendor;
+      
+      // Initialize vendor data if not exists
+      if (!categoryData.vendorData[vendorName]) {
+        categoryData.vendorData[vendorName] = {
+          vendorId: item.vendorId,
+          totalCost: 0,
+          totalSelling: 0,
+          totalProfit: 0,
+          items: []
+        };
+      }
+      
+      const vendorData = categoryData.vendorData[vendorName];
+      
+      // Add item to vendor
+      vendorData.items.push(item);
+      vendorData.totalCost += item.totalCost || 0;
+      vendorData.totalSelling += item.totalSelling;
+      vendorData.totalProfit += item.totalProfit || 0;
+      
+      // Add to category totals
+      categoryData.totalCost += item.totalCost || 0;
+      categoryData.totalSelling += item.totalSelling;
+      categoryData.totalProfit += item.totalProfit || 0;
+      categoryData.totalItems += 1;
+    });
+    
+    return grouped;
+  }
+
+  // Get item category for price grouping
+  getItemCategory(itemName) {
+    const name = itemName.toLowerCase();
+    if (name.includes('rice') || name.includes('flour') || name.includes('wheat')) {
+      return 'Grains & Cereals';
+    }
+    if (name.includes('meat') || name.includes('chicken') || name.includes('mutton') || name.includes('beef')) {
+      return 'Meat & Poultry';
+    }
+    if (name.includes('apple') || name.includes('mango') || name.includes('banana') || name.includes('orange') || name.includes('fruit')) {
+      return 'Fruits';
+    }
+    if (name.includes('tomato') || name.includes('potato') || name.includes('onion') || name.includes('vegetable')) {
+      return 'Vegetables';
+    }
+    if (name.includes('milk') || name.includes('cheese') || name.includes('yogurt') || name.includes('dairy')) {
+      return 'Dairy Products';
+    }
+    return 'Other Items';
   }
 }
 export const orderService = new OrderService();

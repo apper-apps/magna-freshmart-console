@@ -172,10 +172,101 @@
 .quantity-change {
   animation: quantity-pulse 0.3s ease-in-out;
 }
+.quantity-change {
+  animation: quantity-pulse 0.3s ease-in-out;
+}
 
 /* Button Hover Enhancements */
 .btn-quantity {
   @apply transition-all duration-200 hover:scale-110;
+}
+
+/* Price Summary Tab Animations */
+.tab-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab-content-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.tab-content-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Price Visibility Animations */
+.price-reveal {
+  animation: price-fade-in 0.5s ease-out;
+}
+
+.price-hide {
+  animation: price-fade-out 0.3s ease-in;
+}
+
+@keyframes price-fade-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes price-fade-out {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+/* Secure Price Masking */
+.price-masked {
+  background: repeating-linear-gradient(
+    45deg,
+    #f3f4f6,
+    #f3f4f6 4px,
+    #e5e7eb 4px,
+    #e5e7eb 8px
+  );
+  color: transparent;
+  border-radius: 4px;
+  position: relative;
+}
+
+.price-masked::after {
+  content: "Hidden";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #6b7280;
+  font-style: italic;
+  font-size: 0.875rem;
+}
+
+/* Price Summary Responsive Layout */
+@media (max-width: 768px) {
+  .price-summary-table {
+    font-size: 0.75rem;
+  }
+  
+  .price-summary-controls {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .price-visibility-toggle {
+    justify-content: center;
+  }
 }
 
 /* Mobile Responsive Enhancements */
@@ -183,7 +274,8 @@
   .cart-item {
     @apply flex-col space-y-3;
   }
-.cart-item-controls {
-    @apply justify-between w-full;
+  
+  .cart-item-controls {
+    @apply flex justify-center mt-2;
   }
 }
