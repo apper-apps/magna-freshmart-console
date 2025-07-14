@@ -323,11 +323,12 @@ addNewApprovalRequest: (state, action) => {
             adj => adj.requestId === requestId
           );
           
-          if (adjustmentIndex !== -1) {
+if (adjustmentIndex !== -1) {
             const adjustment = state.walletIntegration.pendingAdjustments[adjustmentIndex];
             state.walletIntegration.holdingBalance -= adjustment.holdAmount;
             state.walletIntegration.pendingAdjustments.splice(adjustmentIndex, 1);
-// Record wallet transaction
+            
+            // Record wallet transaction
             state.walletIntegration.walletTransactions.unshift({
               Id: state.walletIntegration.walletTransactions.length + 1,
               requestId,
@@ -375,11 +376,11 @@ addNewApprovalRequest: (state, action) => {
         );
         
         if (adjustmentIndex !== -1) {
-          const adjustment = state.walletIntegration.pendingAdjustments[adjustmentIndex];
+const adjustment = state.walletIntegration.pendingAdjustments[adjustmentIndex];
           state.walletIntegration.holdingBalance -= adjustment.holdAmount;
           state.walletIntegration.pendingAdjustments.splice(adjustmentIndex, 1);
           
-// Record wallet transaction for rejection
+          // Record wallet transaction for rejection
           state.walletIntegration.walletTransactions.unshift({
             Id: state.walletIntegration.walletTransactions.length + 1,
             requestId,
