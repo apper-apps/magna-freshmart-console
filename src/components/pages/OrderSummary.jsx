@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
-import { formatCurrency } from "@/utils/currency";
+import formatCurrency from "@/utils/currency";
 import ApperIcon from "@/components/ApperIcon";
 import Badge from "@/components/atoms/Badge";
 import Button from "@/components/atoms/Button";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
+import Orders from "@/components/pages/Orders";
+import Home from "@/components/pages/Home";
 import { orderService } from "@/services/api/orderService";
 
 const OrderSummary = () => {
@@ -27,9 +29,13 @@ const OrderSummary = () => {
     showCostPrices: false,
     showSellingPrices: true
   });
-  const [priceSummaryData, setPriceSummaryData] = useState(null);
+const [priceSummaryData, setPriceSummaryData] = useState(null);
   const [priceSummaryLoading, setPriceSummaryLoading] = useState(false);
-useEffect(() => {
+  const [isLoadingPrices, setIsLoadingPrices] = useState(false);
+  const [priceError, setPriceError] = useState(null);
+  const [priceSummary, setPriceSummary] = useState(null);
+
+  useEffect(() => {
     loadOrderSummary();
     loadUserRole();
     loadPriceVisibilityPreferences();
@@ -190,19 +196,19 @@ const loadOrderSummary = async () => {
       if (!orderData.total || orderData.total <= 0) {
         console.warn(`Order ${numericOrderId} has invalid total, calculating from items`);
         orderData.total = orderData.items.reduce((sum, item) => 
+orderData.total = orderData.items.reduce((sum, item) => 
           sum + ((item.price || 0) * (item.quantity || 0)), 0) + (orderData.deliveryCharge || 0);
       }
 
-      console.log('OrderSummary: Successfully loaded order data:', {
+      // Set order data with validated structure
+      setOrder(orderData);
+      console.log('OrderSummary: Order data loaded successfully:', {
         orderId: orderData.id,
         itemCount: orderData.items?.length || 0,
-        total: orderData.total,
-        status: orderData.status
+        total: orderData.total
       });
 
-      setOrder(orderData);
-      
-      // Load vendor availability data with error recovery
+      // Load vendor availability data if available
       try {
         if (orderData.vendor_availability) {
           setVendorAvailability(orderData.vendor_availability);
@@ -212,11 +218,31 @@ const loadOrderSummary = async () => {
         // Don't fail the entire load for vendor data
       }
 
-// Load price summary data if on price summary tab
+      // Load price summary data if on price summary tab
       if (activeTab === 'price-summary') {
         await loadPriceSummary();
       }
-      toast.success('Order summary loaded successfully');
+
+    } catch (error) {
+      console.error('OrderSummary: Critical error loading order summary:', {
+        orderId: numericOrderId,
+        error: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
+      });
+      
+      const errorMessage = error.message || 'Failed to load order summary';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      
+      // Additional error reporting for debugging
+      if (error.name === 'TypeError') {
+        console.error('OrderSummary: Possible service or data structure issue');
+      }
+      if (error.message.includes('fetch') || error.message.includes('network')) {
+        console.error('OrderSummary: Network or API issue detected');
+      }
+toast.success('Order summary loaded successfully');
 
     } catch (error) {
       console.error('OrderSummary: Critical error loading order summary:', {
@@ -241,7 +267,6 @@ const loadOrderSummary = async () => {
       setLoading(false);
     }
   };
-
   const groupItemsByVendor = (items) => {
     const grouped = {};
     
@@ -1020,11 +1045,12 @@ if (!order) {
                 </div>
               </div>
             </div>
-          </div>
-)}
+</div>
+        )}
       </div>
     </div>
   );
 };
 
+export default OrderSummary;
 export default OrderSummary;
