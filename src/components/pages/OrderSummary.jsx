@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import { formatCurrency } from "@/utils/currency";
 import ApperIcon from "@/components/ApperIcon";
-import Button from "@/components/atoms/Button";
 import Badge from "@/components/atoms/Badge";
+import Button from "@/components/atoms/Button";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
+import Orders from "@/components/pages/Orders";
+import Home from "@/components/pages/Home";
 import { orderService } from "@/services/api/orderService";
 
 const OrderSummary = () => {
@@ -17,7 +19,9 @@ const OrderSummary = () => {
   const [error, setError] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [vendorAvailability, setVendorAvailability] = useState({});
-
+  const [expandedVendor, setExpandedVendor] = useState(null);
+  const [vendorItemsLoading, setVendorItemsLoading] = useState(false);
+  const [vendorItems, setVendorItems] = useState({});
   useEffect(() => {
     loadOrderSummary();
   }, [orderId]);
@@ -192,8 +196,7 @@ const loadOrderSummary = async () => {
     if (!availability) return 'pending';
     return availability.available ? 'available' : 'unavailable';
   };
-
-  const getAvailabilityBadge = (status) => {
+const getAvailabilityBadge = (status) => {
     const statusConfig = {
       available: { variant: 'success', label: 'Available', icon: 'CheckCircle' },
       unavailable: { variant: 'danger', label: 'Unavailable', icon: 'XCircle' },
@@ -210,7 +213,38 @@ const loadOrderSummary = async () => {
     );
   };
 
-  if (loading) {
+  const handleVendorSwipe = async (vendorName, vendorData) => {
+    try {
+      setVendorItemsLoading(true);
+      
+      // Toggle expansion
+      if (expandedVendor === vendorName) {
+        setExpandedVendor(null);
+        return;
+      }
+
+      setExpandedVendor(vendorName);
+      
+      // Load vendor items if not already loaded
+      if (!vendorItems[vendorName]) {
+        const vendorItemsData = await orderService.getVendorItems(orderId, vendorData.vendorId);
+        setVendorItems(prev => ({
+          ...prev,
+          [vendorName]: vendorItemsData
+        }));
+        toast.success(`Loaded ${vendorItemsData.totalItems} items from ${vendorName}`);
+      }
+      
+    } catch (error) {
+      console.error('Failed to load vendor items:', error);
+      toast.error('Failed to load vendor items: ' + error.message);
+      setExpandedVendor(null);
+    } finally {
+      setVendorItemsLoading(false);
+    }
+  };
+
+if (loading) {
     return <Loading type="page" />;
   }
 
@@ -337,38 +371,76 @@ if (!order) {
                     
                     {/* Vendors for this category */}
                     <div className="divide-y divide-gray-200">
-                      {Object.entries(vendors).map(([vendorName, vendorData]) => (
+{Object.entries(vendors).map(([vendorName, vendorData]) => (
                         <div key={vendorName} className="vendor-section">
-                          {/* Mobile: Swipeable vendor sections */}
+                          {/* Mobile: Enhanced Swipeable vendor sections */}
                           <div className="md:hidden">
-                            <div className="bg-blue-50 px-4 py-3 flex items-center justify-between">
+                            <div 
+                              className="bg-blue-50 px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-blue-100 transition-colors"
+                              onClick={() => handleVendorSwipe(vendorName, vendorData)}
+                            >
                               <div className="flex items-center space-x-2">
                                 <ApperIcon name="Store" size={16} className="text-blue-600" />
                                 <span className="font-medium text-blue-900">{vendorName}</span>
+                                <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
+                                  {vendorData.items.length} items
+                                </span>
                               </div>
-                              <div className="text-sm text-blue-700 font-medium">
-                                Swipe to see items →
+                              <div className="flex items-center space-x-2">
+                                {vendorItemsLoading && expandedVendor === vendorName ? (
+                                  <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                ) : (
+                                  <ApperIcon 
+                                    name={expandedVendor === vendorName ? "ChevronUp" : "ChevronRight"} 
+                                    size={16} 
+                                    className="text-blue-600 transition-transform duration-200" 
+                                  />
+                                )}
+                                <span className="text-sm text-blue-700 font-medium">
+                                  {expandedVendor === vendorName ? "Hide items" : "Swipe to see items"}
+                                </span>
                               </div>
                             </div>
-                            <div className="overflow-x-auto">
-                              <div className="flex space-x-4 p-4" style={{ width: `${vendorData.items.length * 280}px` }}>
-                                {vendorData.items.map((item) => (
-                                  <div key={item.productId} className="flex-shrink-0 w-64 bg-white border rounded-lg p-4">
-                                    <div className="flex justify-between items-start mb-2">
-                                      <h4 className="font-medium text-gray-900 text-sm">{item.name}</h4>
-                                      {isAdmin && getAvailabilityBadge(getAvailabilityStatus(item.productId, vendorData.vendorId))}
+                            
+                            {/* Enhanced Mobile Item Display */}
+                            {expandedVendor === vendorName && (
+                              <div className="overflow-x-auto bg-gray-50">
+                                <div className="flex space-x-4 p-4" style={{ width: `${vendorData.items.length * 280}px` }}>
+                                  {vendorData.items.map((item) => (
+                                    <div key={item.productId} className="flex-shrink-0 w-64 bg-white border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+                                      <div className="flex justify-between items-start mb-2">
+                                        <h4 className="font-medium text-gray-900 text-sm leading-tight">{item.name}</h4>
+                                        {isAdmin && getAvailabilityBadge(getAvailabilityStatus(item.productId, vendorData.vendorId))}
+                                      </div>
+                                      <div className="space-y-1 text-sm text-gray-600">
+                                        <p className="flex justify-between">
+                                          <span>Qty:</span>
+                                          <span className="font-medium">{item.quantity} {item.unit}</span>
+                                        </p>
+                                        <p className="flex justify-between">
+                                          <span>Price:</span>
+                                          <span className="font-medium">{formatCurrency(item.price)}</span>
+                                        </p>
+                                        <div className="border-t pt-1 mt-2">
+                                          <p className="flex justify-between font-medium text-gray-900">
+                                            <span>Total:</span>
+                                            <span className="text-primary">{formatCurrency(item.price * item.quantity)}</span>
+                                          </p>
+                                        </div>
+                                      </div>
                                     </div>
-                                    <div className="space-y-1 text-sm text-gray-600">
-                                      <p>Qty: {item.quantity} {item.unit}</p>
-                                      <p>Price: {formatCurrency(item.price)}</p>
-                                      <p className="font-medium text-gray-900">
-                                        Total: {formatCurrency(item.price * item.quantity)}
-                                      </p>
+                                  ))}
+                                </div>
+                                <div className="px-4 pb-3">
+                                  <div className="bg-white rounded-lg p-3 border">
+                                    <div className="flex justify-between items-center">
+                                      <span className="text-sm text-gray-600">Vendor Total:</span>
+                                      <span className="font-semibold text-primary">{formatCurrency(vendorData.total)}</span>
                                     </div>
                                   </div>
-                                ))}
+                                </div>
                               </div>
-                            </div>
+                            )}
                           </div>
 
                           {/* Desktop: Standard layout */}

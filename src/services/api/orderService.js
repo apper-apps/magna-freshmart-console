@@ -630,6 +630,92 @@ async getPendingAvailabilityRequests() {
     return order.vendor_availability || {};
   }
 
+// Enhanced Vendor Item Management for Order Summary Display
+  async getVendorItems(orderId, vendorId) {
+    try {
+      await this.delay();
+      
+      console.log('OrderService.getVendorItems: Loading items for order:', orderId, 'vendor:', vendorId);
+      
+      const order = await this.getById(parseInt(orderId));
+      if (!order || !order.items) {
+        throw new Error(`Order #${orderId} not found or has no items`);
+      }
+
+      // Filter items for the specific vendor
+      const vendorItems = order.items.filter(item => {
+        const itemVendorId = item.productId % 3 + 1; // Simplified vendor assignment
+        return itemVendorId === parseInt(vendorId);
+      });
+
+      // Enhance items with vendor-specific data
+      const enhancedItems = vendorItems.map(item => ({
+        ...item,
+        vendorId: parseInt(vendorId),
+        vendor: this.getVendorName(parseInt(vendorId)),
+        status: this.getItemAvailabilityStatus(order, item.productId, parseInt(vendorId)),
+        estimatedPreparationTime: this.calculatePreparationTime(item),
+        qualityGrade: this.getQualityGrade(item),
+        lastUpdated: new Date().toISOString()
+      }));
+
+      console.log('OrderService.getVendorItems: Found', enhancedItems.length, 'items for vendor', vendorId);
+      
+      return {
+        vendor: this.getVendorName(parseInt(vendorId)),
+        vendorId: parseInt(vendorId),
+        items: enhancedItems,
+        totalItems: enhancedItems.length,
+        vendorTotal: enhancedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
+        lastUpdated: new Date().toISOString()
+      };
+
+    } catch (error) {
+      console.error('OrderService.getVendorItems: Error loading vendor items:', error);
+      
+      if (error.message.includes('not found')) {
+        throw new Error(`Order #${orderId} not found`);
+      } else if (error.message.includes('network')) {
+        throw new Error('Network error loading vendor items. Please try again.');
+      } else {
+        throw new Error('Unable to load vendor items. Please try again later.');
+      }
+    }
+  }
+
+  getVendorName(vendorId) {
+    const vendors = {
+      1: 'Fresh Foods Co.',
+      2: 'Premium Grocers', 
+      3: 'Organic Market'
+    };
+    return vendors[vendorId] || 'Unknown Vendor';
+  }
+
+  getItemAvailabilityStatus(order, productId, vendorId) {
+    if (!order.vendor_availability) return 'pending';
+    
+    const availabilityKey = `${productId}_${vendorId}`;
+    const availability = order.vendor_availability[availabilityKey];
+    
+    if (!availability) return 'pending';
+    return availability.available ? 'available' : 'unavailable';
+  }
+
+  calculatePreparationTime(item) {
+    // Simple preparation time calculation based on item type
+    const baseTime = 15; // 15 minutes base
+    const quantityFactor = Math.ceil(item.quantity / 5) * 5; // 5 min per 5 units
+    return `${baseTime + quantityFactor} mins`;
+  }
+
+  getQualityGrade(item) {
+    // Mock quality grades
+    const grades = ['Premium', 'Standard', 'Economy'];
+    const gradeIndex = item.productId % 3;
+    return grades[gradeIndex];
+  }
+
   delay() {
     return new Promise(resolve => setTimeout(resolve, 400));
   }
