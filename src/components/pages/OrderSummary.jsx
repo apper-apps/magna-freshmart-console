@@ -192,11 +192,10 @@ const loadOrderSummary = async () => {
         orderData.items = [];
       }
 
-      // Validate order totals and set defaults if missing
+// Validate order totals and set defaults if missing
       if (!orderData.total || orderData.total <= 0) {
         console.warn(`Order ${numericOrderId} has invalid total, calculating from items`);
         orderData.total = orderData.items.reduce((sum, item) => 
-orderData.total = orderData.items.reduce((sum, item) => 
           sum + ((item.price || 0) * (item.quantity || 0)), 0) + (orderData.deliveryCharge || 0);
       }
 
@@ -223,26 +222,7 @@ orderData.total = orderData.items.reduce((sum, item) =>
         await loadPriceSummary();
       }
 
-    } catch (error) {
-      console.error('OrderSummary: Critical error loading order summary:', {
-        orderId: numericOrderId,
-        error: error.message,
-        stack: error.stack,
-        timestamp: new Date().toISOString()
-      });
-      
-      const errorMessage = error.message || 'Failed to load order summary';
-      setError(errorMessage);
-      toast.error(errorMessage);
-      
-      // Additional error reporting for debugging
-      if (error.name === 'TypeError') {
-        console.error('OrderSummary: Possible service or data structure issue');
-      }
-      if (error.message.includes('fetch') || error.message.includes('network')) {
-        console.error('OrderSummary: Network or API issue detected');
-      }
-toast.success('Order summary loaded successfully');
+      toast.success('Order summary loaded successfully');
 
     } catch (error) {
       console.error('OrderSummary: Critical error loading order summary:', {
@@ -1052,5 +1032,4 @@ if (!order) {
   );
 };
 
-export default OrderSummary;
 export default OrderSummary;
