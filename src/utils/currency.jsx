@@ -93,7 +93,113 @@ export const formatCurrencyChange = (oldValue, newValue) => {
     percentage,
     formatted: `${percentage > 0 ? '+' : ''}${percentage.toFixed(1)}%`,
     trend,
-    amount: formatCurrency(Math.abs(change))
+amount: formatCurrency(Math.abs(change))
+  };
+};
+
+/**
+ * Calculate profit margin percentage from cost and selling prices
+ * @param {number} costPrice - The cost/purchase price
+ * @param {number} sellingPrice - The selling price
+ * @returns {number} Profit margin as percentage
+ */
+export const calculateMargin = (costPrice, sellingPrice) => {
+  if (!costPrice || !sellingPrice || costPrice <= 0 || sellingPrice <= 0) {
+    return 0;
+  }
+  
+  const cost = typeof costPrice === 'string' ? parseCurrency(costPrice) : costPrice;
+  const selling = typeof sellingPrice === 'string' ? parseCurrency(sellingPrice) : sellingPrice;
+  
+  if (cost <= 0) return 0;
+  
+  return ((selling - cost) / cost) * 100;
+};
+
+/**
+ * Format margin percentage for display
+ * @param {number} margin - Margin percentage
+ * @param {object} options - Formatting options
+ * @returns {string} Formatted margin string
+ */
+export const formatMargin = (margin, options = {}) => {
+  const {
+    decimals = 1,
+    showSign = false,
+    fallback = '0%'
+  } = options;
+  
+  if (margin === null || margin === undefined || isNaN(margin)) {
+    return fallback;
+  }
+  
+  const numMargin = typeof margin === 'string' ? parseFloat(margin) : margin;
+  
+  if (isNaN(numMargin)) {
+    return fallback;
+  }
+  
+  const sign = showSign && numMargin > 0 ? '+' : '';
+  return `${sign}${numMargin.toFixed(decimals)}%`;
+};
+
+/**
+ * Calculate totals for cost prices, selling prices, and margins
+ * @param {Array} items - Array of items with cost and selling prices
+ * @param {object} options - Calculation options
+ * @returns {object} Totals breakdown
+ */
+export const calculateTotals = (items, options = {}) => {
+  const {
+    costField = 'purchasePrice',
+    sellingField = 'price',
+    quantityField = 'stock'
+  } = options;
+  
+  if (!Array.isArray(items) || items.length === 0) {
+    return {
+      totalCost: 0,
+      totalSelling: 0,
+      totalMargin: 0,
+      averageMargin: 0,
+      formattedTotalCost: formatCurrency(0),
+      formattedTotalSelling: formatCurrency(0),
+      formattedTotalMargin: formatCurrency(0),
+      formattedAverageMargin: formatMargin(0)
+    };
+  }
+  
+  let totalCost = 0;
+  let totalSelling = 0;
+  let validItemsCount = 0;
+  
+  items.forEach(item => {
+    if (!item) return;
+    
+    const costPrice = parseFloat(item[costField]) || 0;
+    const sellingPrice = parseFloat(item[sellingField]) || 0;
+    const quantity = parseFloat(item[quantityField]) || 1;
+    
+    if (costPrice > 0 && sellingPrice > 0) {
+      totalCost += costPrice * quantity;
+      totalSelling += sellingPrice * quantity;
+      validItemsCount++;
+    }
+  });
+  
+  const totalMargin = totalSelling - totalCost;
+  const averageMargin = totalCost > 0 ? (totalMargin / totalCost) * 100 : 0;
+  
+  return {
+    totalCost,
+    totalSelling,
+    totalMargin,
+    averageMargin,
+    formattedTotalCost: formatCurrency(totalCost),
+    formattedTotalSelling: formatCurrency(totalSelling),
+    formattedTotalMargin: formatCurrency(totalMargin),
+    formattedAverageMargin: formatMargin(averageMargin),
+    validItemsCount
   };
 };
 

@@ -199,15 +199,25 @@ const VendorDashboard = ({ vendor, onLogout, onProfileUpdate }) => {
     
     setLoading(true);
     setError(null);
-    
-    try {
+try {
       const [vendorProducts, vendorStats] = await Promise.all([
         productService.getVendorProducts(vendor.Id),
         productService.getVendorStats(vendor.Id)
       ]);
       
       setProducts(vendorProducts);
-      setStats(vendorStats);
+      
+      // Calculate enhanced stats with cost/selling/margin totals
+      const enhancedStats = {
+        ...vendorStats,
+        ...calculateTotals(vendorProducts, {
+          costField: 'purchasePrice',
+          sellingField: 'price',
+          quantityField: 'stock'
+        })
+      };
+      
+      setStats(enhancedStats);
     } catch (error) {
       console.error('Error loading vendor data:', error);
       setError(error.message);
@@ -215,6 +225,43 @@ const VendorDashboard = ({ vendor, onLogout, onProfileUpdate }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Calculate totals for vendor products
+  const calculateTotals = (products, fields) => {
+    if (!products || products.length === 0) {
+      return {
+        totalCost: 0,
+        totalSellingValue: 0,
+        totalMargin: 0,
+        averageMargin: 0
+      };
+    }
+
+    const totals = products.reduce((acc, product) => {
+      const cost = product[fields.costField] || 0;
+      const selling = product[fields.sellingField] || 0;
+      const quantity = product[fields.quantityField] || 0;
+      
+      acc.totalCost += cost * quantity;
+      acc.totalSellingValue += selling * quantity;
+      acc.totalMargin += (selling - cost) * quantity;
+      
+      return acc;
+    }, {
+      totalCost: 0,
+      totalSellingValue: 0,
+      totalMargin: 0
+    });
+
+    const averageMargin = totals.totalCost > 0 
+      ? ((totals.totalSellingValue - totals.totalCost) / totals.totalCost) * 100 
+      : 0;
+
+    return {
+      ...totals,
+      averageMargin: Math.round(averageMargin * 100) / 100
+    };
   };
 
   const handleProductUpdate = async (productId, priceData) => {
