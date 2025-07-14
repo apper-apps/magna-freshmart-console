@@ -1,13 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { toast } from 'react-toastify';
-import ApperIcon from '@/components/ApperIcon';
-import Button from '@/components/atoms/Button';
-import Input from '@/components/atoms/Input';
-import Loading from '@/components/ui/Loading';
-import Error from '@/components/ui/Error';
-import Empty from '@/components/ui/Empty';
-import employeeService from '@/services/api/employeeService';
-
+import React, { useCallback, useEffect, useState } from "react";
+import { toast } from "react-toastify";
+import ApperIcon from "@/components/ApperIcon";
+import Button from "@/components/atoms/Button";
+import Input from "@/components/atoms/Input";
+import Empty from "@/components/ui/Empty";
+import Error from "@/components/ui/Error";
+import Loading from "@/components/ui/Loading";
+import employeeService from "@/services/api/employeeService";
 // Error Boundary Component
 class RoleAssignmentErrorBoundary extends React.Component {
   constructor(props) {
@@ -74,12 +73,13 @@ const fetchUsers = useCallback(async () => {
       // Fetch all employees using the correct method name
       const usersData = await employeeService.getAll();
       
-      // Add role information to users if not present
-      const usersWithRoles = usersData.map(user => ({
+      // Add role information to users if not present with defensive null checking
+      const usersWithRoles = (usersData || []).map(user => ({
         ...user,
-        role: user.role || 'user',
-        lastLogin: user.lastLogin || new Date().toISOString(),
-        status: user.status || 'active'
+        id: user.id || user.Id, // Normalize ID field
+        role: user?.role || 'user',
+        lastLogin: user?.lastLogin || new Date().toISOString(),
+        status: user?.status || 'active'
       }));
       
       setUsers(usersWithRoles);
@@ -89,8 +89,8 @@ const fetchUsers = useCallback(async () => {
       console.error('Failed to fetch users:', err);
       setError({
         title: 'Failed to Load Users',
-        message: err.message || 'Unable to fetch user data. Please try again.',
-        code: err.code || 'FETCH_ERROR'
+        message: err?.message || 'Unable to fetch user data. Please try again.',
+        code: err?.code || 'FETCH_ERROR'
       });
       
       // Simulate retry logic
@@ -125,13 +125,13 @@ const handleRoleUpdate = async (userId, newRole) => {
       // Use the new updateRole service method
       await employeeService.updateRole(userId, newRole);
       
-      // Update local state with correct Id field (capital I)
+      // Update local state with correct id field (normalized)
       const updatedUsers = users.map(user =>
-        user.Id === userId ? { ...user, role: newRole } : user
+        (user.id || user.Id) === userId ? { ...user, role: newRole } : user
       );
       setUsers(updatedUsers);
       
-      const roleLabel = availableRoles.find(r => r.value === newRole)?.label || newRole;
+      const roleLabel = availableRoles.find(r => r?.value === newRole)?.label || newRole;
       toast.success(`Role updated successfully to ${roleLabel}`);
     } catch (err) {
       console.error('Failed to update role:', err);
@@ -291,19 +291,19 @@ const handleRoleUpdate = async (userId, newRole) => {
                   
                   <div className="flex items-center space-x-3">
 <select
-                      value={user.role}
-                      onChange={(e) => handleRoleUpdate(user.Id, e.target.value)}
-                      disabled={updatingUserId === user.Id}
+                      value={user?.role || 'user'}
+                      onChange={(e) => handleRoleUpdate(user.id || user.Id, e.target.value)}
+                      disabled={updatingUserId === (user.id || user.Id)}
                       className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-accent disabled:opacity-50"
                     >
                       {availableRoles.map(role => (
-                        <option key={role.value} value={role.value}>
-                          {role.label}
+                        <option key={role?.value} value={role?.value}>
+                          {role?.label}
                         </option>
                       ))}
                     </select>
                     
-{updatingUserId === user.Id && (
+                    {updatingUserId === (user.id || user.Id) && (
                       <div className="flex items-center space-x-2">
                         <Loading type="spinner" size="sm" />
                         <span className="text-sm text-gray-500">Updating...</span>
@@ -328,3 +328,6 @@ const RoleAssignmentWithErrorBoundary = () => (
 );
 
 export default RoleAssignmentWithErrorBoundary;
+
+// Export both components for different use cases
+export { RoleAssignment };
