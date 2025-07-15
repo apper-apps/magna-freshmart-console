@@ -9,7 +9,7 @@ import Empty from "@/components/ui/Empty";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
-import clipboardService from "@/services/ClipboardService";
+import { clipboardService } from "@/services/ClipboardService";
 import { orderService } from "@/services/api/orderService";
 
 const Orders = () => {
@@ -507,7 +507,7 @@ const Orders = () => {
                       <span className="font-semibold text-purple-900">
                         {formatCurrency(order.walletTransaction.amount)}
                       </span>
-                  </div>
+                    </div>
                   </div>
                 </div>
               )}
