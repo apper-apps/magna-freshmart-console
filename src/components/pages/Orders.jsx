@@ -2,14 +2,14 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
-import formatCurrency from "@/utils/currency";
+import { formatCurrency } from "@/utils/currency";
 import ApperIcon from "@/components/ApperIcon";
 import Badge from "@/components/atoms/Badge";
 import Empty from "@/components/ui/Empty";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
-import clipboardService from "@/services/ClipboardService";
+import { clipboardService } from "@/services/ClipboardService";
 import { orderService } from "@/services/api/orderService";
 
 const Orders = () => {
@@ -375,14 +375,16 @@ const Orders = () => {
                           </div>
                         </div>
                       </div>
-                    </div>
+</div>
                   </div>
                 </div>
               </div>
             )}
-            {/* Order Items Preview */}
-            <div className="bg-gray-50 rounded-lg p-4 mb-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+            
+            <>
+              {/* Order Items Preview */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                 {order.items.slice(0, 3).map((item, index) => (
                   <div key={index} className="flex items-center space-x-2">
                     <span className="text-sm text-gray-600">{item.quantity}x</span>
