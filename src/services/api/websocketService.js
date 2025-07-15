@@ -1,5 +1,3 @@
-import React from "react";
-import Error from "@/components/ui/Error";
 class WebSocketService {
   constructor() {
     this.connection = null;
@@ -162,8 +160,8 @@ this.connection.onerror = (error) => {
         return {
           ...baseMessage,
           data: {
-            requestId: Math.floor(Math.random() * 10) + 1,
-status: ['approved', 'rejected'][Math.floor(Math.random() * 2)],
+requestId: Math.floor(Math.random() * 10) + 1,
+            status: ['approved', 'rejected'][Math.floor(Math.random() * 2)],
             actionBy: 'admin_user'
           }
         };
@@ -384,7 +382,7 @@ console.error('Max reconnection attempts reached, giving up');
     }, delay);
   }
 
-  // Safe error serialization to prevent DataCloneError
+// Safe error serialization to prevent DataCloneError
   serializeErrorSafely(error) {
     if (!error) return 'Unknown error';
     
@@ -436,8 +434,13 @@ console.error('Max reconnection attempts reached, giving up');
               continue;
             }
             
-            // Test if value can be cloned
-            structuredClone(value);
+            // Test if value can be cloned - with fallback for older browsers
+            if (typeof structuredClone === 'function') {
+              structuredClone(value);
+            } else {
+              // Fallback: try JSON serialization
+              JSON.stringify(value);
+            }
             serialized[key] = value;
           } catch (cloneError) {
             // If can't clone, convert to string
@@ -457,16 +460,112 @@ console.error('Max reconnection attempts reached, giving up');
         serializationError: serializationError.message,
         timestamp: new Date().toISOString()
       };
-    }
+}
   }
 
+  serializeMessageSafely(message) {
+    if (!message) return message;
+    
+    try {
+      // Handle primitive types
+      if (typeof message !== 'object' || message === null) {
+        return message;
+      }
+      
+      // Handle URL objects specifically
+      if (message instanceof URL) {
+        return {
+          type: 'URL',
+          href: message.href,
+          origin: message.origin,
+          pathname: message.pathname,
+          search: message.search,
+          hash: message.hash
+        };
+      }
+      
+      // Handle Date objects
+      if (message instanceof Date) {
+        return {
+          type: 'Date',
+          value: message.toISOString()
+        };
+      }
+      
+      // Handle Error objects
+      if (message instanceof Error) {
+        return this.serializeErrorSafely(message);
+      }
+      
+      // Handle arrays
+      if (Array.isArray(message)) {
+        return message.map(item => this.serializeMessageSafely(item));
+      }
+      
+      // Handle plain objects
+      const serialized = {};
+      for (const key in message) {
+        if (message.hasOwnProperty(key)) {
+          try {
+            const value = message[key];
+            
+            // Skip functions
+            if (typeof value === 'function') continue;
+            
+            // Skip DOM nodes
+            if (value instanceof Node) continue;
+            
+            // Skip Window objects
+            if (value instanceof Window) continue;
+            
+            // Handle URL objects
+            if (value instanceof URL) {
+              serialized[key] = {
+                type: 'URL',
+                href: value.href,
+                origin: value.origin,
+                pathname: value.pathname,
+                search: value.search,
+                hash: value.hash
+              };
+              continue;
+            }
+            
+            // Recursively serialize nested objects
+            if (typeof value === 'object' && value !== null) {
+              serialized[key] = this.serializeMessageSafely(value);
+            } else {
+              serialized[key] = value;
+            }
+          } catch (serializationError) {
+            // If serialization fails, convert to string
+            serialized[key] = String(message[key]);
+          }
+        }
+      }
+      
+      return serialized;
+    } catch (error) {
+      // Ultimate fallback
+      return {
+        error: 'Message serialization failed',
+        originalMessage: String(message),
+        serializationError: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
 // Safe message serialization
   serializeMessageSafely(message) {
     if (!message) return null;
     
     try {
-      // Test if message can be cloned
-      structuredClone(message);
+      // Test if message can be cloned - with fallback for older browsers
+      if (typeof structuredClone === 'function') {
+        structuredClone(message);
+      } else {
+        // Fallback: try JSON serialization
+        JSON.stringify(message);
+      }
       return message;
     } catch (error) {
       // If can't clone, sanitize the message
@@ -494,8 +593,12 @@ console.error('Max reconnection attempts reached, giving up');
               continue;
             }
             
-            // Test cloning
-            structuredClone(value);
+            // Test cloning with fallback
+            if (typeof structuredClone === 'function') {
+              structuredClone(value);
+            } else {
+              JSON.stringify(value);
+            }
             sanitized[key] = value;
           } catch (cloneError) {
             sanitized[key] = String(message[key]);
@@ -509,7 +612,9 @@ console.error('Max reconnection attempts reached, giving up');
   }
 
   // Disconnect WebSocket
-// Disconnect WebSocket
+
+
+  // Disconnect WebSocket
   disconnect() {
     if (this.connection) {
       this.stopHeartbeat();
