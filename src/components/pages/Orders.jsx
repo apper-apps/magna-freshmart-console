@@ -512,12 +512,12 @@ const Orders = () => {
                     </div>
                   </div>
                 </div>
-              )}
+)}
             </div>
           </div>
         ))}
       </div>
     </div>
-};
+  );
 
 export default Orders;
