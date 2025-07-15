@@ -2,14 +2,14 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
-import formatCurrency from "@/utils/currency";
+import { formatCurrency } from "@/utils/currency";
 import ApperIcon from "@/components/ApperIcon";
-import Badge from "@/components/atoms/Badge";
+import { Badge } from "@/components/atoms/Badge";
 import Empty from "@/components/ui/Empty";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
-import clipboardService from "@/services/ClipboardService";
+import { clipboardService } from "@/services/ClipboardService";
 import { orderService } from "@/services/api/orderService";
 
 const Orders = () => {
@@ -471,52 +471,54 @@ const Orders = () => {
                     <span>Reorder</span>
                   </button>
                 )}
+)}
               </div>
-              {order.walletTransaction && (
-                <div className="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-4">
-                  <div className="flex items-center space-x-2 mb-3">
-                    <ApperIcon name="Wallet" size={16} className="text-purple-600" />
-                    <h4 className="text-sm font-medium text-purple-900">Wallet Transaction</h4>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-purple-700">Transaction ID:</span>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-mono text-purple-900">{order.walletTransaction.transactionId}</span>
-                        <button
-                          onClick={() => copyTxnId(order.walletTransaction.transactionId)}
-                          className="flex items-center text-purple-600 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 px-1.5 py-0.5 rounded transition-colors duration-200 group"
-                          title="Copy wallet transaction ID"
-                        >
-                          <ApperIcon 
-                            name="Copy" 
-                            size={10} 
-                            className="group-hover:scale-110 transition-transform duration-200" 
-                          />
-                        </button>
+              <>
+                {order.walletTransaction && (
+                  <div className="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <ApperIcon name="Wallet" size={16} className="text-purple-600" />
+                      <h4 className="text-sm font-medium text-purple-900">Wallet Transaction</h4>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-purple-700">Transaction ID:</span>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-mono text-purple-900">{order.walletTransaction.transactionId}</span>
+                          <button
+                            onClick={() => copyTxnId(order.walletTransaction.transactionId)}
+                            className="flex items-center text-purple-600 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 px-1.5 py-0.5 rounded transition-colors duration-200 group"
+                            title="Copy wallet transaction ID"
+                          >
+                            <ApperIcon 
+                              name="Copy" 
+                              size={10} 
+                              className="group-hover:scale-110 transition-transform duration-200" 
+                            />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-purple-700">Type:</span>
+                        <span className="font-medium text-purple-900 capitalize">
+                          {order.walletTransaction.type.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-purple-700">Amount:</span>
+                        <span className="font-semibold text-purple-900">
+                          {formatCurrency(order.walletTransaction.amount)}
+                        </span>
                       </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-purple-700">Type:</span>
-                      <span className="font-medium text-purple-900 capitalize">
-                        {order.walletTransaction.type.replace('_', ' ')}
-                      </span>
-                    </div>
-<div className="flex justify-between">
-                      <span className="text-purple-700">Amount:</span>
-                      <span className="font-semibold text-purple-900">
-                        {formatCurrency(order.walletTransaction.amount)}
-                      </span>
-                    </div>
                   </div>
-                </div>
-)}
+                )}
+              </>
             </div>
           </div>
         ))}
       </div>
     </div>
-  );
 };
 
 export default Orders;
