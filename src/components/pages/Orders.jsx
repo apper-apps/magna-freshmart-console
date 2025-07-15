@@ -377,17 +377,18 @@ const Orders = () => {
                             </div>
                           </div>
                         </div>
-                      </div>
+</div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
               
               {/* Order Items Preview */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                {order.items.slice(0, 3).map((item, index) => (
-                  <div key={index} className="flex items-center space-x-2">
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <h4 className="text-sm font-medium text-gray-900 mb-3">Items ({order?.items?.length || 0})</h4>
+                <div className="space-y-2">
+                  {order?.items?.slice(0, 3)?.map((item, index) => (
+                    <div key={index} className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">{item.quantity}x</span>
                     <span className="text-sm font-medium text-gray-900 truncate">
                       {item.name}
@@ -468,10 +469,10 @@ const Orders = () => {
                   <button className="flex items-center space-x-1 sm:space-x-2 text-green-600 hover:text-green-700 transition-colors text-sm bg-green-50 px-3 py-1.5 rounded-lg">
                     <ApperIcon name="RotateCcw" size={14} />
                     <span>Reorder</span>
+<span>Reorder</span>
                   </button>
-)}
+                )}
               </div>
-              {/* Wallet Transaction Details */}
               {order.walletTransaction && (
                 <div className="mt-4 bg-purple-50 border border-purple-200 rounded-lg p-4">
                   <div className="flex items-center space-x-2 mb-3">
@@ -508,10 +509,10 @@ const Orders = () => {
                         {formatCurrency(order.walletTransaction.amount)}
                       </span>
                     </div>
-                  </div>
-)}
+</div>
+                </div>
+              )}
             </div>
-          </div>
           </div>
         ))}
       </div>
