@@ -1,3 +1,5 @@
+import React from "react";
+import Error from "@/components/ui/Error";
 class WebSocketService {
   constructor() {
     this.connection = null;
@@ -10,8 +12,8 @@ class WebSocketService {
     this.lastHeartbeat = null;
   }
 
-  // Initialize WebSocket connection
-async connect(url = 'ws://localhost:8080/api/ws') {
+// Initialize WebSocket connection
+  async connect(url = 'ws://localhost:8080/api/ws') {
     if (this.isConnecting || (this.connection && this.connection.readyState === WebSocket.OPEN)) {
       return this.getConnectionStatus();
     }
@@ -58,24 +60,24 @@ async connect(url = 'ws://localhost:8080/api/ws') {
             this.scheduleReconnect();
           }
         };
-
 this.connection.onerror = (error) => {
           console.error('WebSocket error:', error);
           this.isConnecting = false;
           
-          // Notify listeners of error - safely serialize error object
-          const errorMessage = error?.message || error?.toString() || 'Unknown WebSocket error';
+          // Safely serialize error object to prevent DataCloneError
+          const safeErrorData = this.serializeErrorSafely(error);
           this.notifyListeners('connection_error', { 
-            error: errorMessage, 
+            error: safeErrorData, 
             timestamp: new Date().toISOString() 
           });
           
-          reject(error);
+          // Reject with safe error object
+          reject(this.serializeErrorSafely(error));
         };
 
-      } catch (error) {
+} catch (error) {
         this.isConnecting = false;
-        reject(error);
+        reject(this.serializeErrorSafely(error));
       }
     });
   }
@@ -161,11 +163,10 @@ this.connection.onerror = (error) => {
           ...baseMessage,
           data: {
             requestId: Math.floor(Math.random() * 10) + 1,
-            status: ['approved', 'rejected'][Math.floor(Math.random() * 2)],
+status: ['approved', 'rejected'][Math.floor(Math.random() * 2)],
             actionBy: 'admin_user'
-}
+          }
         };
-
       case 'price-approvals':
         return {
           ...baseMessage,
@@ -374,7 +375,7 @@ this.connection.onerror = (error) => {
           console.error('Reconnection attempt failed:', error);
         });
       } else {
-        console.error('Max reconnection attempts reached, giving up');
+console.error('Max reconnection attempts reached, giving up');
         this.notifyListeners('connection_failed', { 
           reason: 'Max reconnection attempts exceeded',
           attempts: this.reconnectAttempts 
@@ -383,7 +384,132 @@ this.connection.onerror = (error) => {
     }, delay);
   }
 
+  // Safe error serialization to prevent DataCloneError
+  serializeErrorSafely(error) {
+    if (!error) return 'Unknown error';
+    
+    try {
+      // Handle different error types
+      if (error instanceof Error) {
+        return {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+          timestamp: new Date().toISOString()
+        };
+      }
+      
+      // Handle URL objects that can't be cloned
+      if (error instanceof URL) {
+        return {
+          type: 'URL',
+          href: error.href,
+          origin: error.origin,
+          pathname: error.pathname,
+          timestamp: new Date().toISOString()
+        };
+      }
+      
+      // Handle DOM events or other non-serializable objects
+      if (error.target && error.type) {
+        return {
+          type: 'Event',
+          eventType: error.type,
+          target: error.target.constructor.name,
+          timestamp: new Date().toISOString()
+        };
+      }
+      
+      // Handle objects with non-serializable properties
+      if (typeof error === 'object') {
+        const serialized = {};
+        for (const key in error) {
+          try {
+            const value = error[key];
+            
+            // Skip functions and non-serializable objects
+            if (typeof value === 'function') continue;
+            if (value instanceof Node) continue;
+            if (value instanceof Window) continue;
+            if (value instanceof URL) {
+              serialized[key] = value.href;
+              continue;
+            }
+            
+            // Test if value can be cloned
+            structuredClone(value);
+            serialized[key] = value;
+          } catch (cloneError) {
+            // If can't clone, convert to string
+            serialized[key] = String(error[key]);
+          }
+        }
+        return serialized;
+      }
+      
+      // Fallback to string conversion
+      return String(error);
+    } catch (serializationError) {
+      // Ultimate fallback
+      return {
+        error: 'Error serialization failed',
+        originalError: String(error),
+        serializationError: serializationError.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+// Safe message serialization
+  serializeMessageSafely(message) {
+    if (!message) return null;
+    
+    try {
+      // Test if message can be cloned
+      structuredClone(message);
+      return message;
+    } catch (error) {
+      // If can't clone, sanitize the message
+      if (typeof message === 'object') {
+        const sanitized = {};
+        for (const key in message) {
+          try {
+            const value = message[key];
+            
+            // Handle URL objects
+            if (value instanceof URL) {
+              sanitized[key] = value.href;
+              continue;
+            }
+            
+            // Handle functions
+            if (typeof value === 'function') {
+              sanitized[key] = '[Function]';
+              continue;
+            }
+            
+            // Handle other non-serializable objects
+            if (value instanceof Node || value instanceof Window) {
+              sanitized[key] = `[${value.constructor.name}]`;
+              continue;
+            }
+            
+            // Test cloning
+            structuredClone(value);
+            sanitized[key] = value;
+          } catch (cloneError) {
+            sanitized[key] = String(message[key]);
+          }
+        }
+        return sanitized;
+      }
+      
+      return String(message);
+    }
+  }
+
   // Disconnect WebSocket
+// Disconnect WebSocket
   disconnect() {
     if (this.connection) {
       this.stopHeartbeat();
@@ -396,6 +522,7 @@ this.connection.onerror = (error) => {
     this.reconnectAttempts = 0;
   }
 
+  // Get connection status
 // Get connection status
   getConnectionStatus() {
     // Check if we're in a browser environment and WebSocket is available
@@ -411,6 +538,7 @@ this.connection.onerror = (error) => {
     };
   }
 
+  // Enhanced methods for approval workflow and payment flow
 // Enhanced methods for approval workflow and payment flow
   subscribeToApprovalUpdates(callback) {
     const unsubscribers = [
