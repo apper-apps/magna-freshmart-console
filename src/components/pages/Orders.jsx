@@ -94,8 +94,8 @@ const Orders = () => {
           to="/category/All"
           className="flex items-center space-x-2 text-primary hover:text-primary-dark transition-colors"
         >
-          <ApperIcon name="Plus" size={20} />
-<span>Shop More</span>
+<ApperIcon name="Plus" size={20} />
+          <span>Shop More</span>
         </Link>
       </div>
       {/* Mobile-first responsive order cards */}
@@ -502,7 +502,6 @@ const Orders = () => {
                         {order.walletTransaction.type.replace('_', ' ')}
                       </span>
                     </div>
-                    <div className="flex justify-between">
 <div className="flex justify-between">
                       <span className="text-purple-700">Amount:</span>
                       <span className="font-semibold text-purple-900">
@@ -519,8 +518,5 @@ const Orders = () => {
     </div>
   );
 };
-
-export default Orders;
-    </>
 
 export default Orders;
