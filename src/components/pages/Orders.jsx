@@ -2,14 +2,14 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
-import formatCurrency from "@/utils/currency";
+import { formatCurrency } from "@/utils/currency";
 import ApperIcon from "@/components/ApperIcon";
 import Badge from "@/components/atoms/Badge";
 import Empty from "@/components/ui/Empty";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
-import clipboardService from "@/services/ClipboardService";
+import { clipboardService } from "@/services/ClipboardService";
 import { orderService } from "@/services/api/orderService";
 
 const Orders = () => {
@@ -163,7 +163,8 @@ const Orders = () => {
                       )}
                     </div>
                   )}
-                </div>
+</div>
+                <>
                   {(order.paymentMethod === 'jazzcash' || order.paymentMethod === 'easypaisa' || order.paymentMethod === 'bank') && (
                     <div className="flex items-center space-x-1">
                       {order.verificationStatus === 'verified' && (
@@ -186,24 +187,25 @@ const Orders = () => {
                       )}
                     </div>
                   )}
-<div className="text-right sm:text-left sm:mt-2">
-                  <p className="text-lg sm:text-xl font-bold gradient-text">
-                    {(() => {
-                      // Calculate subtotal if order total is missing or zero
-                      if (!order?.total || order.total === 0) {
-                        const itemsSubtotal = order?.items?.reduce((sum, item) => {
-                          return sum + ((item.price || 0) * (item.quantity || 0));
-                        }, 0) || 0;
-                        const deliveryCharge = order?.deliveryCharge || 0;
-                        return formatCurrency(itemsSubtotal + deliveryCharge);
-                      }
-                      return formatCurrency(order.total);
-                    })()}
-                  </p>
-                  <p className="text-xs sm:text-sm text-gray-600">
-                    {order?.items?.length || 0} items
-                  </p>
-                </div>
+                  <div className="text-right sm:text-left sm:mt-2">
+                    <p className="text-lg sm:text-xl font-bold gradient-text">
+                      {(() => {
+                        // Calculate subtotal if order total is missing or zero
+                        if (!order?.total || order.total === 0) {
+                          const itemsSubtotal = order?.items?.reduce((sum, item) => {
+                            return sum + ((item.price || 0) * (item.quantity || 0));
+                          }, 0) || 0;
+                          const deliveryCharge = order?.deliveryCharge || 0;
+                          return formatCurrency(itemsSubtotal + deliveryCharge);
+                        }
+                        return formatCurrency(order.total);
+                      })()}
+                    </p>
+                    <p className="text-xs sm:text-sm text-gray-600">
+                      {order?.items?.length || 0} items
+                    </p>
+                  </div>
+                </>
               </div>
             </div>
 
