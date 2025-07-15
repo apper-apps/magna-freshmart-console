@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
+import { toast } from "react-toastify";
 import ApperIcon from "@/components/ApperIcon";
 import Badge from "@/components/atoms/Badge";
 import Empty from "@/components/ui/Empty";
@@ -9,6 +10,7 @@ import Loading from "@/components/ui/Loading";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
 import { formatCurrency } from "@/utils/currency";
 import { orderService } from "@/services/api/orderService";
+import { clipboardService } from "@/services/ClipboardService";
 const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,6 +32,29 @@ const Orders = () => {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+};
+
+  const copyTxnId = async (transactionId) => {
+    if (!transactionId) {
+      toast.error('No transaction ID available to copy');
+      return;
+    }
+
+    try {
+      const success = await clipboardService.copyTransactionId(transactionId);
+      if (!success) {
+        // Additional fallback - show transaction ID in alert if clipboard fails
+        const shouldShowAlert = window.confirm(
+          'Clipboard copy failed. Would you like to see the transaction ID to copy manually?'
+        );
+        if (shouldShowAlert) {
+          alert(`Transaction ID: ${transactionId}`);
+        }
+      }
+    } catch (error) {
+      console.error('Error copying transaction ID:', error);
+      toast.error('Failed to copy transaction ID');
     }
   };
 
@@ -90,10 +115,23 @@ const Orders = () => {
                   <p className="text-xs sm:text-sm text-gray-600">
                     {format(new Date(order.createdAt), 'MMM dd, yyyy • hh:mm a')}
                   </p>
-                  {order.transactionId && (
-                    <p className="text-xs text-gray-500 font-mono truncate">
-                      TXN: {order.transactionId}
-                    </p>
+{order.transactionId && (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-gray-500 font-mono">
+                        TXN: {order.transactionId}
+                      </span>
+                      <button
+                        onClick={() => copyTxnId(order.transactionId)}
+                        className="flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition-colors duration-200 group"
+                        title="Copy transaction ID"
+                      >
+                        <ApperIcon 
+                          name="Copy" 
+                          size={12} 
+                          className="group-hover:scale-110 transition-transform duration-200" 
+                        />
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -336,8 +374,21 @@ const Orders = () => {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-purple-700">Transaction ID:</span>
-                      <span className="font-mono text-purple-900">{order.walletTransaction.transactionId}</span>
+<span className="text-purple-700">Transaction ID:</span>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-mono text-purple-900">{order.walletTransaction.transactionId}</span>
+                        <button
+                          onClick={() => copyTxnId(order.walletTransaction.transactionId)}
+                          className="flex items-center text-purple-600 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 px-1.5 py-0.5 rounded transition-colors duration-200 group"
+                          title="Copy wallet transaction ID"
+                        >
+                          <ApperIcon 
+                            name="Copy" 
+                            size={10} 
+                            className="group-hover:scale-110 transition-transform duration-200" 
+                          />
+                        </button>
+                      </div>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-purple-700">Type:</span>
