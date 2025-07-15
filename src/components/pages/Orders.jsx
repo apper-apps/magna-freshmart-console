@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { toast } from "react-toastify";
 import { formatCurrency } from "@/utils/currency";
 import ApperIcon from "@/components/ApperIcon";
-import Badge from "@/components/atoms/Badge";
+import { Badge } from "@/components/atoms/Badge";
 import Empty from "@/components/ui/Empty";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
