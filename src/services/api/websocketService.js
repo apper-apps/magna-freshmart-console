@@ -374,7 +374,7 @@ requestId: Math.floor(Math.random() * 10) + 1,
         });
       } else {
 console.error('Max reconnection attempts reached, giving up');
-        this.notifyListeners('connection_failed', { 
+        this.notifyListeners('connection_failed', {
           reason: 'Max reconnection attempts exceeded',
           attempts: this.reconnectAttempts 
         });
@@ -427,42 +427,30 @@ console.error('Max reconnection attempts reached, giving up');
             
 // Skip functions and non-serializable objects
             if (typeof value === 'function') continue;
-            if (value instanceof Node) continue;
-            if (typeof Window !== 'undefined' && value instanceof Window) continue;
-            if (value instanceof URL) {
-              serialized[key] = value.href;
-              continue;
-            }
             
-            // Test if value can be cloned - with fallback for older browsers
-            if (typeof structuredClone === 'function') {
-              structuredClone(value);
-            } else {
-              // Fallback: try JSON serialization
-              JSON.stringify(value);
-            }
+            // Skip DOM nodes
+            if (value instanceof Node) continue;
+            
+            // Try to serialize the value
+            JSON.stringify(value);
             serialized[key] = value;
-          } catch (cloneError) {
-            // If can't clone, convert to string
-            serialized[key] = String(error[key]);
+          } catch (serializationError) {
+            // If serialization fails, convert to string
+            serialized[key] = String(value);
           }
         }
+        
+        serialized.timestamp = new Date().toISOString();
         return serialized;
       }
       
-      // Fallback to string conversion
+      // For non-objects, return as string
       return String(error);
-    } catch (serializationError) {
-      // Ultimate fallback
-      return {
-        error: 'Error serialization failed',
-        originalError: String(error),
-        serializationError: serializationError.message,
-        timestamp: new Date().toISOString()
-      };
-}
-}
-
+    } catch (error) {
+      return 'Serialization failed: ' + String(error);
+    }
+  }
+  
   // Safe message serialization to prevent DataCloneError
   serializeMessageSafely(message) {
     if (!message) return null;
@@ -525,11 +513,12 @@ console.error('Max reconnection attempts reached, giving up');
               continue;
             }
             
-// Skip Window objects
+            // Skip Window objects
             if (typeof Window !== 'undefined' && value instanceof Window) {
               serialized[key] = `[${value.constructor.name}]`;
               continue;
             }
+            
             // Handle URL objects
             if (value instanceof URL) {
               serialized[key] = {
@@ -553,39 +542,17 @@ console.error('Max reconnection attempts reached, giving up');
               serialized[key] = value;
             }
           } catch (serializationError) {
-            // If serialization fails, convert to string
             serialized[key] = String(message[key]);
           }
         }
       }
       
-// Test if the serialized object can be cloned
-      try {
-        if (typeof structuredClone === 'function') {
-          structuredClone(serialized);
-        } else {
-          // Fallback: try JSON serialization
-          JSON.stringify(serialized);
-        }
-        return serialized;
-      } catch (cloneError) {
-        // If still can't clone, return string representation
-        return String(message);
-      }
+      return serialized;
     } catch (error) {
-      // Ultimate fallback
-      return {
-        error: 'Message serialization failed',
-        originalMessage: String(message),
-        serializationError: error.message,
-        timestamp: new Date().toISOString()
-      };
+      return String(message);
     }
   }
-
-  // Disconnect WebSocket
-
-
+  
   // Disconnect WebSocket
   disconnect() {
     if (this.connection) {
@@ -598,9 +565,8 @@ console.error('Max reconnection attempts reached, giving up');
     this.listeners.clear();
     this.reconnectAttempts = 0;
   }
-
+  
   // Get connection status
-// Get connection status
   getConnectionStatus() {
     // Check if we're in a browser environment and WebSocket is available
     const isWebSocketAvailable = typeof WebSocket !== 'undefined';
@@ -614,9 +580,8 @@ console.error('Max reconnection attempts reached, giving up');
       webSocketAvailable: isWebSocketAvailable
     };
   }
-
+  
   // Enhanced methods for approval workflow and payment flow
-// Enhanced methods for approval workflow and payment flow
   subscribeToApprovalUpdates(callback) {
     const unsubscribers = [
       this.subscribe('approval_request_submitted', callback),
@@ -630,7 +595,7 @@ console.error('Max reconnection attempts reached, giving up');
       unsubscribers.forEach(unsub => unsub());
     };
   }
-
+  
   // Enhanced payment flow subscription
   subscribeToPaymentFlowUpdates(callback) {
     const unsubscribers = [
@@ -647,12 +612,12 @@ console.error('Max reconnection attempts reached, giving up');
       unsubscribers.forEach(unsub => unsub());
     };
   }
-
+  
   // Price approval specific subscription
   subscribeToPriceApprovals(callback) {
     return this.subscribe('price-approvals', callback);
   }
-
+  
   // Send approval-specific messages
   sendApprovalMessage(type, data) {
     return this.send({
@@ -661,7 +626,7 @@ console.error('Max reconnection attempts reached, giving up');
       timestamp: new Date().toISOString()
     });
   }
-
+  
   // Send payment flow messages
   sendPaymentFlowMessage(type, data) {
     return this.send({
