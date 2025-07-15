@@ -59,12 +59,16 @@ async connect(url = 'ws://localhost:8080/api/ws') {
           }
         };
 
-        this.connection.onerror = (error) => {
+this.connection.onerror = (error) => {
           console.error('WebSocket error:', error);
           this.isConnecting = false;
           
-          // Notify listeners of error
-          this.notifyListeners('connection_error', { error: error.message, timestamp: new Date().toISOString() });
+          // Notify listeners of error - safely serialize error object
+          const errorMessage = error?.message || error?.toString() || 'Unknown WebSocket error';
+          this.notifyListeners('connection_error', { 
+            error: errorMessage, 
+            timestamp: new Date().toISOString() 
+          });
           
           reject(error);
         };
