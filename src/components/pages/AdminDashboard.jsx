@@ -14,7 +14,7 @@ import Loading from "@/components/ui/Loading";
 import Orders from "@/components/pages/Orders";
 import { orderService } from "@/services/api/orderService";
 import { approvalWorkflowService } from "@/services/api/approvalWorkflowService";
-import webSocketService from "@/services/api/websocketService";
+import webSocketService, { webSocketService } from "@/services/api/websocketService";
 import { reportService } from "@/services/api/reportService";
 import { vendorService } from "@/services/api/vendorService";
 import { productService } from "@/services/api/productService";
@@ -1222,21 +1222,132 @@ action.isAction ? (
               </div>
             )}
 
-            {/* Export Tab */}
+{/* Export Tab */}
             {activeReportTab === 'export' && (
               <div className="space-y-6">
+                {/* Export Options with Price Selection */}
                 <div className="bg-gray-50 p-6 rounded-lg">
-                  <h3 className="font-semibold text-gray-900 mb-4">Export Options</h3>
-                  <p className="text-gray-600 mb-6">Generate and download reports in various formats</p>
+                  <h3 className="font-semibold text-gray-900 mb-4">Export Options with Selected Prices</h3>
+                  <p className="text-gray-600 mb-6">Generate and download reports with pricing data and margin analysis</p>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Price Selection Options */}
+                  <div className="bg-white p-4 rounded-lg border mb-6">
+                    <h4 className="font-medium text-gray-900 mb-3">📊 Price Data Selection</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <label className="flex items-center space-x-2">
+                        <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" defaultChecked />
+                        <span className="text-sm font-medium">Base Prices</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" defaultChecked />
+                        <span className="text-sm font-medium">Discounted Prices</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" />
+                        <span className="text-sm font-medium">Purchase Costs</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" defaultChecked />
+                        <span className="text-sm font-medium">Profit Margins</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" />
+                        <span className="text-sm font-medium">Revenue Impact</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" />
+                        <span className="text-sm font-medium">Cost Analysis</span>
+                      </label>
+                    </div>
+                  </div>
+                  
+                  {/* Margin Analysis Tools */}
+                  <div className="bg-white p-4 rounded-lg border mb-6">
+                    <h4 className="font-medium text-gray-900 mb-3">📈 Margin Analysis Tools</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="bg-green-50 p-3 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <ApperIcon name="TrendingUp" size={16} className="text-green-600" />
+                          <span className="text-sm font-medium text-green-800">High Margin</span>
+                        </div>
+                        <p className="text-lg font-bold text-green-600">
+                          {paymentVerificationData.data.filter(item => (item.profitMargin || 0) > 25).length}
+                        </p>
+                        <p className="text-xs text-green-600">Items > 25% margin</p>
+                      </div>
+                      
+                      <div className="bg-blue-50 p-3 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <ApperIcon name="BarChart3" size={16} className="text-blue-600" />
+                          <span className="text-sm font-medium text-blue-800">Average Margin</span>
+                        </div>
+                        <p className="text-lg font-bold text-blue-600">
+                          {Math.round(paymentVerificationData.data.reduce((sum, item) => sum + (item.profitMargin || 0), 0) / Math.max(paymentVerificationData.data.length, 1) * 100) / 100}%
+                        </p>
+                        <p className="text-xs text-blue-600">Across all items</p>
+                      </div>
+                      
+                      <div className="bg-orange-50 p-3 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <ApperIcon name="AlertTriangle" size={16} className="text-orange-600" />
+                          <span className="text-sm font-medium text-orange-800">Low Margin</span>
+                        </div>
+                        <p className="text-lg font-bold text-orange-600">
+                          {paymentVerificationData.data.filter(item => (item.profitMargin || 0) < 10).length}
+                        </p>
+                        <p className="text-xs text-orange-600">Items < 10% margin</p>
+                      </div>
+                      
+                      <div className="bg-red-50 p-3 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <ApperIcon name="TrendingDown" size={16} className="text-red-600" />
+                          <span className="text-sm font-medium text-red-800">Loss Items</span>
+                        </div>
+                        <p className="text-lg font-bold text-red-600">
+                          {paymentVerificationData.data.filter(item => (item.profitMargin || 0) < 0).length}
+                        </p>
+                        <p className="text-xs text-red-600">Negative margin</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Revenue Impact Analysis */}
+                  <div className="bg-white p-4 rounded-lg border mb-6">
+                    <h4 className="font-medium text-gray-900 mb-3">💰 Revenue Impact Analysis</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-green-600">
+                          Rs. {paymentVerificationData.data.reduce((sum, item) => sum + (item.amount || 0), 0).toLocaleString()}
+                        </p>
+                        <p className="text-sm text-gray-600">Total Revenue</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-blue-600">
+                          Rs. {Math.round(paymentVerificationData.data.reduce((sum, item) => sum + ((item.amount || 0) * (item.profitMargin || 0) / 100), 0)).toLocaleString()}
+                        </p>
+                        <p className="text-sm text-gray-600">Estimated Profit</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-bold text-orange-600">
+                          Rs. {Math.round(paymentVerificationData.data.reduce((sum, item) => sum + ((item.amount || 0) * (1 - (item.profitMargin || 0) / 100)), 0)).toLocaleString()}
+                        </p>
+                        <p className="text-sm text-gray-600">Estimated Costs</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Enhanced Export Buttons */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <button
                       onClick={() => handleExportReport('pdf')}
                       disabled={exportLoading}
                       className="flex items-center justify-center space-x-3 p-4 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50"
                     >
                       <ApperIcon name="FileText" size={20} className="text-red-600" />
-                      <span className="font-medium text-red-600">Export PDF</span>
+                      <div className="text-left">
+                        <span className="font-medium text-red-600 block">Export PDF</span>
+                        <span className="text-xs text-red-500">With margin analysis</span>
+                      </div>
                     </button>
                     
                     <button
@@ -1245,15 +1356,55 @@ action.isAction ? (
                       className="flex items-center justify-center space-x-3 p-4 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors disabled:opacity-50"
                     >
                       <ApperIcon name="Download" size={20} className="text-green-600" />
-                      <span className="font-medium text-green-600">Export CSV</span>
+                      <div className="text-left">
+                        <span className="font-medium text-green-600 block">Export CSV</span>
+                        <span className="text-xs text-green-500">Raw data with prices</span>
+                      </div>
                     </button>
+                    
+                    <button
+                      onClick={() => handleExportReport('xlsx')}
+                      disabled={exportLoading}
+                      className="flex items-center justify-center space-x-3 p-4 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors disabled:opacity-50"
+                    >
+                      <ApperIcon name="BarChart3" size={20} className="text-blue-600" />
+                      <div className="text-left">
+                        <span className="font-medium text-blue-600 block">Export Excel</span>
+                        <span className="text-xs text-blue-500">Advanced analysis</span>
+                      </div>
+                    </button>
+                  </div>
+                  
+                  {/* Price Visibility Controls */}
+                  <div className="mt-6 bg-amber-50 border border-amber-200 p-4 rounded-lg">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <ApperIcon name="Shield" size={16} className="text-amber-600" />
+                      <h4 className="font-medium text-amber-800">Price Visibility Controls</h4>
+                    </div>
+                    <p className="text-sm text-amber-700 mb-3">
+                      Exported data includes sensitive pricing information. Ensure secure handling and authorized access only.
+                    </p>
+                    <div className="flex items-center space-x-4">
+                      <label className="flex items-center space-x-2">
+                        <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" />
+                        <span className="text-sm font-medium text-amber-800">Include purchase costs</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" />
+                        <span className="text-sm font-medium text-amber-800">Include profit margins</span>
+                      </label>
+                      <label className="flex items-center space-x-2">
+                        <input type="checkbox" className="rounded border-gray-300 text-primary focus:ring-primary" defaultChecked />
+                        <span className="text-sm font-medium text-amber-800">Mask sensitive data</span>
+                      </label>
+                    </div>
                   </div>
                   
                   {exportLoading && (
                     <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <div className="flex items-center space-x-2">
                         <Loading type="spinner" size="sm" />
-                        <span className="text-blue-600">Generating export...</span>
+                        <span className="text-blue-600">Generating export with pricing analysis...</span>
                       </div>
                     </div>
                   )}
