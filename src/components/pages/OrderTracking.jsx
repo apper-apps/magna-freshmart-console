@@ -221,33 +221,75 @@ return (
             </div>
         </div>
     </div>
-    {/* Order Status Timeline */}
+{/* Order Status Timeline */}
     <div className="card p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-6">Order Status</h2>
-        <div className="relative">
-            {statusSteps.map(
-                (step, index) => <div key={step.key} className="flex items-center mb-6 last:mb-0">
+        <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold text-gray-900">Order Status</h2>
+            <div className="block sm:hidden text-xs text-gray-500">⟵ Swipe to navigate</div>
+        </div>
+        
+        {/* Mobile Horizontal Timeline */}
+        <div className="block sm:hidden">
+            <div className="horizontal-timeline-container overflow-x-auto">
+                <div className="horizontal-timeline-track flex space-x-8 pb-4 min-w-max">
+                    {statusSteps.map((step, index) => (
+                        <div key={step.key} className="flex flex-col items-center relative min-w-[100px]">
+                            <div
+                                className={`
+                                    w-12 h-12 rounded-full flex items-center justify-center mb-2 transition-all duration-300
+                                    ${step.completed ? "bg-gradient-to-r from-primary to-accent text-white shadow-lg" : "bg-gray-200 text-gray-400"}
+                                    ${step.active ? "ring-4 ring-primary/20 scale-110" : ""}
+                                `}>
+                                <ApperIcon name={step.icon} size={20} />
+                            </div>
+                            <p className={`text-sm font-medium text-center ${step.completed ? "text-gray-900" : "text-gray-400"}`}>
+                                {step.label}
+                            </p>
+                            {step.active && (
+                                <div className="mt-1 flex flex-col items-center">
+                                    <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+                                    <p className="text-xs text-primary mt-1">Current</p>
+                                </div>
+                            )}
+                            
+                            {/* Connecting line */}
+                            {index < statusSteps.length - 1 && (
+                                <div className={`
+                                    absolute top-6 left-12 w-8 h-0.5 
+                                    ${step.completed ? "bg-primary" : "bg-gray-200"}
+                                `} />
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+        
+        {/* Desktop Vertical Timeline */}
+        <div className="hidden sm:block relative">
+            {statusSteps.map((step, index) => (
+                <div key={step.key} className="flex items-center mb-6 last:mb-0">
                     <div
                         className={`
-                relative z-10 flex items-center justify-center w-10 h-10 rounded-full
-                ${step.completed ? "bg-gradient-to-r from-primary to-accent text-white" : "bg-gray-200 text-gray-400"}
-              `}>
+                            relative z-10 flex items-center justify-center w-10 h-10 rounded-full
+                            ${step.completed ? "bg-gradient-to-r from-primary to-accent text-white" : "bg-gray-200 text-gray-400"}
+                        `}>
                         <ApperIcon name={step.icon} size={20} />
                     </div>
                     <div className="ml-4 flex-1">
-                        <p
-                            className={`font-medium ${step.completed ? "text-gray-900" : "text-gray-400"}`}>
+                        <p className={`font-medium ${step.completed ? "text-gray-900" : "text-gray-400"}`}>
                             {step.label}
                         </p>
                         {step.active && <p className="text-sm text-primary">Current status</p>}
                     </div>
-                    {index < statusSteps.length - 1 && <div
-                        className={`
-                  absolute left-5 top-10 w-0.5 h-6 -ml-px
-                  ${step.completed ? "bg-primary" : "bg-gray-200"}
-                `} />}
+                    {index < statusSteps.length - 1 && (
+                        <div className={`
+                            absolute left-5 top-10 w-0.5 h-6 -ml-px
+                            ${step.completed ? "bg-primary" : "bg-gray-200"}
+                        `} />
+                    )}
                 </div>
-            )}
+            ))}
         </div>
     </div>
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

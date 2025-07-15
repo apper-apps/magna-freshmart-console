@@ -305,6 +305,102 @@
   }
 }
 
+/* Horizontal Timeline Styles */
+.horizontal-timeline-container {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.horizontal-timeline-container::-webkit-scrollbar {
+  display: none;
+}
+
+.horizontal-timeline-track {
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+}
+
+.horizontal-timeline-track > div {
+  scroll-snap-align: center;
+}
+
+/* Swipe Actions Styles */
+.swipe-actions-container {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.swipe-actions-container::-webkit-scrollbar {
+  display: none;
+}
+
+.swipe-actions-track {
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+}
+
+.swipe-actions-track > * {
+  scroll-snap-align: start;
+}
+
+/* Payment Proof Collapsible */
+.payment-proof-section .payment-proof-content {
+  transition: max-height 0.3s ease-in-out;
+}
+
+.payment-proof-section .payment-proof-content.expanded {
+  transition: max-height 0.4s ease-in-out;
+}
+
+.payment-proof-section .collapse-icon {
+  transition: transform 0.2s ease-in-out;
+}
+
+/* Mobile Order Card Enhancements */
+.mobile-order-card {
+  touch-action: manipulation;
+}
+
+.mobile-order-card .touch-manipulation {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Mobile-specific animations */
+@media (max-width: 640px) {
+  .horizontal-timeline-track > div {
+    animation: slideInFromRight 0.3s ease-out forwards;
+  }
+  
+  .swipe-actions-track > * {
+    animation: slideInFromBottom 0.2s ease-out forwards;
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Tablet responsive breakpoint */
 @media (min-width: 576px) and (max-width: 992px) {
   .cart-summary {
@@ -317,6 +413,14 @@
   
   .vendor-section {
     @apply rounded-lg;
+  }
+  
+  .horizontal-timeline-track {
+    justify-content: center;
+  }
+  
+  .swipe-actions-track {
+    justify-content: center;
   }
 }
 
@@ -332,5 +436,13 @@
   
   .vendor-expanded {
     @apply block;
+  }
+  
+  .horizontal-timeline-container {
+    overflow-x: visible;
+  }
+  
+  .swipe-actions-container {
+    overflow-x: visible;
   }
 }
