@@ -9,7 +9,7 @@ import Empty from "@/components/ui/Empty";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
-import clipboardService from "@/services/ClipboardService";
+import { clipboardService } from "@/services/ClipboardService";
 import { orderService } from "@/services/api/orderService";
 
 const Orders = () => {
@@ -467,7 +467,7 @@ const Orders = () => {
                     <ApperIcon name="RotateCcw" size={14} />
                     <span>Reorder</span>
                   </button>
-                )}
+)}
               </div>
               {/* Wallet Transaction Details */}
               {order.walletTransaction && (
@@ -476,7 +476,7 @@ const Orders = () => {
                     <ApperIcon name="Wallet" size={16} className="text-purple-600" />
                     <h4 className="text-sm font-medium text-purple-900">Wallet Transaction</h4>
                   </div>
-<div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div className="flex justify-between">
                       <span className="text-purple-700">Transaction ID:</span>
                       <div className="flex items-center space-x-2">
@@ -507,9 +507,9 @@ const Orders = () => {
                       </span>
                     </div>
                   </div>
-</div>
+                </div>
               )}
-            </>
+            </div>
           </div>
         ))}
       </div>
