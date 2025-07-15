@@ -112,6 +112,40 @@ class ClipboardService {
       transactionId,
       `Transaction ID copied: ${transactionId}`
     );
+}
+
+  /**
+   * Copy phone number with formatted message
+   * @param {string} phoneNumber - Phone number to copy
+   * @returns {Promise<boolean>} - Success status
+   */
+  async copyPhoneNumber(phoneNumber) {
+    if (!phoneNumber) {
+      toast.error('No phone number to copy');
+      return false;
+    }
+
+    return await this.copyToClipboard(
+      phoneNumber,
+      `Phone number copied: ${phoneNumber}`
+    );
+  }
+
+  /**
+   * Copy account number with formatted message
+   * @param {string} accountNumber - Account number to copy
+   * @returns {Promise<boolean>} - Success status
+   */
+  async copyAccountNumber(accountNumber) {
+    if (!accountNumber) {
+      toast.error('No account number to copy');
+      return false;
+    }
+
+    return await this.copyToClipboard(
+      accountNumber,
+      `Account number copied: ${accountNumber}`
+    );
   }
 }
 

@@ -2,15 +2,16 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
+import { formatCurrency } from "@/utils/currency";
 import ApperIcon from "@/components/ApperIcon";
 import Badge from "@/components/atoms/Badge";
 import Empty from "@/components/ui/Empty";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
-import { formatCurrency } from "@/utils/currency";
-import { orderService } from "@/services/api/orderService";
 import { clipboardService } from "@/services/ClipboardService";
+import { orderService } from "@/services/api/orderService";
+
 const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -96,8 +97,9 @@ const Orders = () => {
           <ApperIcon name="Plus" size={20} />
           <span>Shop More</span>
         </Link>
-      </div>
-{/* Mobile-first responsive order cards */}
+</div>
+      
+      {/* Mobile-first responsive order cards */}
       <div className="space-y-4 sm:space-y-6">
         {orders.map((order) => (
           <div key={order.id} className="card p-4 sm:p-6 hover:shadow-premium transition-shadow duration-300 mobile-order-card">
@@ -204,7 +206,7 @@ const Orders = () => {
                   </p>
                 </div>
               </div>
-</div>
+            </div>
 
             {/* Mini Status Timeline for Mobile */}
             <div className="block sm:hidden mb-4">
@@ -309,12 +311,9 @@ const Orders = () => {
                                 {(order.paymentProof.fileSize / 1024 / 1024).toFixed(2)} MB
                               </span>
                             </div>
-                          )}
+</div>
                         </div>
-                        
-                        {/* Mobile-responsive payment proof display */}
-                        <div className="flex justify-center sm:justify-start">
-                          <div className="relative group">
+                        <div className="relative group">
                             <img
                               src={(() => {
                                 // Validate and return payment proof image URL
@@ -400,9 +399,9 @@ const Orders = () => {
                 )}
               </div>
             </div>
+</div>
 
-{/* Mobile-responsive order actions with swipe actions */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            {/* Mobile-responsive order actions with swipe actions */}
               <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
                 <div className="flex items-center space-x-1">
                   <ApperIcon name="MapPin" size={14} />
@@ -480,8 +479,8 @@ const Orders = () => {
                     <h4 className="text-sm font-medium text-purple-900">Wallet Transaction</h4>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <div className="flex justify-between">
-<span className="text-purple-700">Transaction ID:</span>
+<div className="flex justify-between">
+                      <span className="text-purple-700">Transaction ID:</span>
                       <div className="flex items-center space-x-2">
                         <span className="font-mono text-purple-900">{order.walletTransaction.transactionId}</span>
                         <button
@@ -503,7 +502,7 @@ const Orders = () => {
                         {order.walletTransaction.type.replace('_', ' ')}
                       </span>
                     </div>
-<div className="flex justify-between">
+                    <div className="flex justify-between">
                       <span className="text-purple-700">Amount:</span>
                       <span className="font-semibold text-purple-900">
                         {formatCurrency(order.walletTransaction.amount)}
