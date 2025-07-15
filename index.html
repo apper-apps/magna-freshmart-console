@@ -4,35 +4,43 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FreshMart - Your Fresh Grocery Destination</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <!-- External Script Error Handling -->
+    <title>FreshMart - Your Fresh Grocery Destination</title>
     <script>
       // Global error handler for external script errors
       window.addEventListener('error', function(event) {
-        if (event.filename && event.filename.includes('apper.io')) {
-          console.warn('External Apper script error detected:', {
-            message: event.message,
-            filename: event.filename,
-            lineno: event.lineno,
-            colno: event.colno
-          });
-          
-          // Prevent error from breaking the application
-          event.preventDefault();
-          return false;
+        if (event.target !== window) {
+          console.warn('External resource error:', event.target.src || event.target.href);
         }
       });
-
-      // Handle unhandled promise rejections from external scripts
-      window.addEventListener('unhandledrejection', function(event) {
-        if (event.reason && event.reason.toString().includes('DataCloneError')) {
-          console.warn('DataCloneError from external script detected:', event.reason);
-          // Prevent unhandled rejection from breaking the application
-          event.preventDefault();
+      
+      // Global performance monitor
+      window.performanceMonitor = {
+        marks: {},
+        errors: [],
+        errorCategories: {
+          network: 0,
+          timeout: 0,
+          validation: 0,
+          server: 0,
+          unknown: 0
+        },
+        trackError: function(error, category = 'unknown') {
+          this.errors.push({
+            error: error.message || error,
+            category,
+            timestamp: new Date().toISOString()
+          });
+          if (this.errorCategories[category] !== undefined) {
+            this.errorCategories[category]++;
+          }
+        }
+      };
+    </script>
+  </head>
+  <body>
         }
       });
 
