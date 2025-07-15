@@ -2,14 +2,14 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
-import { formatCurrency } from "@/utils/currency";
+import formatCurrency from "@/utils/currency";
 import ApperIcon from "@/components/ApperIcon";
-import { Badge } from "@/components/atoms/Badge";
+import Badge from "@/components/atoms/Badge";
 import Empty from "@/components/ui/Empty";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
-import { clipboardService } from "@/services/ClipboardService";
+import clipboardService from "@/services/ClipboardService";
 import { orderService } from "@/services/api/orderService";
 
 const Orders = () => {
@@ -95,8 +95,8 @@ const Orders = () => {
           className="flex items-center space-x-2 text-primary hover:text-primary-dark transition-colors"
         >
           <ApperIcon name="Plus" size={20} />
-          <span>Shop More</span>
-</Link>
+<span>Shop More</span>
+        </Link>
       </div>
       {/* Mobile-first responsive order cards */}
       <div className="space-y-4 sm:space-y-6">
@@ -511,12 +511,16 @@ const Orders = () => {
                     </div>
                   </div>
                 </div>
-)}
+              )}
             </div>
           </div>
         ))}
       </div>
     </div>
+  );
 };
+
+export default Orders;
+    </>
 
 export default Orders;
