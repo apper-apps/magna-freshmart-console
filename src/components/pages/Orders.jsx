@@ -252,9 +252,9 @@ const Orders = () => {
                   })}
                 </div>
               </div>
-            </div>
+</div>
 
-{/* Order Details Section */}
+            {/* Order Details Section */}
             <div>
               {/* Collapsible Payment Proof Display */}
               {order.paymentProof && (order.paymentMethod === 'jazzcash' || order.paymentMethod === 'easypaisa' || order.paymentMethod === 'bank') && (
