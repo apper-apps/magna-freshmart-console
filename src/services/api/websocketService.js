@@ -425,10 +425,10 @@ console.error('Max reconnection attempts reached, giving up');
           try {
             const value = error[key];
             
-            // Skip functions and non-serializable objects
+// Skip functions and non-serializable objects
             if (typeof value === 'function') continue;
             if (value instanceof Node) continue;
-            if (value instanceof Window) continue;
+            if (typeof Window !== 'undefined' && value instanceof Window) continue;
             if (value instanceof URL) {
               serialized[key] = value.href;
               continue;
@@ -461,10 +461,11 @@ console.error('Max reconnection attempts reached, giving up');
         timestamp: new Date().toISOString()
       };
 }
-  }
+}
 
+  // Safe message serialization to prevent DataCloneError
   serializeMessageSafely(message) {
-    if (!message) return message;
+    if (!message) return null;
     
     try {
       // Handle primitive types
@@ -472,7 +473,7 @@ console.error('Max reconnection attempts reached, giving up');
         return message;
       }
       
-      // Handle URL objects specifically
+      // Handle URL objects specifically - convert to plain object
       if (message instanceof URL) {
         return {
           type: 'URL',
@@ -480,7 +481,10 @@ console.error('Max reconnection attempts reached, giving up');
           origin: message.origin,
           pathname: message.pathname,
           search: message.search,
-          hash: message.hash
+          hash: message.hash,
+          protocol: message.protocol,
+          hostname: message.hostname,
+          port: message.port
         };
       }
       
@@ -510,14 +514,22 @@ console.error('Max reconnection attempts reached, giving up');
             const value = message[key];
             
             // Skip functions
-            if (typeof value === 'function') continue;
+            if (typeof value === 'function') {
+              serialized[key] = '[Function]';
+              continue;
+            }
             
             // Skip DOM nodes
-            if (value instanceof Node) continue;
+            if (value instanceof Node) {
+              serialized[key] = `[${value.constructor.name}]`;
+              continue;
+            }
             
-            // Skip Window objects
-            if (value instanceof Window) continue;
-            
+// Skip Window objects
+            if (typeof Window !== 'undefined' && value instanceof Window) {
+              serialized[key] = `[${value.constructor.name}]`;
+              continue;
+            }
             // Handle URL objects
             if (value instanceof URL) {
               serialized[key] = {
@@ -526,12 +538,15 @@ console.error('Max reconnection attempts reached, giving up');
                 origin: value.origin,
                 pathname: value.pathname,
                 search: value.search,
-                hash: value.hash
+                hash: value.hash,
+                protocol: value.protocol,
+                hostname: value.hostname,
+                port: value.port
               };
               continue;
             }
             
-            // Recursively serialize nested objects
+            // Handle nested objects recursively
             if (typeof value === 'object' && value !== null) {
               serialized[key] = this.serializeMessageSafely(value);
             } else {
@@ -544,7 +559,19 @@ console.error('Max reconnection attempts reached, giving up');
         }
       }
       
-      return serialized;
+// Test if the serialized object can be cloned
+      try {
+        if (typeof structuredClone === 'function') {
+          structuredClone(serialized);
+        } else {
+          // Fallback: try JSON serialization
+          JSON.stringify(serialized);
+        }
+        return serialized;
+      } catch (cloneError) {
+        // If still can't clone, return string representation
+        return String(message);
+      }
     } catch (error) {
       // Ultimate fallback
       return {
@@ -553,61 +580,6 @@ console.error('Max reconnection attempts reached, giving up');
         serializationError: error.message,
         timestamp: new Date().toISOString()
       };
-    }
-// Safe message serialization
-  serializeMessageSafely(message) {
-    if (!message) return null;
-    
-    try {
-      // Test if message can be cloned - with fallback for older browsers
-      if (typeof structuredClone === 'function') {
-        structuredClone(message);
-      } else {
-        // Fallback: try JSON serialization
-        JSON.stringify(message);
-      }
-      return message;
-    } catch (error) {
-      // If can't clone, sanitize the message
-      if (typeof message === 'object') {
-        const sanitized = {};
-        for (const key in message) {
-          try {
-            const value = message[key];
-            
-            // Handle URL objects
-            if (value instanceof URL) {
-              sanitized[key] = value.href;
-              continue;
-            }
-            
-            // Handle functions
-            if (typeof value === 'function') {
-              sanitized[key] = '[Function]';
-              continue;
-            }
-            
-            // Handle other non-serializable objects
-            if (value instanceof Node || value instanceof Window) {
-              sanitized[key] = `[${value.constructor.name}]`;
-              continue;
-            }
-            
-            // Test cloning with fallback
-            if (typeof structuredClone === 'function') {
-              structuredClone(value);
-            } else {
-              JSON.stringify(value);
-            }
-            sanitized[key] = value;
-          } catch (cloneError) {
-            sanitized[key] = String(message[key]);
-          }
-        }
-        return sanitized;
-      }
-      
-      return String(message);
     }
   }
 
