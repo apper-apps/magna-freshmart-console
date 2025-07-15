@@ -480,10 +480,8 @@
   @apply px-2 py-1 rounded transition-colors duration-200;
   @apply touch-manipulation;
 }
-
 @media (max-width: 640px) {
   .mobile-responsive-copy {
-    @apply min-h-[44px] px-3 py-2;
+    @apply min-h-[44px] min-w-[44px] flex items-center justify-center;
   }
-}
 }

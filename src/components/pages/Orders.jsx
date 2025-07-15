@@ -2,14 +2,14 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
-import { formatCurrency } from "@/utils/currency";
+import formatCurrency from "@/utils/currency";
 import ApperIcon from "@/components/ApperIcon";
 import Badge from "@/components/atoms/Badge";
 import Empty from "@/components/ui/Empty";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
-import { clipboardService } from "@/services/ClipboardService";
+import clipboardService from "@/services/ClipboardService";
 import { orderService } from "@/services/api/orderService";
 
 const Orders = () => {
@@ -96,9 +96,8 @@ const Orders = () => {
         >
           <ApperIcon name="Plus" size={20} />
           <span>Shop More</span>
-        </Link>
-</div>
-      
+</Link>
+      </div>
       {/* Mobile-first responsive order cards */}
       <div className="space-y-4 sm:space-y-6">
         {orders.map((order) => (
@@ -310,8 +309,8 @@ const Orders = () => {
                               <span className="font-medium text-blue-900">
                                 {(order.paymentProof.fileSize / 1024 / 1024).toFixed(2)} MB
                               </span>
-                            </div>
 </div>
+                          )}
                         </div>
                         <div className="relative group">
                             <img
@@ -397,11 +396,10 @@ const Orders = () => {
                     +{order.items.length - 3} more items
                   </div>
                 )}
-              </div>
-            </div>
 </div>
-
-            {/* Mobile-responsive order actions with swipe actions */}
+            </div>
+            <>
+              {/* Mobile-responsive order actions with swipe actions */}
               <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
                 <div className="flex items-center space-x-1">
                   <ApperIcon name="MapPin" size={14} />
@@ -478,8 +476,8 @@ const Orders = () => {
                     <ApperIcon name="Wallet" size={16} className="text-purple-600" />
                     <h4 className="text-sm font-medium text-purple-900">Wallet Transaction</h4>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-<div className="flex justify-between">
+<div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div className="flex justify-between">
                       <span className="text-purple-700">Transaction ID:</span>
                       <div className="flex items-center space-x-2">
                         <span className="font-mono text-purple-900">{order.walletTransaction.transactionId}</span>
@@ -509,9 +507,9 @@ const Orders = () => {
                       </span>
                     </div>
                   </div>
-                </div>
+</div>
               )}
-            </div>
+            </>
           </div>
         ))}
       </div>
