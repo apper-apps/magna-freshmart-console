@@ -278,4 +278,59 @@
   .cart-item-controls {
     @apply flex justify-center mt-2;
   }
+  
+  /* Mobile-specific touch targets */
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+  
+  /* Mobile cart bottom spacing */
+  .cart-page {
+    @apply pb-24;
+  }
+  
+  /* Mobile order card improvements */
+  .order-card-mobile {
+    @apply space-y-3;
+  }
+  
+  /* Mobile tab scrolling */
+  .tab-scroll {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .tab-scroll::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Tablet responsive breakpoint */
+@media (min-width: 576px) and (max-width: 992px) {
+  .cart-summary {
+    @apply p-4;
+  }
+  
+  .order-actions {
+    @apply flex-wrap gap-2;
+  }
+  
+  .vendor-section {
+    @apply rounded-lg;
+  }
+}
+
+/* Desktop enhancements */
+@media (min-width: 992px) {
+  .cart-fixed-bottom {
+    @apply hidden;
+  }
+  
+  .order-summary-sticky {
+    @apply sticky top-6;
+  }
+  
+  .vendor-expanded {
+    @apply block;
+  }
 }

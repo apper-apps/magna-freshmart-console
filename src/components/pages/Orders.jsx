@@ -73,29 +73,33 @@ const Orders = () => {
         </Link>
       </div>
 
-      <div className="space-y-6">
+{/* Mobile-first responsive order cards */}
+      <div className="space-y-4 sm:space-y-6">
         {orders.map((order) => (
-          <div key={order.id} className="card p-6 hover:shadow-premium transition-shadow duration-300">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4">
-              <div className="flex items-center space-x-4 mb-4 lg:mb-0">
-                <div className="bg-gradient-to-r from-primary to-accent p-3 rounded-lg">
-                  <ApperIcon name="Package" size={24} className="text-white" />
-<div>
-                  <h3 className="text-lg font-semibold text-gray-900">
+          <div key={order.id} className="card p-4 sm:p-6 hover:shadow-premium transition-shadow duration-300">
+            {/* Mobile-optimized header */}
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4">
+              <div className="flex items-start space-x-3 sm:space-x-4 mb-3 sm:mb-0">
+                <div className="bg-gradient-to-r from-primary to-accent p-2 sm:p-3 rounded-lg flex-shrink-0">
+                  <ApperIcon name="Package" size={20} className="text-white sm:w-6 sm:h-6" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                     Order #{order.id}
                   </h3>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-xs sm:text-sm text-gray-600">
                     {format(new Date(order.createdAt), 'MMM dd, yyyy • hh:mm a')}
                   </p>
                   {order.transactionId && (
-                    <p className="text-xs text-gray-500 font-mono">
+                    <p className="text-xs text-gray-500 font-mono truncate">
                       TXN: {order.transactionId}
                     </p>
                   )}
                 </div>
-</div>
-</div>
-              <div className="flex items-center space-x-4">
+              </div>
+              
+              {/* Mobile-responsive status and total */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4">
                 <div className="flex items-center space-x-2">
                   <OrderStatusBadge status={order.status} />
                   {/* Approval Status Badge */}
@@ -144,8 +148,8 @@ const Orders = () => {
                       )}
                     </div>
                   )}
-<div className="text-right">
-                  <p className="text-xl font-bold gradient-text">
+<div className="text-right sm:text-left sm:mt-2">
+                  <p className="text-lg sm:text-xl font-bold gradient-text">
                     {(() => {
                       // Calculate subtotal if order total is missing or zero
                       if (!order?.total || order.total === 0) {
@@ -158,12 +162,12 @@ const Orders = () => {
                       return formatCurrency(order.total);
                     })()}
                   </p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-xs sm:text-sm text-gray-600">
                     {order?.items?.length || 0} items
                   </p>
                 </div>
               </div>
-              </div>
+            </div>
 
             {/* Payment Proof Display */}
             {order.paymentProof && (order.paymentMethod === 'jazzcash' || order.paymentMethod === 'easypaisa' || order.paymentMethod === 'bank') && (
@@ -199,7 +203,8 @@ const Orders = () => {
                         )}
                       </div>
                       
-<div className="flex justify-center">
+{/* Mobile-responsive payment proof display */}
+                      <div className="flex justify-center sm:justify-start">
                         <div className="relative group">
                           <img
                             src={(() => {
@@ -219,7 +224,7 @@ const Orders = () => {
                               return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDE1MCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxNTAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRUZGNkZGIiBzdHJva2U9IiNENERBRjciIHN0cm9rZS13aWR0aD0iMSIvPgo8cGF0aCBkPSJNNjAgNDBMOTAgNzBMNjAgNDBaIiBzdHJva2U9IiM2MkM0NjIiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIvPgo8Y2lyY2xlIGN4PSI3MCIgY3k9IjMwIiByPSI1IiBmaWxsPSIjNjJDNDYyIi8+Cjx0ZXh0IHg9Ijc1IiB5PSI1NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjMzc0MTUxIj5QYXltZW50IFByb29mPC90ZXh0Pgo8dGV4dCB4PSI3NSIgeT0iNjgiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSI4IiBmaWxsPSIjNjc3NDgwIj5DbGljayB0byBWaWV3PC90ZXh0Pgo8L3N2Zz4K';
                             })()}
                             alt="Payment proof"
-                            className="w-32 h-20 object-cover rounded-lg border border-blue-200 cursor-pointer transition-transform group-hover:scale-105"
+                            className="w-24 h-16 sm:w-32 sm:h-20 object-cover rounded-lg border border-blue-200 cursor-pointer transition-transform group-hover:scale-105"
                             onError={(e) => {
                               // Only set fallback if not already a fallback
                               if (!e.target.src.includes('data:image/svg+xml')) {
@@ -258,7 +263,7 @@ const Orders = () => {
                             }}
                           />
                           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 flex items-center justify-center rounded-lg transition-all">
-                            <ApperIcon name="Eye" size={16} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <ApperIcon name="Eye" size={14} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                           </div>
                         </div>
                       </div>
@@ -287,40 +292,40 @@ const Orders = () => {
               </div>
             </div>
 
-            {/* Order Actions */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center space-x-4 text-sm text-gray-600">
+{/* Mobile-responsive order actions */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600">
                 <div className="flex items-center space-x-1">
-                  <ApperIcon name="MapPin" size={16} />
+                  <ApperIcon name="MapPin" size={14} />
                   <span>{order.deliveryAddress.city}</span>
                 </div>
                 <div className="flex items-center space-x-1">
-                  <ApperIcon name="CreditCard" size={16} />
+                  <ApperIcon name="CreditCard" size={14} />
                   <span className="capitalize">{order.paymentMethod.replace('_', ' ')}</span>
                 </div>
               </div>
               
-              <div className="flex space-x-3">
+              <div className="flex flex-wrap gap-2 sm:gap-3">
                 <Link 
                   to={`/orders/${order.id}`}
-                  className="flex items-center space-x-2 text-primary hover:text-primary-dark transition-colors"
+                  className="flex items-center space-x-1 sm:space-x-2 text-primary hover:text-primary-dark transition-colors text-sm bg-primary/5 px-3 py-1.5 rounded-lg"
                 >
-                  <ApperIcon name="Eye" size={16} />
+                  <ApperIcon name="Eye" size={14} />
                   <span>View Details</span>
                 </Link>
                 
-<button className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 transition-colors">
-                  <ApperIcon name="MessageCircle" size={16} />
+                <button className="flex items-center space-x-1 sm:space-x-2 text-blue-600 hover:text-blue-700 transition-colors text-sm bg-blue-50 px-3 py-1.5 rounded-lg">
+                  <ApperIcon name="MessageCircle" size={14} />
                   <span>Chat Support</span>
                 </button>
                 
                 {order.status === 'delivered' && (
-                  <button className="flex items-center space-x-2 text-green-600 hover:text-green-700 transition-colors">
-                    <ApperIcon name="RotateCcw" size={16} />
+                  <button className="flex items-center space-x-1 sm:space-x-2 text-green-600 hover:text-green-700 transition-colors text-sm bg-green-50 px-3 py-1.5 rounded-lg">
+                    <ApperIcon name="RotateCcw" size={14} />
                     <span>Reorder</span>
                   </button>
                 )}
-</div>
+              </div>
               
               {/* Wallet Transaction Details */}
               {order.walletTransaction && (

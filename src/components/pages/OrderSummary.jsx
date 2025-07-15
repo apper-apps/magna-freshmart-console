@@ -460,37 +460,50 @@ if (!order) {
           )}
 </div>
 
-        {/* Tab Navigation */}
-        <div className="mb-8">
+{/* Mobile-responsive tab navigation */}
+        <div className="mb-6 sm:mb-8">
           <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
+            <nav className="-mb-px flex space-x-4 sm:space-x-8 overflow-x-auto">
               <button
                 onClick={() => handleTabChange('order-summary')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
+                className={`py-2 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors duration-200 whitespace-nowrap ${
                   activeTab === 'order-summary'
                     ? 'border-primary text-primary'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                <div className="flex items-center space-x-2">
-                  <ApperIcon name="Package" size={16} />
-                  <span>Order Summary</span>
+                <div className="flex items-center space-x-1 sm:space-x-2">
+                  <ApperIcon name="Package" size={14} />
+                  <span>Overview</span>
                 </div>
               </button>
               <button
                 onClick={() => handleTabChange('price-summary')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
+                className={`py-2 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors duration-200 whitespace-nowrap ${
                   activeTab === 'price-summary'
                     ? 'border-primary text-primary'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                <div className="flex items-center space-x-2">
-                  <ApperIcon name="DollarSign" size={16} />
-                  <span>Price Summary</span>
+                <div className="flex items-center space-x-1 sm:space-x-2">
+                  <ApperIcon name="DollarSign" size={14} />
+                  <span>Items</span>
                   {priceSummaryLoading && (
                     <div className="w-3 h-3 border border-primary border-t-transparent rounded-full animate-spin"></div>
                   )}
+                </div>
+              </button>
+              <button
+                onClick={() => handleTabChange('tracking')}
+                className={`py-2 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors duration-200 whitespace-nowrap ${
+                  activeTab === 'tracking'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center space-x-1 sm:space-x-2">
+                  <ApperIcon name="Truck" size={14} />
+                  <span>Tracking</span>
                 </div>
               </button>
             </nav>
@@ -523,69 +536,67 @@ if (!order) {
 {Object.entries(vendors).map(([vendorName, vendorData]) => (
                           <div key={vendorName} className="vendor-section">
                             {/* Mobile: Enhanced Swipeable vendor sections */}
-                            <div className="md:hidden">
+                            <div className="sm:hidden">
                               <div 
-                                className="bg-blue-50 px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-blue-100 transition-colors"
+                                className="bg-blue-50 px-3 py-2 flex items-center justify-between cursor-pointer hover:bg-blue-100 transition-colors"
                                 onClick={() => handleVendorSwipe(vendorName, vendorData)}
                               >
                                 <div className="flex items-center space-x-2">
-                                  <ApperIcon name="Store" size={16} className="text-blue-600" />
-                                  <span className="font-medium text-blue-900">{vendorName}</span>
-                                  <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
-                                    {vendorData.items.length} items
+                                  <ApperIcon name="Store" size={14} className="text-blue-600" />
+                                  <span className="font-medium text-blue-900 text-sm">{vendorName}</span>
+                                  <span className="text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+                                    {vendorData.items.length}
                                   </span>
                                 </div>
-                                <div className="flex items-center space-x-2">
+                                <div className="flex items-center space-x-1">
                                   {vendorItemsLoading && expandedVendor === vendorName ? (
-                                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                                    <div className="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                                   ) : (
                                     <ApperIcon 
-                                      name={expandedVendor === vendorName ? "ChevronUp" : "ChevronRight"} 
-                                      size={16} 
+                                      name={expandedVendor === vendorName ? "ChevronUp" : "ChevronDown"} 
+                                      size={14} 
                                       className="text-blue-600 transition-transform duration-200" 
                                     />
                                   )}
-                                  <span className="text-sm text-blue-700 font-medium">
-                                    {expandedVendor === vendorName ? "Hide items" : "Swipe to see items"}
+                                  <span className="text-xs text-blue-700 font-medium">
+                                    {expandedVendor === vendorName ? "Hide" : "View"}
                                   </span>
                                 </div>
                               </div>
                               
                               {/* Enhanced Mobile Item Display */}
                               {expandedVendor === vendorName && (
-                                <div className="overflow-x-auto bg-gray-50">
-                                  <div className="flex space-x-4 p-4" style={{ width: `${vendorData.items.length * 280}px` }}>
+                                <div className="bg-gray-50 p-3">
+                                  <div className="space-y-2">
                                     {vendorData.items.map((item) => (
-                                      <div key={item.productId} className="flex-shrink-0 w-64 bg-white border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+                                      <div key={item.productId} className="bg-white border rounded-lg p-3 text-sm">
                                         <div className="flex justify-between items-start mb-2">
                                           <h4 className="font-medium text-gray-900 text-sm leading-tight">{item.name}</h4>
                                           {isAdmin && getAvailabilityBadge(getAvailabilityStatus(item.productId, vendorData.vendorId))}
                                         </div>
-                                        <div className="space-y-1 text-sm text-gray-600">
-                                          <p className="flex justify-between">
+                                        <div className="space-y-1 text-xs text-gray-600">
+                                          <div className="flex justify-between">
                                             <span>Qty:</span>
                                             <span className="font-medium">{item.quantity} {item.unit}</span>
-                                          </p>
-                                          <p className="flex justify-between">
+                                          </div>
+                                          <div className="flex justify-between">
                                             <span>Price:</span>
                                             <span className="font-medium">{formatCurrency(item.price)}</span>
-                                          </p>
+                                          </div>
                                           <div className="border-t pt-1 mt-2">
-                                            <p className="flex justify-between font-medium text-gray-900">
+                                            <div className="flex justify-between font-medium text-gray-900">
                                               <span>Total:</span>
                                               <span className="text-primary">{formatCurrency(item.price * item.quantity)}</span>
-                                            </p>
+                                            </div>
                                           </div>
                                         </div>
                                       </div>
                                     ))}
                                   </div>
-                                  <div className="px-4 pb-3">
-                                    <div className="bg-white rounded-lg p-3 border">
-                                      <div className="flex justify-between items-center">
-                                        <span className="text-sm text-gray-600">Vendor Total:</span>
-                                        <span className="font-semibold text-primary">{formatCurrency(vendorData.total)}</span>
-                                      </div>
+                                  <div className="mt-2 bg-white rounded-lg p-2 border">
+                                    <div className="flex justify-between items-center text-sm">
+                                      <span className="text-gray-600">Vendor Total:</span>
+                                      <span className="font-semibold text-primary">{formatCurrency(vendorData.total)}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -839,41 +850,42 @@ if (!order) {
                               </div>
 
                               {/* Price Table */}
+{/* Mobile-responsive price table */}
                               <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
+                                <table className="w-full text-xs sm:text-sm">
                                   <thead>
                                     <tr className="bg-gray-50">
-                                      <th className="text-left py-2 px-3 font-medium text-gray-700">Item</th>
-                                      <th className="text-center py-2 px-3 font-medium text-gray-700">Qty</th>
+                                      <th className="text-left py-2 px-2 sm:px-3 font-medium text-gray-700">Item</th>
+                                      <th className="text-center py-2 px-1 sm:px-3 font-medium text-gray-700">Qty</th>
                                       {priceVisibility.showCostPrices && (userRole === 'admin' || userRole === 'vendor') && (
-                                        <th className="text-right py-2 px-3 font-medium text-orange-600">Cost Price</th>
+                                        <th className="text-right py-2 px-1 sm:px-3 font-medium text-orange-600 hidden sm:table-cell">Cost</th>
                                       )}
                                       {priceVisibility.showSellingPrices && (
-                                        <th className="text-right py-2 px-3 font-medium text-primary">Selling Price</th>
+                                        <th className="text-right py-2 px-1 sm:px-3 font-medium text-primary">Price</th>
                                       )}
-                                      <th className="text-right py-2 px-3 font-medium text-gray-700">Total</th>
+                                      <th className="text-right py-2 px-2 sm:px-3 font-medium text-gray-700">Total</th>
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-100">
                                     {vendorInfo.items?.map((item) => (
                                       <tr key={item.productId} className="hover:bg-gray-50">
-                                        <td className="py-2 px-3 font-medium text-gray-900">{item.name}</td>
-                                        <td className="py-2 px-3 text-center text-gray-600">
+                                        <td className="py-2 px-2 sm:px-3 font-medium text-gray-900 text-xs sm:text-sm">{item.name}</td>
+                                        <td className="py-2 px-1 sm:px-3 text-center text-gray-600 text-xs">
                                           {item.quantity} {item.unit}
                                         </td>
                                         {priceVisibility.showCostPrices && (userRole === 'admin' || userRole === 'vendor') && (
-                                          <td className="py-2 px-3 text-right text-orange-600">
+                                          <td className="py-2 px-1 sm:px-3 text-right text-orange-600 text-xs hidden sm:table-cell">
                                             {item.costPrice ? formatCurrency(item.costPrice) : 
                                               <span className="text-gray-400 italic">Hidden</span>
                                             }
                                           </td>
                                         )}
                                         {priceVisibility.showSellingPrices && (
-                                          <td className="py-2 px-3 text-right text-primary">
+                                          <td className="py-2 px-1 sm:px-3 text-right text-primary text-xs">
                                             {formatCurrency(item.price)}
                                           </td>
                                         )}
-                                        <td className="py-2 px-3 text-right font-medium text-gray-900">
+                                        <td className="py-2 px-2 sm:px-3 text-right font-medium text-gray-900 text-xs sm:text-sm">
                                           {formatCurrency(item.price * item.quantity)}
                                         </td>
                                       </tr>
