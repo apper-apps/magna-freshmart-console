@@ -821,7 +821,7 @@ const handleSDKMessage = (event) => {
   try {
     if (event.origin && event.origin.includes('apper.io')) {
       const sanitizedData = serializeForPostMessage(event.data);
-console.log('Handled SDK message:', sanitizedData);
+      console.log('Handled SDK message:', sanitizedData);
       
       // Dispatch sanitized message
       window.dispatchEvent(new window.CustomEvent('apper-sdk-message', {
