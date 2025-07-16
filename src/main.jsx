@@ -2,11 +2,11 @@ import './index.css'
 import React, { useCallback, useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { Provider } from "react-redux";
-import { ToastContainer } from "react-toastify";
+import { ToastContainer, toast } from "react-toastify";
 import App from "@/App";
+import { classifyError } from "@/utils/errorHandling";
 import { store } from "@/store/index";
 import ErrorComponent from "@/components/ui/Error";
-import { toast } from "react-toastify";
 
 // Polyfill for structuredClone if not available
 if (typeof structuredClone === 'undefined') {
@@ -800,7 +800,7 @@ const performanceMonitor = {
     }
   },
   
-  getErrorSummary() {
+getErrorSummary() {
     return {
       totalErrors: this.errors.length,
       categories: { ...this.errorCategories },
@@ -814,6 +814,23 @@ const performanceMonitor = {
   }
 };
 
+// Missing function for SDK initialization
+async function initializeSDK() {
+  try {
+    // Setup message handler
+    window.addEventListener('message', handleSDKMessage);
+    
+    // Setup performance monitoring
+    if (typeof window !== 'undefined') {
+      window.performanceMonitor = performanceMonitor;
+    }
+    
+    console.log('SDK initialized successfully');
+  } catch (error) {
+    console.warn('SDK initialization failed:', error);
+    performanceMonitor.trackError(error, 'sdk-init-error');
+  }
+}
 // Missing function for SDK message handling
 
 // Missing function for SDK message handling
