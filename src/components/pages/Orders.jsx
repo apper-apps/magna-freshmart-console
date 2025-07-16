@@ -251,8 +251,8 @@ className="flex items-center space-x-2 text-primary hover:text-primary-dark tran
                         )}
                       </div>
                     );
-                  })}
-</div>
+})}
+                </div>
               </div>
             </div>
 
@@ -376,8 +376,8 @@ className="flex items-center space-x-2 text-primary hover:text-primary-dark tran
                               <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 flex items-center justify-center rounded-lg transition-all">
                                 <ApperIcon name="Eye" size={14} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                               </div>
-                            </div>
 </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -385,17 +385,17 @@ className="flex items-center space-x-2 text-primary hover:text-primary-dark tran
                 )}
               </div>
               
-              {/* Order Items Preview */}
 {/* Order Items Preview */}
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <h4 className="text-sm font-medium text-gray-900 mb-3">Items ({order?.items?.length || 0})</h4>
                 <div className="space-y-2">
                   {order?.items?.slice(0, 3)?.map((item, index) => (
+                    <div key={index} className="flex items-center space-x-2">
                       <span className="text-sm text-gray-600">{item.quantity}x</span>
                       <span className="text-sm font-medium text-gray-900 truncate">
                         {item.name}
                       </span>
-</div>
+                    </div>
                   ))}
                   {order?.items?.length > 3 && (
                     <div className="text-sm text-gray-600">
@@ -464,9 +464,8 @@ className="flex items-center space-x-2 text-primary hover:text-primary-dark tran
                 
                 <button className="flex items-center space-x-1 sm:space-x-2 text-blue-600 hover:text-blue-700 transition-colors text-sm bg-blue-50 px-3 py-1.5 rounded-lg">
                   <ApperIcon name="MessageCircle" size={14} />
-                  <span>Chat Support</span>
-</button>
-                
+<span>Chat Support</span>
+                </button>
                 {order.status === 'delivered' && (
                   <button className="flex items-center space-x-1 sm:space-x-2 text-green-600 hover:text-green-700 transition-colors text-sm bg-green-50 px-3 py-1.5 rounded-lg">
                     <ApperIcon name="RotateCcw" size={14} />
@@ -508,9 +507,9 @@ className="flex items-center space-x-2 text-primary hover:text-primary-dark tran
                     </div>
                     <div className="flex justify-between">
                       <span className="text-purple-700">Amount:</span>
-                      <span className="font-semibold text-purple-900">
+<span className="font-semibold text-purple-900">
                         {formatCurrency(order.walletTransaction.amount)}
-</span>
+                      </span>
                     </div>
                   </div>
                 </div>
