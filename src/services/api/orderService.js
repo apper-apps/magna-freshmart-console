@@ -195,23 +195,115 @@ if (orderData.paymentMethod === 'wallet') {
     this.orders.push(newOrder);
     return { ...newOrder };
   }
-  async update(id, orderData) {
+async update(id, orderData) {
     await this.delay();
-    const index = this.orders.findIndex(o => o.id === id);
-    if (index === -1) {
+    
+    const orderIndex = this.orders.findIndex(o => o.id === parseInt(id));
+    if (orderIndex === -1) {
       throw new Error('Order not found');
     }
-    this.orders[index] = { ...this.orders[index], ...orderData };
-    return { ...this.orders[index] };
+    
+    this.orders[orderIndex] = {
+      ...this.orders[orderIndex],
+      ...orderData,
+      updatedAt: new Date().toISOString()
+    };
+    
+    return { ...this.orders[orderIndex] };
+  }
+
+  // Update order status - CRITICAL METHOD IMPLEMENTATION
+  async updateOrderStatus(orderId, newStatus, additionalData = {}) {
+    try {
+      const orderIndex = ordersData.findIndex(order => order.id === orderId);
+      
+      if (orderIndex === -1) {
+        return { 
+          success: false, 
+          error: 'Order not found',
+          message: `Order with ID ${orderId} does not exist`
+        };
+      }
+
+      const validStatuses = ['pending', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'];
+      if (!validStatuses.includes(newStatus)) {
+        return { 
+          success: false, 
+          error: 'Invalid status',
+          message: `Status '${newStatus}' is not valid. Valid statuses: ${validStatuses.join(', ')}`
+        };
+      }
+
+      const order = ordersData[orderIndex];
+      const previousStatus = order.status;
+
+      // Update the order status
+      ordersData[orderIndex] = {
+        ...order,
+        status: newStatus,
+        updatedAt: new Date().toISOString(),
+        statusHistory: [
+          ...(order.statusHistory || []),
+          {
+            status: newStatus,
+            timestamp: new Date().toISOString(),
+            previousStatus,
+            ...additionalData
+          }
+        ]
+      };
+
+      // Handle status-specific logic
+      if (newStatus === 'confirmed') {
+        // Auto-assign delivery personnel if not already assigned
+        if (!order.deliveryPersonnelId) {
+          try {
+            const assignmentResult = await this.autoAssignDeliveryPersonnel(ordersData[orderIndex]);
+            if (assignmentResult.success) {
+              ordersData[orderIndex].deliveryPersonnelId = assignmentResult.deliveryPersonnelId;
+            }
+          } catch (assignError) {
+            console.warn('Could not auto-assign delivery personnel:', assignError);
+          }
+        }
+      }
+
+      return { 
+        success: true, 
+        data: ordersData[orderIndex],
+        message: `Order status updated from '${previousStatus}' to '${newStatus}' successfully`
+      };
+
+    } catch (error) {
+      console.error('Error updating order status:', error);
+      return { 
+        success: false, 
+        error: 'Update failed',
+        message: `Failed to update order status: ${error.message}`
+      };
+    }
+  }
+
+  // Get vendor orders
+  async getVendorOrders(vendorId) {
+    try {
+      const orders = ordersData.filter(order => 
+        order.items.some(item => item.vendorId === vendorId)
+      );
+      return { success: true, data: orders };
+    } catch (error) {
+console.error('Error fetching vendor orders:', error);
+      return { success: false, error: error.message };
+    }
   }
 
   async delete(id) {
     await this.delay();
-    const index = this.orders.findIndex(o => o.id === id);
+    const index = this.orders.findIndex(o => o.id === parseInt(id));
     if (index === -1) {
       throw new Error('Order not found');
     }
-this.orders.splice(index, 1);
+    this.orders.splice(index, 1);
     return true;
   }
 
