@@ -531,9 +531,8 @@ const priceChange = getPriceChange();
               </div>
             </div>
           </div>
-        </div>
-      </div>
 </div>
+      </div>
     </div>
   );
 };
