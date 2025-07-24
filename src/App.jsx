@@ -435,13 +435,7 @@ useEffect(() => {
           console.warn('Failed to dispatch DataCloneError recovery event:', dispatchError);
         }
         
-        // Attempt graceful degradation for PostMessage operations
-        if (errorData.context === 'postMessage') {
-          console.log('Implementing PostMessage fallback handling');
-          // The SafePostMessage utility will handle the specific recovery
-        }
-        
-        // Log the error but don't crash the app
+        // Log the error but don't crash the app - SafePostMessage utility handles recovery
         event.preventDefault();
         return false;
       }
