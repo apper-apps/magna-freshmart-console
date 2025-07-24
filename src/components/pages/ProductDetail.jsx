@@ -5,12 +5,12 @@ import { Heart, Minus, Plus, ShoppingCart, Star } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { toast } from "react-hot-toast";
 import { addToCart } from "@/store/cartSlice";
-import formatCurrency from "@/utils/currency";
-    import { productService } from "@/services/api/productService";
-    import ApperIcon from "@/components/ApperIcon";
-    import Cart from "@/components/pages/Cart";
-    import Badge from "@/components/atoms/Badge";
-    import Button from "@/components/atoms/Button";
+import { formatCurrency } from "@/utils/currency";
+import { productService } from "@/services/api/productService";
+import ApperIcon from "@/components/ApperIcon";
+import Cart from "@/components/pages/Cart";
+import { Badge } from "@/components/atoms/Badge";
+import { Button } from "@/components/atoms/Button";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
 const ProductDetail = () => {
@@ -137,7 +137,7 @@ if (error) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Error 
-          message={error.message || error} 
+          message={error.message || error}
           onRetry={loadProduct} 
           type={error.type || 'general'} 
         />
@@ -160,7 +160,7 @@ if (error) {
 const priceChange = getPriceChange();
   const activeDeal = getActiveDeal();
 
-// Calculate dynamic image dimensions with aspect ratio enforcement for 1:1 framing
+  // Calculate dynamic image dimensions with aspect ratio enforcement for 1:1 framing
   const calculateImageDimensions = () => {
     // Get viewport width for responsive sizing
     const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
@@ -207,7 +207,7 @@ const priceChange = getPriceChange();
         {/* Product Image with Enhanced 1:1 Frame Display */}
         <div className="space-y-4">
           <div className="relative">
-            <div 
+            <div
               className="mx-auto rounded-2xl overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 relative shadow-lg"
               style={{
                 width: `${calculateImageDimensions().width}px`,
@@ -451,10 +451,10 @@ const priceChange = getPriceChange();
             {product.stock > 0 ? (
               <>
 <Button
-                  variant="primary"
-                  size="large"
-                  icon="ShoppingCart"
-                  onClick={handleAddToCart}
+                variant="primary"
+                size="large"
+                icon="ShoppingCart"
+                onClick={handleAddToCart}
                   loading={cartLoading}
                   className="w-full"
                 >
@@ -534,6 +534,7 @@ const priceChange = getPriceChange();
         </div>
       </div>
 </div>
+    </div>
   );
 };
 
@@ -996,7 +997,7 @@ const DiscountSection = ({ product, quantity, onDiscountChange }) => {
                 onClick={() => handleOfferSelect(offer)}
                 className={`p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
                   selectedOffer?.id === offer.id
-                    ? 'border-orange-500 bg-orange-100'
+? 'border-orange-500 bg-orange-100'
                     : 'border-gray-200 bg-white hover:border-orange-300'
                 }`}
               >
@@ -1340,5 +1341,7 @@ const EnhancedImageLoader = ({ product, dimensions, className, style }) => {
         </div>
       )}
     </picture>
-  );
+);
 };
+
+export default ProductDetail;
