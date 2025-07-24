@@ -2,12 +2,12 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
-import formatCurrency from "@/utils/currency";
-import clipboardService from "@/services/ClipboardService";
+import { formatCurrency } from "@/utils/currency";
+import { clipboardService } from "@/services/ClipboardService";
 import { orderService } from "@/services/api/orderService";
 import ApperIcon from "@/components/ApperIcon";
-import Badge from "@/components/atoms/Badge";
-import Button from "@/components/atoms/Button";
+import { Badge } from "@/components/atoms/Badge";
+import { Button } from "@/components/atoms/Button";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
 import Error from "@/components/ui/Error";
 import Empty from "@/components/ui/Empty";
@@ -164,48 +164,46 @@ const Orders = () => {
                     </div>
                   )}
                 </div>
-<>
-                  {(order.paymentMethod === 'jazzcash' || order.paymentMethod === 'easypaisa' || order.paymentMethod === 'bank') && (
-                    <div className="flex items-center space-x-1">
-                      {order.verificationStatus === 'verified' && (
-                        <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full flex items-center">
-                          <ApperIcon name="CheckCircle" size={12} className="mr-1" />
-                          Payment Verified
-                        </span>
-                      )}
-                      {order.verificationStatus === 'rejected' && (
-                        <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full flex items-center">
-                          <ApperIcon name="XCircle" size={12} className="mr-1" />
-                          Payment Rejected
-                        </span>
-                      )}
-                      {order.verificationStatus === 'pending' && (
-                        <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full flex items-center">
-                          <ApperIcon name="Clock" size={12} className="mr-1" />
-                          Pending Verification
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  <div className="text-right sm:text-left sm:mt-2">
-                    <p className="text-lg sm:text-xl font-bold gradient-text">
-                      {(() => {
-                        // Calculate subtotal if order total is missing or zero
-                        if (!order?.total || order.total === 0) {
-                          const itemsSubtotal = order?.items?.reduce((sum, item) => {
-                            return sum + ((item.price || 0) * (item.quantity || 0));
-                          }, 0) || 0;
-                          const deliveryCharge = order?.deliveryCharge || 0;
-                          return formatCurrency(itemsSubtotal + deliveryCharge);
-                        }
-                        return formatCurrency(order.total);
-                      })()}
-                    </p>
-                    <p className="text-xs sm:text-sm text-gray-600">
-                      {order?.items?.length || 0} items
-                    </p>
+{(order.paymentMethod === 'jazzcash' || order.paymentMethod === 'easypaisa' || order.paymentMethod === 'bank') && (
+                  <div className="flex items-center space-x-1">
+                    {order.verificationStatus === 'verified' && (
+                      <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full flex items-center">
+                        <ApperIcon name="CheckCircle" size={12} className="mr-1" />
+                        Payment Verified
+                      </span>
+                    )}
+                    {order.verificationStatus === 'rejected' && (
+                      <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full flex items-center">
+                        <ApperIcon name="XCircle" size={12} className="mr-1" />
+                        Payment Rejected
+                      </span>
+                    )}
+                    {order.verificationStatus === 'pending' && (
+                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full flex items-center">
+                        <ApperIcon name="Clock" size={12} className="mr-1" />
+                        Pending Verification
+                      </span>
+                    )}
                   </div>
-                </>
+                )}
+                <div className="text-right sm:text-left sm:mt-2">
+                  <p className="text-lg sm:text-xl font-bold gradient-text">
+                    {(() => {
+                      // Calculate subtotal if order total is missing or zero
+                      if (!order?.total || order.total === 0) {
+                        const itemsSubtotal = order?.items?.reduce((sum, item) => {
+                          return sum + ((item.price || 0) * (item.quantity || 0));
+                        }, 0) || 0;
+                        const deliveryCharge = order?.deliveryCharge || 0;
+                        return formatCurrency(itemsSubtotal + deliveryCharge);
+                      }
+                      return formatCurrency(order.total);
+                    })()}
+                  </p>
+                  <p className="text-xs sm:text-sm text-gray-600">
+                    {order?.items?.length || 0} items
+                  </p>
+                </div>
               </div>
             </div>
             {/* Mini Status Timeline for Mobile */}
@@ -315,7 +313,7 @@ const Orders = () => {
                               </div>
                             )}
                           </div>
-<div className="relative group">
+                          <div className="relative group">
                             <img
                               src={(() => {
                                 // Validate and return payment proof image URL
@@ -497,7 +495,7 @@ const Orders = () => {
                       </div>
                     </div>
                     <div className="flex justify-between">
-<span className="text-purple-700">Type:</span>
+                      <span className="text-purple-700">Type:</span>
                       <span className="font-medium text-purple-900 capitalize">
                         {order.walletTransaction.type.replace('_', ' ')}
                       </span>
