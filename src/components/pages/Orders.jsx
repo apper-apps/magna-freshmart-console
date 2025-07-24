@@ -376,10 +376,10 @@ const Orders = () => {
                           </div>
                         </div>
                       </div>
-                    </div>
+</div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
               
               {/* Order Items Preview */}
               <div className="mt-4 pt-4 border-t border-gray-200">
