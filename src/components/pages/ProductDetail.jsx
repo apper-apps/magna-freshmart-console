@@ -1159,9 +1159,8 @@ const DiscountSection = ({ product, quantity, onDiscountChange }) => {
           </button>
         )}
       </div>
-    </div>
+</div>
   );
-);
 };
 
 // Enhanced Image Loader Component with Comprehensive Error Handling
