@@ -6,8 +6,8 @@ import { formatCurrency } from "@/utils/currency";
 import { clipboardService } from "@/services/ClipboardService";
 import { orderService } from "@/services/api/orderService";
 import ApperIcon from "@/components/ApperIcon";
-import Badge from "@/components/atoms/Badge";
-import Button from "@/components/atoms/Button";
+import { Badge } from "@/components/atoms/Badge";
+import { Button } from "@/components/atoms/Button";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
 import Error from "@/components/ui/Error";
 import Empty from "@/components/ui/Empty";
@@ -147,9 +147,9 @@ const Orders = () => {
                         <Badge variant="success" className="text-xs">
                           <ApperIcon name="CheckCircle" size={12} className="mr-1" />
                           Approved
-                        </Badge>
+</Badge>
                       )}
-{order.approvalStatus === 'pending' && (
+                      {order.approvalStatus === 'pending' && (
                         <Badge variant="warning" className="text-xs animate-pulse">
                           <ApperIcon name="Clock" size={12} className="mr-1" />
                           Pending Approval
@@ -242,9 +242,9 @@ const Orders = () => {
                         }`}>
                           <ApperIcon name={statusIcons[status]} size={16} />
                         </div>
-                        <span className={`text-xs font-medium ${isCompleted ? 'text-gray-900' : 'text-gray-400'}`}>
+<span className={`text-xs font-medium ${isCompleted ? 'text-gray-900' : 'text-gray-400'}`}>
                           {statusLabels[status]}
-</span>
+                        </span>
                         {isActive && (
                           <div className="w-2 h-2 bg-primary rounded-full mt-1 animate-pulse"></div>
                         )}
@@ -307,16 +307,15 @@ const Orders = () => {
                               </span>
                             </div>
                             {order.paymentProof.fileSize && (
+{order.paymentProof.fileSize && (
                               <div className="flex justify-between text-sm">
                                 <span className="text-blue-700">File Size:</span>
                                 <span className="font-medium text-blue-900">
                                   {(order.paymentProof.fileSize / 1024 / 1024).toFixed(2)} MB
                                 </span>
                               </div>
-</div>
-                            )}
                           </div>
-                          <div className="relative group">
+<div className="relative group">
                             <img
                               src={(() => {
                                 // Validate and return payment proof image URL
@@ -456,9 +455,9 @@ const Orders = () => {
                 <Link 
                   to={`/orders/${order.id}`}
                   className="flex items-center space-x-1 sm:space-x-2 text-primary hover:text-primary-dark transition-colors text-sm bg-primary/5 px-3 py-1.5 rounded-lg"
-                >
+>
                   <ApperIcon name="Eye" size={14} />
-<span>View Details</span>
+                  <span>View Details</span>
                 </Link>
                 <button className="flex items-center space-x-1 sm:space-x-2 text-blue-600 hover:text-blue-700 transition-colors text-sm bg-blue-50 px-3 py-1.5 rounded-lg">
                   <ApperIcon name="MessageCircle" size={14} />
@@ -498,9 +497,9 @@ const Orders = () => {
                       </div>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-purple-700">Type:</span>
+<span className="text-purple-700">Type:</span>
                       <span className="font-medium text-purple-900 capitalize">
-{order.walletTransaction.type.replace('_', ' ')}
+                        {order.walletTransaction.type.replace('_', ' ')}
                       </span>
                     </div>
                     <div className="flex justify-between">
