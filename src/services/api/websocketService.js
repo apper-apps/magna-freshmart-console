@@ -1,3 +1,5 @@
+import React from "react";
+import Error from "@/components/ui/Error";
 class WebSocketService {
   constructor() {
     this.connection = null;
@@ -401,9 +403,9 @@ serializeErrorSafely(error) {
           timestamp: new Date().toISOString()
         };
         
-        // Add any custom properties that might exist on the error
+// Add any custom properties that might exist on the error
         for (const key in error) {
-          if (!errorData.hasOwnProperty(key) && error.hasOwnProperty(key)) {
+          if (!Object.prototype.hasOwnProperty.call(errorData, key) && Object.prototype.hasOwnProperty.call(error, key)) {
             try {
               const value = error[key];
               if (typeof value !== 'function' && !(value instanceof Node)) {
@@ -415,7 +417,6 @@ serializeErrorSafely(error) {
             }
           }
         }
-        
         return errorData;
       }
       
@@ -531,8 +532,8 @@ serializeErrorSafely(error) {
           }
           else if (typeof value === 'object' && value !== null) {
             result = {};
-            for (const objKey in value) {
-              if (value.hasOwnProperty(objKey)) {
+for (const objKey in value) {
+              if (Object.prototype.hasOwnProperty.call(value, objKey)) {
                 try {
                   result[objKey] = serializeValue(value[objKey], objKey, [...currentPath, objKey]);
                 } catch (propError) {
@@ -564,9 +565,9 @@ serializeErrorSafely(error) {
           return result;
         };
         
-        // Serialize all enumerable properties
+// Serialize all enumerable properties
         for (const key in error) {
-          if (error.hasOwnProperty(key)) {
+          if (Object.prototype.hasOwnProperty.call(error, key)) {
             try {
               serialized[key] = serializeValue(error[key], key, [key]);
             } catch (keyError) {
@@ -579,7 +580,6 @@ serializeErrorSafely(error) {
             }
           }
         }
-        
         serialized.timestamp = new Date().toISOString();
         serialized.objectPrototype = Object.prototype.toString.call(error);
         return serialized;
@@ -733,7 +733,7 @@ if (typeof message !== 'object' || message === null) {
 else if (value instanceof Error) {
             result = this.serializeErrorSafely(value);
           }
-          // Handle File objects (common in forms) - with environment check
+// Handle File objects (common in forms) - with environment check
           else if (typeof File !== 'undefined' && value instanceof File) {
             result = {
               __type: 'File',
@@ -791,7 +791,7 @@ else if (value instanceof Error) {
               className: value.className
             };
 }
-          // Handle Window objects - with proper environment checks
+// Handle Window objects - with proper environment checks
           else if (typeof window !== 'undefined' && typeof Window !== 'undefined' && value instanceof Window) {
             result = {
               __type: 'Window',
@@ -823,8 +823,8 @@ else if (value instanceof Error) {
             result.__objectType = Object.prototype.toString.call(value);
             result.__constructor = value.constructor?.name;
             
-            for (const objKey in value) {
-              if (value.hasOwnProperty(objKey)) {
+for (const objKey in value) {
+              if (Object.prototype.hasOwnProperty.call(value, objKey)) {
                 try {
                   result[objKey] = serialize(value[objKey], objKey, [...currentPath, objKey]);
                 } catch (propError) {
