@@ -1,4 +1,5 @@
 import productsData from "@/services/mockData/products.json";
+
 class ProductService {
   constructor() {
     this.products = [...productsData];
@@ -1827,58 +1828,43 @@ async updateVendorPrice(vendorId, productId, priceData) {
       }
     };
   }
-
-  async submitPriceStockApproval(vendorId, productId, proposedChanges) {
-    await this.delay(500);
+// Vendor approval workflow methods
+  async submitVendorPriceForApproval(vendorId, productId, proposedChanges) {
+    await this.delay(400);
     
-    // Validate vendor has access to this product
+    // Validate vendor access
     const hasAccess = await this.validateVendorAccess(vendorId, productId);
     if (!hasAccess.valid) {
       throw new Error(hasAccess.error);
     }
     
-    const productIndex = this.products.findIndex(p => p.id === parseInt(productId));
-    if (productIndex === -1) {
+    const currentProduct = this.products.find(p => p.id === parseInt(productId));
+    if (!currentProduct) {
       throw new Error('Product not found');
     }
     
-    const currentProduct = this.products[productIndex];
-    const vendorAssignments = await this.getVendorProductAssignments(vendorId);
-    const assignment = vendorAssignments.find(a => a.productId === parseInt(productId));
+    const assignments = await this.getVendorProductAssignments(vendorId);
+    const assignment = assignments.find(a => a.productId === parseInt(productId));
     
-    // Validate all proposed changes
+    // Validate the proposed changes
     const validation = await this.validateVendorPricing(proposedChanges, assignment, currentProduct);
     if (!validation.isValid) {
       throw new Error(validation.error);
     }
     
-    // Create approval request data
-    const approvalRequestData = {
-      type: 'price_stock_change',
-      title: `Price/Stock Update - ${currentProduct.name}`,
+    // Create approval request
+    const approvalRequest = {
+      vendorId: vendorId,
+      productId: productId,
+      currentData: {
+        price: currentProduct.price,
+        purchasePrice: currentProduct.purchasePrice || 0,
+        stock: currentProduct.stock
+      },
+      proposedChanges: proposedChanges,
       description: this.generateApprovalDescription(currentProduct, proposedChanges),
-      submittedBy: `vendor_${vendorId}`,
       priority: this.determineApprovalPriority(currentProduct, proposedChanges),
-      affectedEntity: {
-        entityType: 'product',
-        entityId: parseInt(productId),
-        entityName: currentProduct.name,
-        currentValues: {
-          price: currentProduct.price,
-          stock: currentProduct.stock,
-          purchasePrice: currentProduct.purchasePrice || 0
-        },
-        proposedValues: {
-          price: proposedChanges.price,
-          stock: proposedChanges.stock,
-          purchasePrice: proposedChanges.purchasePrice
-        }
-      },
-      vendorInfo: {
-        vendorId: vendorId,
-        vendorName: assignment.vendorName || `Vendor ${vendorId}`,
-        assignmentId: assignment.Id
-      },
+      submittedAt: new Date().toISOString(),
       businessImpact: this.calculateApprovalBusinessImpact(currentProduct, proposedChanges),
       validationResults: validation
     };

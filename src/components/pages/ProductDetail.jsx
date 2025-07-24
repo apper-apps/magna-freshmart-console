@@ -1,18 +1,18 @@
-import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import React, { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { Heart, Minus, Plus, ShoppingCart, Star } from "lucide-react";
-import { formatCurrency } from "@/utils/currency";
-import { addToCart } from "@/store/cartSlice";
-import ApperIcon from "@/components/ApperIcon";
-import Badge from "@/components/atoms/Badge";
-import Button from "@/components/atoms/Button";
-import Error from "@/components/ui/Error";
-import Loading from "@/components/ui/Loading";
-import Cart from "@/components/pages/Cart";
-import { productService } from "@/services/api/productService";
 import { useCart } from "@/hooks/useCart";
 import { toast } from "react-hot-toast";
+import { addToCart } from "@/store/cartSlice";
+import formatCurrency from "@/utils/currency";
+    import { productService } from "@/services/api/productService";
+    import ApperIcon from "@/components/ApperIcon";
+    import Cart from "@/components/pages/Cart";
+    import Badge from "@/components/atoms/Badge";
+    import Button from "@/components/atoms/Button";
+import Error from "@/components/ui/Error";
+import Loading from "@/components/ui/Loading";
 const ProductDetail = () => {
   const { productId } = useParams();
   const navigate = useNavigate();
@@ -158,7 +158,7 @@ if (error) {
   }
 
 const priceChange = getPriceChange();
-const activeDeal = getActiveDeal();
+  const activeDeal = getActiveDeal();
 
 // Calculate dynamic image dimensions with aspect ratio enforcement for 1:1 framing
   const calculateImageDimensions = () => {
@@ -215,27 +215,16 @@ const activeDeal = getActiveDeal();
                 aspectRatio: calculateImageDimensions().aspectRatio
               }}
             >
-              {/* Enhanced Progressive Image Loading with WebP Support */}
-              <picture className="block w-full h-full">
-<source
-                  srcSet={`${product.imageUrl}?w=${calculateImageDimensions().width}&h=${calculateImageDimensions().height}&fit=crop 1x, ${product.imageUrl}?w=${calculateImageDimensions().width * 2}&h=${calculateImageDimensions().height * 2}&fit=crop 2x`}
-                  type="image/webp"
-                />
-                <img
-                  src={`${product.imageUrl}?w=${calculateImageDimensions().width}&h=${calculateImageDimensions().height}&fit=crop`}
-                  alt={product.name}
-                  className="w-full h-full object-cover transition-all duration-500 hover:scale-105 image-loaded"
-                  style={{ 
-                    backgroundColor: '#f3f4f6',
-                    aspectRatio: '1 / 1'
-                  }}
-                  loading="lazy"
-onError={(e) => {
-                    console.warn('Product image failed to load, using fallback');
-                    e.target.src = `https://via.placeholder.com/600x600/f3f4f6/64748b?text=${encodeURIComponent(product.name.substring(0, 20))}`;
-                  }}
-                />
-              </picture>
+{/* Enhanced Progressive Image Loading with Comprehensive Error Handling */}
+              <EnhancedImageLoader 
+                product={product}
+                dimensions={calculateImageDimensions()}
+                className="w-full h-full object-cover transition-all duration-500 hover:scale-105 image-loaded"
+                style={{ 
+                  backgroundColor: '#f3f4f6',
+                  aspectRatio: '1 / 1'
+                }}
+              />
               {/* Frame Compatibility Indicator */}
               <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-md">
                 <div className="flex items-center space-x-1">
@@ -272,7 +261,7 @@ onError={(e) => {
             )}
             
 {/* Auto-Generated Offer Badge */}
-{product.discountValue && product.discountValue > 0 && (
+            {product.discountValue && product.discountValue > 0 && (
               <Badge 
                 variant="promotional" 
                 className="absolute top-4 left-4 text-sm font-bold"
@@ -729,7 +718,7 @@ const PricingHierarchyDisplay = ({ product, quantity, onPriceUpdate }) => {
               <div>
                 <h4 className="font-medium text-green-800">Seasonal Offer Available</h4>
                 <p className="text-sm text-green-600">
-{seasonalDiscountType === 'Percentage' 
+{seasonalDiscountType === 'Percentage'
                     ? `${seasonalDiscount}% discount` 
                     : `${formatCurrency(seasonalDiscount)} off`
                   } on this product
@@ -1172,6 +1161,185 @@ const DiscountSection = ({ product, quantity, onDiscountChange }) => {
       </div>
     </div>
   );
+);
 };
 
-export default ProductDetail;
+// Enhanced Image Loader Component with Comprehensive Error Handling
+const EnhancedImageLoader = ({ product, dimensions, className, style }) => {
+  const [imageState, setImageState] = useState({
+    src: null,
+    loading: true,
+    error: false,
+    retryCount: 0
+  });
+
+  const maxRetries = 3;
+  const retryDelays = [1000, 2000, 4000]; // Exponential backoff
+
+  const validateImageUrl = (url) => {
+    try {
+      const parsedUrl = new URL(url);
+      return parsedUrl.protocol === 'https:' && parsedUrl.hostname.includes('unsplash');
+    } catch {
+      return false;
+    }
+  };
+
+  const constructImageUrl = (baseUrl, width, height, quality = 80) => {
+    try {
+      if (!baseUrl || !validateImageUrl(baseUrl)) {
+        throw new Error('Invalid base URL');
+      }
+
+      // Clean and validate URL construction
+      const url = new URL(baseUrl);
+      url.searchParams.set('w', width.toString());
+      url.searchParams.set('h', height.toString());
+      url.searchParams.set('fit', 'crop');
+      url.searchParams.set('auto', 'format');
+      url.searchParams.set('q', quality.toString());
+      url.searchParams.set('fm', 'webp');
+      
+      return url.toString();
+    } catch (error) {
+      console.error('Error constructing image URL:', error);
+      return null;
+    }
+  };
+
+  const generateFallbackUrl = (productName, width, height) => {
+    const encodedName = encodeURIComponent(productName.substring(0, 20));
+    return `https://via.placeholder.com/${width}x${height}/f3f4f6/64748b?text=${encodedName}`;
+  };
+
+  const handleImageError = useCallback(async (error, retryCount = 0) => {
+    console.warn(`Image loading failed (attempt ${retryCount + 1}):`, error);
+
+    if (retryCount < maxRetries) {
+      // Implement exponential backoff retry
+      const delay = retryDelays[retryCount] || 4000;
+      
+      setTimeout(() => {
+        const retryUrl = constructImageUrl(
+          product.imageUrl, 
+          dimensions.width, 
+          dimensions.height,
+          60 // Lower quality for retry
+        );
+
+        if (retryUrl) {
+          setImageState(prev => ({
+            ...prev,
+            src: retryUrl,
+            retryCount: retryCount + 1,
+            error: false
+          }));
+        } else {
+          // Use fallback if URL construction fails
+          setImageState(prev => ({
+            ...prev,
+            src: generateFallbackUrl(product.name, dimensions.width, dimensions.height),
+            loading: false,
+            error: true,
+            retryCount: maxRetries
+          }));
+        }
+      }, delay);
+    } else {
+      // Max retries reached, use fallback
+      setImageState(prev => ({
+        ...prev,
+        src: generateFallbackUrl(product.name, dimensions.width, dimensions.height),
+        loading: false,
+        error: true
+      }));
+    }
+  }, [product.imageUrl, product.name, dimensions, maxRetries]);
+
+  const handleImageLoad = useCallback(() => {
+    setImageState(prev => ({
+      ...prev,
+      loading: false,
+      error: false
+    }));
+  }, []);
+
+  const handleImageErrorEvent = useCallback((e) => {
+    e.preventDefault();
+    handleImageError(new Error('Image load failed'), imageState.retryCount);
+  }, [handleImageError, imageState.retryCount]);
+
+  // Initialize image loading
+  useEffect(() => {
+    if (!product.imageUrl) {
+      setImageState({
+        src: generateFallbackUrl(product.name, dimensions.width, dimensions.height),
+        loading: false,
+        error: true,
+        retryCount: maxRetries
+      });
+      return;
+    }
+
+    const primaryUrl = constructImageUrl(product.imageUrl, dimensions.width, dimensions.height);
+    
+    if (primaryUrl) {
+      setImageState(prev => ({
+        ...prev,
+        src: primaryUrl,
+        loading: true,
+        error: false,
+        retryCount: 0
+      }));
+    } else {
+      // If URL construction fails, use fallback immediately
+      setImageState({
+        src: generateFallbackUrl(product.name, dimensions.width, dimensions.height),
+        loading: false,
+        error: true,
+        retryCount: maxRetries
+      });
+    }
+  }, [product.imageUrl, product.name, dimensions]);
+
+  if (!imageState.src) {
+    return (
+      <div className={`${className} bg-gray-200 flex items-center justify-center`} style={style}>
+        <ApperIcon name="Image" size={48} className="text-gray-400" />
+      </div>
+    );
+  }
+
+  return (
+    <picture className="block w-full h-full">
+      {!imageState.error && (
+        <source
+          srcSet={`${imageState.src} 1x, ${constructImageUrl(product.imageUrl, dimensions.width * 2, dimensions.height * 2) || imageState.src} 2x`}
+          type="image/webp"
+          onError={(e) => {
+            console.warn('WebP source failed, falling back to regular image');
+          }}
+        />
+      )}
+      <img
+        src={imageState.src}
+        alt={product.name}
+        className={className}
+        style={style}
+        loading="lazy"
+        onLoad={handleImageLoad}
+        onError={handleImageErrorEvent}
+      />
+      {imageState.loading && (
+        <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center">
+          <ApperIcon name="Loader" size={24} className="text-gray-400 animate-spin" />
+        </div>
+      )}
+      {imageState.error && imageState.retryCount > 0 && imageState.retryCount < maxRetries && (
+        <div className="absolute top-2 right-2 bg-orange-500 text-white text-xs px-2 py-1 rounded">
+          Retrying... ({imageState.retryCount}/{maxRetries})
+        </div>
+      )}
+    </picture>
+  );
+};
