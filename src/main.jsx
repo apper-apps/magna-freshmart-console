@@ -7,14 +7,32 @@ import App from "@/App";
 import { store } from "@/store/index";
 import { classifyError } from "@/utils/errorHandling";
 import ErrorComponent from "@/components/ui/Error";
-// Polyfill for structuredClone if not available
+// Enhanced polyfill for structuredClone if not available - supports PostMessage operations
 if (typeof structuredClone === 'undefined') {
   window.structuredClone = function(obj) {
     if (obj === null || typeof obj !== 'object') return obj;
+    
+    // Handle special cases that JSON.stringify can't handle
+    if (obj instanceof Date) return new Date(obj);
+    if (obj instanceof RegExp) return new RegExp(obj.source, obj.flags);
+    if (obj instanceof Map) return new Map(Array.from(obj.entries()));
+    if (obj instanceof Set) return new Set(Array.from(obj.values()));
+    
     try {
+      // Try JSON cloning for most objects
       return JSON.parse(JSON.stringify(obj));
     } catch (error) {
-      console.warn('structuredClone fallback failed:', error);
+      console.warn('structuredClone fallback failed, using shallow copy:', error);
+      
+      // Fallback to shallow copy for objects that can't be JSON serialized
+      if (Array.isArray(obj)) {
+        return [...obj];
+      }
+      
+      if (typeof obj === 'object') {
+        return { ...obj };
+      }
+      
       return obj;
     }
   };

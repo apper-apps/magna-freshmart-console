@@ -408,20 +408,38 @@ useEffect(() => {
           timestamp: Date.now(),
           errorType: 'DataCloneError',
           context: 'postMessage',
-          recoveryAction: 'prevented_crash'
+          recoveryAction: 'prevented_crash',
+          userAgent: navigator.userAgent,
+          errorOrigin: event.reason?.filename || event.error?.filename || 'unknown'
         };
         
         console.warn('DataCloneError detected - implementing comprehensive recovery:', errorData);
         
-        // Track error for performance monitoring
+        // Track error for performance monitoring with enhanced details
         if (typeof window !== 'undefined' && window.performanceMonitor) {
-          window.performanceMonitor.trackError(event.reason || event.error, 'dataclone-postmessage');
+          window.performanceMonitor.trackError(event.reason || event.error, 'dataclone-postmessage', {
+            context: errorData.context,
+            recoveryAction: errorData.recoveryAction,
+            timestamp: errorData.timestamp
+          });
         }
         
-        // Dispatch recovery event for components to handle gracefully
-        window.dispatchEvent(new window.CustomEvent('dataclone-error-recovered', {
-          detail: errorData
-        }));
+        // Dispatch recovery event for SafePostMessage utility to handle gracefully
+        try {
+          window.dispatchEvent(new window.CustomEvent('dataclone-error-recovered', {
+            detail: errorData,
+            bubbles: false,
+            cancelable: false
+          }));
+        } catch (dispatchError) {
+          console.warn('Failed to dispatch DataCloneError recovery event:', dispatchError);
+        }
+        
+        // Attempt graceful degradation for PostMessage operations
+        if (errorData.context === 'postMessage') {
+          console.log('Implementing PostMessage fallback handling');
+          // The SafePostMessage utility will handle the specific recovery
+        }
         
         // Log the error but don't crash the app
         event.preventDefault();
