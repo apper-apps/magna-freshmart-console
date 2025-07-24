@@ -49,7 +49,7 @@ const initialState = {
 const notificationSlice = createSlice({
   name: 'notifications',
   initialState,
-reducers: {
+  reducers: {
     updateCounts: (state, action) => {
       state.counts = { ...state.counts, ...action.payload };
       state.lastUpdated = new Date().toISOString();
@@ -60,6 +60,26 @@ reducers: {
       if (state.counts[key] !== undefined) {
         state.counts[key] = 0;
       }
+    },
+    resetAllCounts: (state) => {
+      state.counts = {
+        payments: 0,
+        products: 0,
+        pos: 0,
+        financial: 0,
+        ai: 0,
+        verification: 0,
+        management: 0,
+        delivery: 0,
+        analytics: 0,
+        paymentProcessed: 0,
+        adminPaid: 0,
+        paymentProofPending: 0,
+        paymentVerification: 0,
+        vendorPayments: 0,
+        fulfillmentProgress: 0
+      };
+      state.lastUpdated = new Date().toISOString();
     },
     // Payment Flow Status Management
     updatePaymentFlowStatus: (state, action) => {
@@ -94,26 +114,6 @@ reducers: {
     },
     clearError: (state) => {
       state.error = null;
-    },
-    resetAllCounts: (state) => {
-      state.counts = {
-        payments: 0,
-        products: 0,
-        pos: 0,
-        financial: 0,
-        ai: 0,
-        verification: 0,
-        management: 0,
-        delivery: 0,
-        analytics: 0,
-        paymentProcessed: 0,
-        adminPaid: 0,
-        paymentProofPending: 0,
-        paymentVerification: 0,
-        vendorPayments: 0,
-        fulfillmentProgress: 0
-      };
-      state.lastUpdated = new Date().toISOString();
     }
   },
   extraReducers: (builder) => {

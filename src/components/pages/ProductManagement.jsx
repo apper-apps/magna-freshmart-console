@@ -1,16 +1,16 @@
 import React, { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
-import ApperIcon from "@/components/ApperIcon";
-import Badge from "@/components/atoms/Badge";
-import Button from "@/components/atoms/Button";
-import Input from "@/components/atoms/Input";
-import Empty from "@/components/ui/Empty";
-import Error from "@/components/ui/Error";
-import Loading from "@/components/ui/Loading";
-import Cart from "@/components/pages/Cart";
-import Category from "@/components/pages/Category";
-import Checkout from "@/components/pages/Checkout";
 import { productService } from "@/services/api/productService";
+import ApperIcon from "@/components/ApperIcon";
+import Category from "@/components/pages/Category";
+import Cart from "@/components/pages/Cart";
+import Checkout from "@/components/pages/Checkout";
+import Badge from "@/components/atoms/Badge";
+import Input from "@/components/atoms/Input";
+import Button from "@/components/atoms/Button";
+import Error from "@/components/ui/Error";
+import Empty from "@/components/ui/Empty";
+import Loading from "@/components/ui/Loading";
 
 // Material UI Switch Component
 const Switch = ({ checked, onChange, color = "primary", disabled = false, ...props }) => {
@@ -1698,10 +1698,10 @@ return matchesSearch && matchesCategory;
 
 // Enhanced Bulk Actions Modal with Category Discounts and Validation
 const EnhancedBulkActionsModal = ({ products, categories, onUpdate, onClose }) => {
-  const [activeTab, setActiveTab] = useState('pricing'); // pricing, discounts, validation
+  const [activeTab, setActiveTab] = useState('pricing');
   const [updateData, setUpdateData] = useState({
-value: '',
-    minPrice: '',
+    strategy: 'percentage',
+    value: '',
     minPrice: '',
     maxPrice: '',
     category: 'all',

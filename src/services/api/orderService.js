@@ -1,6 +1,8 @@
-import ordersData from '../mockData/orders.json'
-import { productService } from '@/services/api/productService'
-import { paymentService } from '@/services/api/paymentService'
+import ordersData from "../mockData/orders.json";
+import React from "react";
+import { paymentService } from "@/services/api/paymentService";
+import { productService } from "@/services/api/productService";
+import Error from "@/components/ui/Error";
 class OrderService {
   constructor() {
     this.orders = [...ordersData];
@@ -181,15 +183,18 @@ if (orderData.paymentMethod === 'wallet') {
         uploadedAt: proofData.uploadedAt || new Date().toISOString(),
         dataUrl: proofData.dataUrl || null,
         storedAt: new Date().toISOString(),
-        validated: Boolean(proofData.dataUrl && proofData.dataUrl.startsWith('data:image/')),
-        // Backup storage reference if dataUrl fails
-        backupRef: proofData.fileName ? `/uploads/${proofData.fileName}` : null
-      };
+};
+      
+      // Validate proof data before adding backup reference
+      if (proofData && Object.prototype.hasOwnProperty.call(proofData, 'fileName')) {
+        newOrder.paymentProof.backupRef = `/uploads/${proofData.fileName}`;
+      } else {
+        newOrder.paymentProof.backupRef = null;
+      }
     }
     this.orders.push(newOrder);
     return { ...newOrder };
   }
-
   async update(id, orderData) {
     await this.delay();
     const index = this.orders.findIndex(o => o.id === id);

@@ -3,14 +3,14 @@ import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
 import { formatCurrency } from "@/utils/currency";
-import ApperIcon from "@/components/ApperIcon";
-import { Badge } from "@/components/atoms/Badge";
-import Empty from "@/components/ui/Empty";
-import Error from "@/components/ui/Error";
-import Loading from "@/components/ui/Loading";
-import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
 import { clipboardService } from "@/services/ClipboardService";
 import { orderService } from "@/services/api/orderService";
+import ApperIcon from "@/components/ApperIcon";
+import Badge from "@/components/atoms/Badge";
+import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
+import Error from "@/components/ui/Error";
+import Empty from "@/components/ui/Empty";
+import Loading from "@/components/ui/Loading";
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
@@ -90,9 +90,9 @@ const Orders = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
-        <Link 
+<Link 
           to="/category/All"
-className="flex items-center space-x-2 text-primary hover:text-primary-dark transition-colors"
+          className="flex items-center space-x-2 text-primary hover:text-primary-dark transition-colors"
         >
           <ApperIcon name="Plus" size={20} />
           <span>Shop More</span>
@@ -159,12 +159,12 @@ className="flex items-center space-x-2 text-primary hover:text-primary-dark tran
                         <Badge variant="danger" className="text-xs">
                           <ApperIcon name="XCircle" size={12} className="mr-1" />
                           Rejected
-                        </Badge>
+</Badge>
                       )}
-</div>
+                    </div>
                   )}
                 </div>
-                <>
+                <React.Fragment>
                   {(order.paymentMethod === 'jazzcash' || order.paymentMethod === 'easypaisa' || order.paymentMethod === 'bank') && (
                     <div className="flex items-center space-x-1">
                       {order.verificationStatus === 'verified' && (
@@ -201,11 +201,11 @@ className="flex items-center space-x-2 text-primary hover:text-primary-dark tran
                         return formatCurrency(order.total);
                       })()}
                     </p>
-                    <p className="text-xs sm:text-sm text-gray-600">
+<p className="text-xs sm:text-sm text-gray-600">
                       {order?.items?.length || 0} items
                     </p>
                   </div>
-                </>
+                </React.Fragment>
               </div>
             </div>
 
@@ -249,9 +249,9 @@ className="flex items-center space-x-2 text-primary hover:text-primary-dark tran
                         {isActive && (
                           <div className="w-2 h-2 bg-primary rounded-full mt-1 animate-pulse"></div>
                         )}
-                      </div>
+</div>
                     );
-})}
+                  })}
                 </div>
               </div>
             </div>
@@ -374,9 +374,9 @@ className="flex items-center space-x-2 text-primary hover:text-primary-dark tran
                                 }}
                               />
                               <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 flex items-center justify-center rounded-lg transition-all">
-                                <ApperIcon name="Eye" size={14} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+<ApperIcon name="Eye" size={14} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                               </div>
-</div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -385,6 +385,7 @@ className="flex items-center space-x-2 text-primary hover:text-primary-dark tran
                 )}
               </div>
               
+              {/* Order Items Preview */}
 {/* Order Items Preview */}
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <h4 className="text-sm font-medium text-gray-900 mb-3">Items ({order?.items?.length || 0})</h4>
@@ -462,9 +463,9 @@ className="flex items-center space-x-2 text-primary hover:text-primary-dark tran
                   <span>View Details</span>
                 </Link>
                 
-                <button className="flex items-center space-x-1 sm:space-x-2 text-blue-600 hover:text-blue-700 transition-colors text-sm bg-blue-50 px-3 py-1.5 rounded-lg">
+<button className="flex items-center space-x-1 sm:space-x-2 text-blue-600 hover:text-blue-700 transition-colors text-sm bg-blue-50 px-3 py-1.5 rounded-lg">
                   <ApperIcon name="MessageCircle" size={14} />
-<span>Chat Support</span>
+                  <span>Chat Support</span>
                 </button>
                 {order.status === 'delivered' && (
                   <button className="flex items-center space-x-1 sm:space-x-2 text-green-600 hover:text-green-700 transition-colors text-sm bg-green-50 px-3 py-1.5 rounded-lg">
@@ -505,9 +506,9 @@ className="flex items-center space-x-2 text-primary hover:text-primary-dark tran
                         {order.walletTransaction.type.replace('_', ' ')}
                       </span>
                     </div>
-                    <div className="flex justify-between">
+<div className="flex justify-between">
                       <span className="text-purple-700">Amount:</span>
-<span className="font-semibold text-purple-900">
+                      <span className="font-semibold text-purple-900">
                         {formatCurrency(order.walletTransaction.amount)}
                       </span>
                     </div>

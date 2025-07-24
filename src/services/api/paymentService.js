@@ -1662,15 +1662,14 @@ generateFileUrl(fileName) {
         break;
       case 'yearly':
         date.setFullYear(date.getFullYear() + 1);
-        break;
-      default:
+default:
         throw new Error('Invalid frequency');
     }
     
     return date.toISOString();
   }
 
-  validateRecurringPayment(recurringPayment) {
+validateRecurringPayment(recurringPayment) {
     // Validate amount
     if (!recurringPayment.amount || recurringPayment.amount <= 0) {
       return { valid: false, error: 'Amount must be greater than 0' };

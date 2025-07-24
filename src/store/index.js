@@ -4,6 +4,7 @@ import storage from "redux-persist/lib/storage";
 import cartSlice from "./cartSlice";
 import notificationSlice from "./notificationSlice";
 import approvalWorkflowSlice from "./approvalWorkflowSlice";
+
 const persistConfig = {
   key: 'root',
   storage,
@@ -28,10 +29,10 @@ export const store = configureStore({
           'persist/REHYDRATE',
           'approvalWorkflow/setConnectionStatus',
           'approvalWorkflow/addRealTimeNotification'
-]
-}
+        ]
+      }
     }),
-  devTools: typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production'
+  devTools: (typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') || import.meta.env.DEV
 });
 
 export const persistor = persistStore(store);

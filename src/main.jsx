@@ -4,10 +4,9 @@ import ReactDOM from "react-dom/client";
 import { Provider } from "react-redux";
 import { ToastContainer, toast } from "react-toastify";
 import App from "@/App";
-import { classifyError } from "@/utils/errorHandling";
 import { store } from "@/store/index";
+import { classifyError } from "@/utils/errorHandling";
 import ErrorComponent from "@/components/ui/Error";
-
 // Polyfill for structuredClone if not available
 if (typeof structuredClone === 'undefined') {
   window.structuredClone = function(obj) {
@@ -60,7 +59,6 @@ window.addEventListener('error', (event) => {
     errorHandlerState.processing.add(errorKey);
     errorHandlerState.lastError = errorKey;
     errorHandlerState.lastErrorTime = now;
-    
     console.warn('External Apper script error intercepted:', {
       message: event.message,
       filename: event.filename,
@@ -124,7 +122,8 @@ const postMessageState = {
 
 window.postMessage = function(message, targetOrigin, transfer) {
   const attemptKey = `${targetOrigin}:${Date.now()}`;
-try {
+  
+  try {
     // Test if message can be cloned
     window.structuredClone(message);
     return originalPostMessage.call(this, message, targetOrigin, transfer);
@@ -160,8 +159,8 @@ window.addEventListener('message', (event) => {
     if (event?.origin && event.origin.includes('apper.io')) {
       console.log('Message from Apper script:', event.data);
       
-      // If the message contains URL objects, convert them
-if (event.data && typeof event.data === 'object') {
+// If the message contains URL objects, convert them
+      if (event.data && typeof event.data === 'object') {
         const sanitizedData = serializeForPostMessage(event.data);
         // Forward sanitized message to any listeners
         window.dispatchEvent(new window.CustomEvent('apper-message', {
@@ -366,8 +365,9 @@ const sendSafeMessage = (targetWindow, message, targetOrigin = "*") => {
       if (targetWindow.closed) {
         console.warn('Target window is closed');
         return false;
-      }
-// Test if message can be cloned first
+}
+      
+      // Test if message can be cloned first
       try {
         window.structuredClone(message);
         targetWindow.postMessage(message, targetOrigin);
@@ -422,7 +422,6 @@ const setupMessageHandler = () => {
     }
     processingQueue = false;
   };
-  
 const handleMessage = (event) => {
     // Validate message origin for security
     if (!event.origin.includes('apper.io') && !event.origin.includes('integrately.com')) {
@@ -430,9 +429,8 @@ const handleMessage = (event) => {
     }
     
     try {
-      const sanitizedData = serializeForPostMessage(event.data);
-console.log('Received sanitized message from Apper:', sanitizedData);
-      
+const sanitizedData = serializeForPostMessage(event.data);
+      console.log('Received sanitized message from Apper:', sanitizedData);
       // Dispatch custom event for app components to listen to
       window.dispatchEvent(new window.CustomEvent('apper-safe-message', {
         detail: {
@@ -462,7 +460,6 @@ class BackgroundSDKLoader {
   static retryCount = 0;
   static maxRetries = 3;
   static retryDelay = 1000;
-  
 static async loadInBackground() {
     try {
       // Setup safe message handling first
@@ -483,9 +480,8 @@ static async loadInBackground() {
       return this.messageHandler;
       
     } catch (error) {
-      console.warn('SDK background loading failed:', error);
-performanceMonitor.trackError(error, 'sdk-load-error');
-      
+console.warn('SDK background loading failed:', error);
+      performanceMonitor.trackError(error, 'sdk-load-error');
       // Enhanced error recovery with user notification
       if (this.retryCount < this.maxRetries) {
         this.retryCount++;
@@ -799,9 +795,9 @@ const performanceMonitor = {
       }));
     }
   },
+},
   
-getErrorSummary() {
-    return {
+  getErrorSummary() {
       totalErrors: this.errors.length,
       categories: { ...this.errorCategories },
       recentErrors: this.errors.slice(-5).map(e => ({
@@ -831,9 +827,8 @@ async function initializeSDK() {
     performanceMonitor.trackError(error, 'sdk-init-error');
   }
 }
-// Missing function for SDK message handling
 
-// Missing function for SDK message handling
+// Function for SDK message handling
 const handleSDKMessage = (event) => {
   try {
     if (event.origin && event.origin.includes('apper.io')) {

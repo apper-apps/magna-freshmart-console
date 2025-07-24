@@ -1,4 +1,5 @@
-import { useSelector, useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from "react-redux";
+import React from "react";
 import { 
   addToCart as addToCartAction, 
   removeFromCart as removeFromCartAction, 
@@ -43,19 +44,19 @@ export const useCart = () => {
     dispatch(clearCartAction());
   };
 
-  // Helper functions that use selectors
+// Helper functions that use selectors
   const getCartTotal = () => cartTotal;
   const getCartCount = () => cartCount;
   const getCartItems = () => cart;
   
   const isProductInCart = (productId) => {
-    return useSelector(selectIsProductInCart(productId));
+    return useSelector(state => selectIsProductInCart(productId)(state));
   };
   
   const getProductQuantityInCart = (productId) => {
-    return useSelector(selectProductQuantityInCart(productId));
+    return useSelector(state => selectProductQuantityInCart(productId)(state));
   };
-
+  
   return {
     cart,
     addToCart,

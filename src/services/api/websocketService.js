@@ -380,10 +380,9 @@ console.error('Max reconnection attempts reached, giving up');
         });
       }
     }, delay);
+}, delay);
   }
-
-// Safe error serialization to prevent DataCloneError
-  serializeErrorSafely(error) {
+serializeErrorSafely(error) {
     if (!error) return 'Unknown error';
     
     try {
@@ -397,39 +396,27 @@ console.error('Max reconnection attempts reached, giving up');
         };
       }
       
-      // Handle URL objects that can't be cloned
-      if (error instanceof URL) {
-        return {
-          type: 'URL',
-          href: error.href,
-          origin: error.origin,
-          pathname: error.pathname,
-          timestamp: new Date().toISOString()
-        };
-      }
-      
       // Handle DOM events or other non-serializable objects
       if (error.target && error.type) {
         return {
           type: 'Event',
           eventType: error.type,
-          target: error.target.constructor.name,
           timestamp: new Date().toISOString()
         };
       }
-      
-      // Handle objects with non-serializable properties
+// Handle objects with potential circular references
+// Handle objects with potential circular references
       if (typeof error === 'object') {
         const serialized = {};
         for (const key in error) {
           try {
             const value = error[key];
             
-// Skip functions and non-serializable objects
+            // Skip functions and non-serializable objects
             if (typeof value === 'function') continue;
             
             // Skip DOM nodes
-            if (value instanceof Node) continue;
+            if (value && value instanceof Node) continue;
             
             // Try to serialize the value
             JSON.stringify(value);
@@ -446,11 +433,12 @@ console.error('Max reconnection attempts reached, giving up');
       
       // For non-objects, return as string
       return String(error);
-    } catch (error) {
+    } catch (serializationError) {
       return 'Serialization failed: ' + String(error);
     }
+// Skip functions and non-serializable objects
+}
   }
-  
   // Safe message serialization to prevent DataCloneError
   serializeMessageSafely(message) {
     if (!message) return null;

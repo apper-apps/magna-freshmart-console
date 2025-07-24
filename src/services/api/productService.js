@@ -1009,14 +1009,14 @@ const mockUnsplashImages = Array.from({ length: loadMore ? 12 : 6 }, (_, index) 
       'seafood': ['omega-3', 'wild-caught', 'sustainable', 'marine', 'delicate', 'fresh-caught', 'oceanic'],
       'beverages': ['refreshing', 'cold', 'natural', 'healthy', 'thirst-quenching', 'energizing', 'pure'],
       'spices': ['aromatic', 'flavorful', 'fragrant', 'exotic', 'pungent', 'culinary', 'seasoning'],
-      'organic': ['certified', 'sustainable', 'eco-friendly', 'chemical-free', 'natural', 'wholesome'],
+'organic': ['certified', 'sustainable', 'eco-friendly', 'chemical-free', 'natural', 'wholesome'],
       'snacks': ['crunchy', 'satisfying', 'portable', 'tasty', 'convenient', 'wholesome', 'guilt-free'],
       
-      // Legacy support
+      // Legacy support for existing categories
+      'Groceries': ['food', 'pantry', 'cooking', 'kitchen', 'meal'],
       'Fresh Vegetables': ['organic', 'healthy', 'green', 'fresh', 'natural'],
-'Fresh Vegetables': ['organic', 'healthy', 'green', 'fresh', 'natural'],
-      'Tropical Fruits': ['colorful', 'exotic', 'sweet', 'vitamin', 'tropical'],
-      'Dairy Products': ['creamy', 'calcium', 'protein', 'fresh', 'natural'],
+      'Meat': ['protein', 'beef', 'chicken', 'lamb', 'butcher'],
+      'Fruits': ['sweet', 'juice', 'vitamin', 'fresh', 'organic'],
       'Premium Meat': ['protein', 'quality', 'fresh', 'gourmet', 'butcher'],
       'Artisan Bakery': ['handmade', 'artisan', 'golden', 'crispy', 'traditional'],
       'Beverages': ['refreshing', 'cold', 'thirst', 'natural', 'healthy']
