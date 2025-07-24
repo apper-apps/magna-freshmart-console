@@ -119,7 +119,7 @@ const postMessageState = {
 };
 
 window.postMessage = function(message, targetOrigin, transfer) {
-const attemptKey = `${targetOrigin}:${Date.now()}`;
+  const attemptKey = `${targetOrigin}:${Date.now()}`;
   
   try {
     // Test if message can be cloned
@@ -179,7 +179,8 @@ const serializeForPostMessage = (data) => {
   // Performance cache for frequently serialized objects
   const serializationCache = new Map();
   const maxCacheSize = 100;
-try {
+  
+  try {
     // Handle null/undefined early
     if (data === null) return null;
     if (data === undefined) return { __type: 'Undefined' };
@@ -224,7 +225,7 @@ try {
             path: path.slice() 
           };
         }
-        seen.add(value);
+seen.add(value);
       }
       
       let result;
@@ -323,10 +324,10 @@ try {
       if (key) path.pop();
       depth--;
       
-      return result;
+return result;
     };
     
-const serialized = serialize(data);
+    const serialized = serialize(data);
     
     // Cache result for performance (with size limit) - only if cacheKey exists
     if (cacheKey && serializationCache.size < maxCacheSize) {
@@ -387,7 +388,7 @@ const attemptSend = async () => {
       }
       
 // Test if message can be cloned first
-      try {
+try {
         window.structuredClone(message);
         targetWindow.postMessage(message, targetOrigin);
         return true;
@@ -395,7 +396,7 @@ const attemptSend = async () => {
         if (cloneError.name === 'DataCloneError') {
           console.warn('Message requires serialization for postMessage');
           
-          try {
+try {
             const sanitizedMessage = serializeForPostMessage(message);
             targetWindow.postMessage(sanitizedMessage, targetOrigin);
             return true;
@@ -454,7 +455,7 @@ const handleMessage = (event) => {
     }
     
     try {
-const sanitizedData = serializeForPostMessage(event.data);
+      const sanitizedData = serializeForPostMessage(event.data);
       console.log('Received sanitized message from Apper:', sanitizedData);
       // Dispatch custom event for app components to listen to
       window.dispatchEvent(new window.CustomEvent('apper-safe-message', {
@@ -505,7 +506,7 @@ static async loadInBackground() {
       return this.messageHandler;
       
     } catch (error) {
-console.warn('SDK background loading failed:', error);
+      console.warn('SDK background loading failed:', error);
       performanceMonitor.trackError(error, 'sdk-load-error');
       // Enhanced error recovery with user notification
       if (this.retryCount < this.maxRetries) {
@@ -770,9 +771,9 @@ const performanceMonitor = {
       category: this.categorizeError(error.message),
       userAgent: navigator.userAgent,
       url: window.location.href
-    };
+};
     
-this.errors.push(errorData);
+    this.errors.push(errorData);
     
     // Update error category counters
     if (Object.prototype.hasOwnProperty.call(this.errorCategories, errorData.category)) {
@@ -818,8 +819,8 @@ this.errors.push(errorData);
       window.dispatchEvent(new window.CustomEvent('critical-error-pattern', {
         detail: { type: 'server', count: serverErrors }
       }));
-    }
-},
+}
+  },
   
   getErrorSummary() {
     return {
