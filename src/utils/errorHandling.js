@@ -47,15 +47,73 @@ export class ErrorHandler {
     }
   }
 
-  static shouldRetry(error, attemptCount = 0, maxRetries = 3) {
+static shouldRetry(error, attemptCount = 0, maxRetries = 3) {
     if (attemptCount >= maxRetries) return false;
     
     const type = this.classifyError(error);
-    return ['network', 'timeout', 'server'].includes(type);
+    const retryableTypes = ['network', 'timeout', 'server'];
+    
+    // Enhanced retry logic with specific error patterns
+    if (retryableTypes.includes(type)) {
+      // Additional checks for specific error messages
+      const message = error.message?.toLowerCase() || '';
+      
+      // Don't retry certain permanent errors
+      if (message.includes('404') || message.includes('forbidden') || message.includes('unauthorized')) {
+        return false;
+      }
+      
+      // Retry network and timeout errors more aggressively
+      if (type === 'network' || type === 'timeout') {
+        return attemptCount < maxRetries;
+      }
+      
+      // Be more conservative with server errors
+      if (type === 'server') {
+        return attemptCount < Math.min(maxRetries, 2);
+      }
+      
+      return true;
+    }
+    
+    return false;
   }
 
   static getRetryDelay(attemptCount, baseDelay = 1000) {
-    return Math.min(baseDelay * Math.pow(2, attemptCount), 30000);
+    // Exponential backoff with jitter to prevent thundering herd
+    const exponentialDelay = baseDelay * Math.pow(2, attemptCount);
+    const jitter = Math.random() * 0.1 * exponentialDelay;
+    const totalDelay = exponentialDelay + jitter;
+    
+    // Cap at 30 seconds
+    return Math.min(totalDelay, 30000);
+  }
+
+  static trackErrorPattern(error, context = '') {
+    // Enhanced error pattern tracking for better diagnostics
+    const errorKey = `${error.name || 'Unknown'}_${error.message || 'NoMessage'}`;
+    const timestamp = Date.now();
+    
+    if (!window.errorPatterns) {
+      window.errorPatterns = new Map();
+    }
+    
+    const existing = window.errorPatterns.get(errorKey) || { count: 0, contexts: new Set(), firstSeen: timestamp };
+    existing.count++;
+    existing.contexts.add(context);
+    existing.lastSeen = timestamp;
+    
+    window.errorPatterns.set(errorKey, existing);
+    
+    // Alert if error pattern is becoming frequent
+    if (existing.count >= 5) {
+      console.error(`Critical error pattern detected: ${errorKey} occurred ${existing.count} times`, {
+        contexts: Array.from(existing.contexts),
+        timespan: timestamp - existing.firstSeen
+      });
+    }
+    
+    return existing;
   }
 }
 

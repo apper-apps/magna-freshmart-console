@@ -173,191 +173,314 @@ window.addEventListener('message', (event) => {
   }
 });
 
-// Enhanced data serialization utility to prevent DataCloneError
-// Enhanced serialization with performance optimizations
+// Enhanced data serialization utility with comprehensive error recovery
 const serializeForPostMessage = (data) => {
   // Performance cache for frequently serialized objects
   const serializationCache = new Map();
   const maxCacheSize = 100;
   
-  try {
-    // Handle null/undefined early
-    if (data === null) return null;
-    if (data === undefined) return { __type: 'Undefined' };
-    
-    // Handle primitives - no serialization needed
-    if (typeof data !== 'object') return data;
-    
-    // Check cache for performance (with safe key generation)
-    let cacheKey;
+  // Primary serialization attempt with enhanced circular reference handling
+  const primarySerialize = (data) => {
     try {
-      cacheKey = typeof data === 'object' ? JSON.stringify(data) : String(data);
-      if (serializationCache.has(cacheKey)) {
-        return serializationCache.get(cacheKey);
-      }
-    } catch (cacheError) {
-      // Skip caching for problematic objects
-      cacheKey = null;
-    }
-// Track circular references with WeakSet for better performance
-    const seen = new WeakSet();
-    const path = [];
-    let depth = 0;
-    const maxDepth = 50; // Prevent deep recursion
-    
-    // Optimized serialization function
-    const serialize = (value, key = '') => {
-      depth++;
-      if (depth > maxDepth) {
-        return { __type: 'MaxDepthExceeded', depth };
-      }
+      // Handle null/undefined early
+      if (data === null) return null;
+      if (data === undefined) return { __type: 'Undefined' };
       
-      // Track path for better error reporting
-      if (key) path.push(key);
+      // Handle primitives - no serialization needed
+      if (typeof data !== 'object') return data;
       
-      // Handle circular references
-      if (typeof value === 'object' && value !== null) {
-        if (seen.has(value)) {
-          depth--;
+      // Check cache for performance (with safe key generation)
+      let cacheKey;
+      try {
+        cacheKey = typeof data === 'object' ? JSON.stringify(data) : String(data);
+        if (serializationCache.has(cacheKey)) {
+          return serializationCache.get(cacheKey);
+        }
+      } catch (cacheError) {
+        // Skip caching for problematic objects
+        cacheKey = null;
+      }
+
+      // Enhanced circular reference detection with WeakSet and path tracking
+      const seen = new WeakSet();
+      const pathStack = [];
+      let depth = 0;
+      const maxDepth = 50; // Prevent deep recursion
+      
+      // Robust serialization function with comprehensive error handling
+      const serialize = (value, key = '') => {
+        depth++;
+        if (depth > maxDepth) {
           return { 
-            __type: 'CircularReference', 
-            key,
-            path: path.slice() 
+            __type: 'MaxDepthExceeded', 
+            depth, 
+            path: pathStack.slice(),
+            timestamp: Date.now()
           };
         }
-seen.add(value);
-      }
-      
-      let result;
-      
-      // Handle URL objects (main cause of DataCloneError)
-      if (value instanceof URL) {
-        result = { 
-          __type: 'URL', 
-          href: value.href, 
-          origin: value.origin,
-          protocol: value.protocol,
-          host: value.host,
-          pathname: value.pathname,
-          search: value.search,
-          hash: value.hash
-        };
-      }
-      // Handle URLSearchParams
-      else if (value instanceof URLSearchParams) {
-        result = { 
-          __type: 'URLSearchParams', 
-          params: Array.from(value.entries()) 
-        };
-      }
-      // Handle Date objects
-      else if (value instanceof Date) {
-        result = { 
-          __type: 'Date', 
-          timestamp: value.getTime(),
-          iso: value.toISOString()
-        };
-      }
-      // Handle RegExp objects
-      else if (value instanceof RegExp) {
-        result = { 
-          __type: 'RegExp', 
-          source: value.source, 
-          flags: value.flags 
-        };
-      }
-      // Handle Error objects with all properties
-      else if (value instanceof Error) {
-        result = { 
-          __type: 'Error', 
-          name: value.name,
-          message: value.message, 
-          stack: value.stack,
-          cause: value.cause
-        };
-      }
-      // Handle functions
-      else if (typeof value === 'function') {
-        result = { 
-          __type: 'Function', 
-          name: value.name || 'anonymous',
-          length: value.length
-        };
-      }
-      // Handle Symbol
-      else if (typeof value === 'symbol') {
-        result = { 
-          __type: 'Symbol', 
-          description: value.description 
-        };
-      }
-      // Handle BigInt
-      else if (typeof value === 'bigint') {
-        result = { 
-          __type: 'BigInt', 
-          value: value.toString() 
-        };
-      }
-      // Handle undefined explicitly
-      else if (value === undefined) {
-        result = { __type: 'Undefined' };
-      }
-      // Handle arrays and objects
-      else if (Array.isArray(value)) {
-        result = value.map((item, index) => serialize(item, `[${index}]`));
-      }
-      else if (typeof value === 'object' && value !== null) {
-        result = {};
-        for (const [objKey, objValue] of Object.entries(value)) {
-          try {
-            result[objKey] = serialize(objValue, objKey);
-          } catch (err) {
-            result[objKey] = { __type: 'SerializationError', error: err.message };
+        
+        // Track path for better error reporting and circular reference detection
+        if (key) pathStack.push(key);
+        
+        // Enhanced circular reference handling
+        if (typeof value === 'object' && value !== null) {
+          if (seen.has(value)) {
+            depth--;
+            const circularRef = { 
+              __type: 'CircularReference', 
+              key,
+              path: pathStack.slice(),
+              detectedAt: Date.now(),
+              objectType: Object.prototype.toString.call(value)
+            };
+            if (key) pathStack.pop();
+            return circularRef;
+          }
+          seen.add(value);
+        }
+        
+        let result;
+        
+        // Handle URL objects (main cause of DataCloneError)
+        if (value instanceof URL) {
+          result = { 
+            __type: 'URL', 
+            href: value.href, 
+            origin: value.origin,
+            protocol: value.protocol,
+            host: value.host,
+            pathname: value.pathname,
+            search: value.search,
+            hash: value.hash,
+            port: value.port,
+            hostname: value.hostname
+          };
+        }
+        // Handle URLSearchParams
+        else if (value instanceof URLSearchParams) {
+          result = { 
+            __type: 'URLSearchParams', 
+            params: Array.from(value.entries()),
+            toString: value.toString()
+          };
+        }
+        // Handle Date objects
+        else if (value instanceof Date) {
+          result = { 
+            __type: 'Date', 
+            timestamp: value.getTime(),
+            iso: value.toISOString(),
+            valid: !isNaN(value.getTime())
+          };
+        }
+        // Handle RegExp objects
+        else if (value instanceof RegExp) {
+          result = { 
+            __type: 'RegExp', 
+            source: value.source, 
+            flags: value.flags,
+            global: value.global,
+            ignoreCase: value.ignoreCase,
+            multiline: value.multiline
+          };
+        }
+        // Handle Error objects with all properties
+        else if (value instanceof Error) {
+          result = { 
+            __type: 'Error', 
+            name: value.name,
+            message: value.message, 
+            stack: value.stack,
+            cause: value.cause,
+            fileName: value.fileName,
+            lineNumber: value.lineNumber,
+            columnNumber: value.columnNumber
+          };
+        }
+        // Handle functions
+        else if (typeof value === 'function') {
+          result = { 
+            __type: 'Function', 
+            name: value.name || 'anonymous',
+            length: value.length,
+            toString: value.toString().substring(0, 100) + '...'
+          };
+        }
+        // Handle Symbol
+        else if (typeof value === 'symbol') {
+          result = { 
+            __type: 'Symbol', 
+            description: value.description,
+            toString: value.toString()
+          };
+        }
+        // Handle BigInt
+        else if (typeof value === 'bigint') {
+          result = { 
+            __type: 'BigInt', 
+            value: value.toString(),
+            valueOf: Number(value)
+          };
+        }
+        // Handle undefined explicitly
+        else if (value === undefined) {
+          result = { __type: 'Undefined' };
+        }
+        // Handle arrays and objects
+        else if (Array.isArray(value)) {
+          result = value.map((item, index) => {
+            try {
+              return serialize(item, `[${index}]`);
+            } catch (err) {
+              return { 
+                __type: 'ArrayItemError', 
+                index, 
+                error: err.message,
+                fallback: String(item)
+              };
+            }
+          });
+        }
+        else if (typeof value === 'object' && value !== null) {
+          result = {};
+          for (const [objKey, objValue] of Object.entries(value)) {
+            try {
+              result[objKey] = serialize(objValue, objKey);
+            } catch (err) {
+              result[objKey] = { 
+                __type: 'PropertyError', 
+                key: objKey,
+                error: err.message,
+                fallback: String(objValue)
+              };
+            }
           }
         }
-      }
-      else {
-        result = value;
+        else {
+          result = value;
+        }
+        
+        // Remove key from path when done processing
+        if (key) pathStack.pop();
+        depth--;
+        
+        return result;
+      };
+      
+      const serialized = serialize(data);
+      
+      // Cache result for performance (with size limit) - only if cacheKey exists
+      if (cacheKey && serializationCache.size < maxCacheSize) {
+        serializationCache.set(cacheKey, serialized);
+      } else if (cacheKey && serializationCache.size >= maxCacheSize) {
+        const firstKey = serializationCache.keys().next().value;
+        serializationCache.delete(firstKey);
+        serializationCache.set(cacheKey, serialized);
       }
       
-      // Remove key from path when done processing
-      if (key) path.pop();
-      depth--;
-      
-return result;
-    };
-    
-    const serialized = serialize(data);
-    
-    // Cache result for performance (with size limit) - only if cacheKey exists
-    if (cacheKey && serializationCache.size < maxCacheSize) {
-      serializationCache.set(cacheKey, serialized);
-    } else if (cacheKey && serializationCache.size >= maxCacheSize) {
-      const firstKey = serializationCache.keys().next().value;
-      serializationCache.delete(firstKey);
-      serializationCache.set(cacheKey, serialized);
+      return serialized;
+    } catch (error) {
+      throw error; // Let it be caught by fallback mechanisms
     }
-    
-    return serialized;
-  } catch (error) {
-    console.warn('Failed to serialize data for postMessage:', {
-      error: error.message,
-      stack: error.stack,
+  };
+
+  // Fallback to JSON.stringify with circular reference handling
+  const jsonStringifyFallback = (data) => {
+    try {
+      const seen = new WeakSet();
+      return JSON.parse(JSON.stringify(data, (key, value) => {
+        if (typeof value === 'object' && value !== null) {
+          if (seen.has(value)) {
+            return { __type: 'CircularReference', key };
+          }
+          seen.add(value);
+        }
+        
+        // Handle special objects
+        if (value instanceof URL) {
+          return { __type: 'URL', href: value.href };
+        }
+        if (value instanceof Date) {
+          return { __type: 'Date', iso: value.toISOString() };
+        }
+        if (value instanceof RegExp) {
+          return { __type: 'RegExp', source: value.source, flags: value.flags };
+        }
+        if (value instanceof Error) {
+          return { __type: 'Error', message: value.message, name: value.name };
+        }
+        if (typeof value === 'function') {
+          return { __type: 'Function', name: value.name || 'anonymous' };
+        }
+        if (typeof value === 'symbol') {
+          return { __type: 'Symbol', description: value.description };
+        }
+        if (typeof value === 'bigint') {
+          return { __type: 'BigInt', value: value.toString() };
+        }
+        if (value === undefined) {
+          return { __type: 'Undefined' };
+        }
+        
+        return value;
+      }));
+    } catch (error) {
+      throw error; // Let it be caught by final fallback
+    }
+  };
+
+  // Final fallback to String conversion
+  const stringFallback = (data) => {
+    try {
+      if (data === null) return null;
+      if (data === undefined) return { __type: 'Undefined' };
+      
+      const dataType = typeof data;
+      const objectType = Object.prototype.toString.call(data);
+      
+      return {
+        __type: 'StringFallback',
+        originalType: dataType,
+        objectType,
+        value: String(data),
+        timestamp: Date.now(),
+        warning: 'Original object structure lost in conversion'
+      };
+    } catch (error) {
+      return {
+        __type: 'CriticalError',
+        error: 'Complete serialization failure',
+        timestamp: Date.now(),
+        value: '[Unserializable Object]'
+      };
+    }
+  };
+
+  // Comprehensive error recovery implementation
+  try {
+    // Primary serialization attempt
+    return primarySerialize(data);
+  } catch (primaryError) {
+    console.warn('Primary serialization failed, attempting JSON.stringify fallback:', {
+      error: primaryError.message,
       dataType: typeof data,
       timestamp: Date.now()
     });
     
-    // Enhanced fallback with better error classification
-    const errorType = error.name || 'UnknownError';
-    return { 
-      __type: 'SerializationError', 
-      originalType: typeof data,
-      errorType,
-      error: error.message,
-      timestamp: Date.now(),
-      fallback: 'safe-mode',
-      recoverable: ['TypeError', 'RangeError'].includes(errorType)
-    };
+    try {
+      // Fallback to JSON.stringify
+      return jsonStringifyFallback(data);
+    } catch (fallbackError) {
+      console.warn('JSON.stringify fallback failed, using String() conversion:', {
+        primaryError: primaryError.message,
+        fallbackError: fallbackError.message,
+        dataType: typeof data,
+        timestamp: Date.now()
+      });
+      
+      // Final fallback to String conversion
+      return stringFallback(data);
+    }
   }
 };
 // Enhanced safe message sending utility with retry mechanism

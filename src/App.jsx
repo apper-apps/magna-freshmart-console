@@ -400,13 +400,29 @@ useEffect(() => {
         // Don't set SDK error state - just log it
       }
       
-// Handle DataCloneError specifically for postMessage operations
+// Handle DataCloneError specifically for postMessage operations with enhanced recovery
       if (event.reason?.name === 'DataCloneError' || event.error?.name === 'DataCloneError') {
-        console.warn('DataCloneError detected - likely from postMessage with non-cloneable objects:', {
+        const errorData = {
           message: event.reason?.message || event.error?.message,
           stack: event.reason?.stack || event.error?.stack,
-          timestamp: Date.now()
-        });
+          timestamp: Date.now(),
+          errorType: 'DataCloneError',
+          context: 'postMessage',
+          recoveryAction: 'prevented_crash'
+        };
+        
+        console.warn('DataCloneError detected - implementing comprehensive recovery:', errorData);
+        
+        // Track error for performance monitoring
+        if (typeof window !== 'undefined' && window.performanceMonitor) {
+          window.performanceMonitor.trackError(event.reason || event.error, 'dataclone-postmessage');
+        }
+        
+        // Dispatch recovery event for components to handle gracefully
+        window.dispatchEvent(new window.CustomEvent('dataclone-error-recovered', {
+          detail: errorData
+        }));
+        
         // Log the error but don't crash the app
         event.preventDefault();
         return false;
