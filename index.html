@@ -8,88 +8,15 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <title>FreshMart - Your Fresh Grocery Destination</title>
-    <script>
-      // Global error handler for external script errors
-      window.addEventListener('error', function(event) {
-        if (event.target !== window) {
-          console.warn('External resource error:', event.target.src || event.target.href);
-        }
-      });
-      
-      // Global performance monitor
-      window.performanceMonitor = {
-        marks: {},
-        errors: [],
-        errorCategories: {
-          network: 0,
-          timeout: 0,
-          validation: 0,
-          server: 0,
-          unknown: 0
-        },
-        trackError: function(error, category = 'unknown') {
-          this.errors.push({
-            error: error.message || error,
-            category,
-            timestamp: new Date().toISOString()
-          });
-          if (this.errorCategories[category] !== undefined) {
-            this.errorCategories[category]++;
-          }
-        }
-      };
-    </script>
-  </head>
-  <body>
-        }
-      });
-
-      // PostMessage error wrapper for external integrations
-      const originalPostMessage = window.postMessage;
-      window.postMessage = function(message, targetOrigin, transfer) {
-        try {
-          // Convert URL objects to strings to prevent DataCloneError
-          const sanitizedMessage = sanitizeMessageForPostMessage(message);
-          return originalPostMessage.call(this, sanitizedMessage, targetOrigin, transfer);
-        } catch (error) {
-          console.warn('PostMessage error prevented:', error);
-          // Attempt to send string representation if original fails
-          try {
-            const stringMessage = typeof message === 'object' ? JSON.stringify(message) : String(message);
-            return originalPostMessage.call(this, stringMessage, targetOrigin, transfer);
-          } catch (fallbackError) {
-            console.error('PostMessage fallback also failed:', fallbackError);
-          }
-        }
-      };
-
-      function sanitizeMessageForPostMessage(obj) {
-        if (obj === null || typeof obj !== 'object') {
-          return obj;
-        }
-        
-        if (obj instanceof URL) {
-          return obj.toString();
-        }
-        
-        if (Array.isArray(obj)) {
-          return obj.map(sanitizeMessageForPostMessage);
-        }
-        
-        const sanitized = {};
-        for (const key in obj) {
-          if (obj.hasOwnProperty(key)) {
-            sanitized[key] = sanitizeMessageForPostMessage(obj[key]);
-          }
-        }
-        return sanitized;
-      }
-    </script>
+<!-- Security Headers -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:;">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-  </body>
-</html>
   </body>
 </html>
