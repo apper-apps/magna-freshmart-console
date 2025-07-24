@@ -305,15 +305,15 @@ const Orders = () => {
                               <span className="font-medium text-blue-900">
                                 {format(new Date(order.paymentProof.uploadedAt || order.createdAt), 'MMM dd, yyyy')}
                               </span>
-                            </div>
+</div>
                             {order.paymentProof.fileSize && (
-{order.paymentProof.fileSize && (
                               <div className="flex justify-between text-sm">
                                 <span className="text-blue-700">File Size:</span>
                                 <span className="font-medium text-blue-900">
                                   {(order.paymentProof.fileSize / 1024 / 1024).toFixed(2)} MB
                                 </span>
                               </div>
+                            )}
                           </div>
 <div className="relative group">
                             <img
