@@ -155,12 +155,12 @@ const Orders = () => {
                           Pending Approval
                         </Badge>
                       )}
-                      {order.approvalStatus === 'rejected' && (
+{order.approvalStatus === 'rejected' && (
                         <Badge variant="danger" className="text-xs">
-Rejected
+                          <ApperIcon name="XCircle" size={12} className="mr-1" />
+                          Rejected
                         </Badge>
                       )}
-                    </div>
                     </div>
                   )}
                 </div>
