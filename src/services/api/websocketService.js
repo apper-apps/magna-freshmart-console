@@ -405,9 +405,11 @@ console.error('Max reconnection attempts reached, giving up');
         };
       }
 // Handle objects with potential circular references
-      if (typeof error === 'object') {
+      if (typeof error === 'object' && error !== null) {
         const serialized = {};
-for (const key in error) {
+        const seen = new WeakSet();
+        
+        for (const key in error) {
           try {
             const value = error[key];
             
@@ -416,6 +418,16 @@ for (const key in error) {
             
             // Skip DOM nodes
             if (value && value instanceof Node) continue;
+            
+            // Handle circular references
+            if (typeof value === 'object' && value !== null) {
+              if (seen.has(value)) {
+                serialized[key] = '[Circular Reference]';
+                continue;
+              }
+              seen.add(value);
+            }
+            
             // Try to serialize the value
             JSON.stringify(value);
             serialized[key] = value;
@@ -433,7 +445,13 @@ for (const key in error) {
       // For non-objects, return as string
       return String(error);
     } catch (serializationError) {
-      return 'Serialization failed: ' + String(error);
+      console.error('Critical serialization failure:', serializationError);
+      return {
+        __type: 'CriticalSerializationError',
+        originalError: String(error),
+        serializationError: serializationError.message,
+        timestamp: new Date().toISOString()
+      };
     }
   }
 // Safe message serialization to prevent DataCloneError
@@ -446,10 +464,10 @@ for (const key in error) {
         return message;
       }
       
-      // Handle URL objects specifically - convert to plain object
+// Handle URL objects specifically - convert to plain object
       if (message instanceof URL) {
         return {
-          type: 'URL',
+          __type: 'URL',
           href: message.href,
           origin: message.origin,
           pathname: message.pathname,
@@ -460,7 +478,6 @@ for (const key in error) {
           port: message.port
         };
       }
-      
       // Handle Date objects
       if (message instanceof Date) {
         return {
@@ -504,10 +521,10 @@ for (const key in error) {
             }
             
             // Handle URL objects
-            // Handle URL objects
+// Handle URL objects
             if (value instanceof URL) {
               serialized[key] = {
-                type: 'URL',
+                __type: 'URL',
                 href: value.href,
                 origin: value.origin,
                 pathname: value.pathname,
@@ -519,22 +536,36 @@ for (const key in error) {
               };
               continue;
             }
-            
             // Handle nested objects recursively
             if (typeof value === 'object' && value !== null) {
               serialized[key] = this.serializeMessageSafely(value);
             } else {
               serialized[key] = value;
             }
-          } catch (serializationError) {
-            serialized[key] = String(message[key]);
+} catch (serializationError) {
+            console.warn(`Failed to serialize property '${key}':`, serializationError);
+            serialized[key] = {
+              __type: 'SerializationError',
+              key,
+              error: serializationError.message,
+              fallback: String(message[key])
+            };
           }
         }
       }
       
       return serialized;
+return serialized;
     } catch (error) {
-      return String(message);
+      console.error('Critical message serialization failure:', error);
+      return {
+        __type: 'CriticalSerializationError',
+        originalType: typeof message,
+        error: error.message,
+        timestamp: Date.now(),
+        fallback: String(message)
+      };
+};
     }
   }
   
@@ -542,7 +573,6 @@ for (const key in error) {
   disconnect() {
     if (this.connection) {
       this.stopHeartbeat();
-      this.connection.close(1000, 'Client initiated disconnect');
       this.connection = null;
     }
     

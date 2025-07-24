@@ -91,15 +91,13 @@ window.addEventListener('unhandledrejection', (event) => {
     event.preventDefault();
     return false;
   }
-  
-  if (event.reason && event.reason.message && 
+if (event.reason && event.reason.message && 
       (event.reason.message.includes('DataCloneError') || 
        event.reason.message.includes('postMessage') ||
        event.reason.message.includes('URL object could not be cloned'))) {
     
     errorHandlerState.lastError = errorKey;
     errorHandlerState.lastErrorTime = now;
-    
     console.warn('External script postMessage error intercepted:', {
       reason: event.reason.message,
       stack: event.reason.stack,
@@ -121,7 +119,7 @@ const postMessageState = {
 };
 
 window.postMessage = function(message, targetOrigin, transfer) {
-  const attemptKey = `${targetOrigin}:${Date.now()}`;
+const attemptKey = `${targetOrigin}:${Date.now()}`;
   
   try {
     // Test if message can be cloned
@@ -181,8 +179,7 @@ const serializeForPostMessage = (data) => {
   // Performance cache for frequently serialized objects
   const serializationCache = new Map();
   const maxCacheSize = 100;
-  
-  try {
+try {
     // Handle null/undefined early
     if (data === null) return null;
     if (data === undefined) return { __type: 'Undefined' };
@@ -190,13 +187,18 @@ const serializeForPostMessage = (data) => {
     // Handle primitives - no serialization needed
     if (typeof data !== 'object') return data;
     
-    // Check cache for performance
-    const cacheKey = typeof data === 'object' ? JSON.stringify(data) : String(data);
-    if (serializationCache.has(cacheKey)) {
-      return serializationCache.get(cacheKey);
+    // Check cache for performance (with safe key generation)
+    let cacheKey;
+    try {
+      cacheKey = typeof data === 'object' ? JSON.stringify(data) : String(data);
+      if (serializationCache.has(cacheKey)) {
+        return serializationCache.get(cacheKey);
+      }
+    } catch (cacheError) {
+      // Skip caching for problematic objects
+      cacheKey = null;
     }
-    
-    // Track circular references with WeakSet for better performance
+// Track circular references with WeakSet for better performance
     const seen = new WeakSet();
     const path = [];
     let depth = 0;
@@ -324,25 +326,36 @@ const serializeForPostMessage = (data) => {
       return result;
     };
     
-    const serialized = serialize(data);
+const serialized = serialize(data);
     
-    // Cache result for performance (with size limit)
-    if (serializationCache.size >= maxCacheSize) {
+    // Cache result for performance (with size limit) - only if cacheKey exists
+    if (cacheKey && serializationCache.size < maxCacheSize) {
+      serializationCache.set(cacheKey, serialized);
+    } else if (cacheKey && serializationCache.size >= maxCacheSize) {
       const firstKey = serializationCache.keys().next().value;
       serializationCache.delete(firstKey);
+      serializationCache.set(cacheKey, serialized);
     }
-    serializationCache.set(cacheKey, serialized);
     
     return serialized;
   } catch (error) {
-    console.warn('Failed to serialize data for postMessage:', error);
-    // Return minimal safe object instead of throwing
+    console.warn('Failed to serialize data for postMessage:', {
+      error: error.message,
+      stack: error.stack,
+      dataType: typeof data,
+      timestamp: Date.now()
+    });
+    
+    // Enhanced fallback with better error classification
+    const errorType = error.name || 'UnknownError';
     return { 
       __type: 'SerializationError', 
       originalType: typeof data,
+      errorType,
       error: error.message,
       timestamp: Date.now(),
-      fallback: 'safe-mode'
+      fallback: 'safe-mode',
+      recoverable: ['TypeError', 'RangeError'].includes(errorType)
     };
   }
 };
@@ -351,7 +364,7 @@ const sendSafeMessage = (targetWindow, message, targetOrigin = "*") => {
   const maxRetries = 3;
   let attempts = 0;
   
-  const attemptSend = async () => {
+const attemptSend = async () => {
     attempts++;
     
     try {
@@ -361,11 +374,17 @@ const sendSafeMessage = (targetWindow, message, targetOrigin = "*") => {
         return false;
       }
       
+      // Validate targetOrigin parameter
+      if (!targetOrigin || (typeof targetOrigin !== 'string' && targetOrigin !== '*')) {
+        console.warn('Invalid targetOrigin for postMessage:', targetOrigin);
+        return false;
+      }
+      
       // Check if window is still accessible
       if (targetWindow.closed) {
         console.warn('Target window is closed');
         return false;
-}
+      }
       
       // Test if message can be cloned first
       try {
@@ -373,11 +392,18 @@ const sendSafeMessage = (targetWindow, message, targetOrigin = "*") => {
         targetWindow.postMessage(message, targetOrigin);
         return true;
       } catch (cloneError) {
+} catch (cloneError) {
         if (cloneError.name === 'DataCloneError') {
           console.warn('Message requires serialization for postMessage');
-          const sanitizedMessage = serializeForPostMessage(message);
-          targetWindow.postMessage(sanitizedMessage, targetOrigin);
-          return true;
+          
+          try {
+            const sanitizedMessage = serializeForPostMessage(message);
+            targetWindow.postMessage(sanitizedMessage, targetOrigin);
+            return true;
+          } catch (sanitizeError) {
+            console.error('Failed to sanitize message for postMessage:', sanitizeError);
+            throw sanitizeError;
+          }
         }
         throw cloneError;
       }

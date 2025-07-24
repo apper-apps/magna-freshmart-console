@@ -400,18 +400,29 @@ useEffect(() => {
         // Don't set SDK error state - just log it
       }
       
-      // Handle DataCloneError specifically for postMessage operations
+// Handle DataCloneError specifically for postMessage operations
       if (event.reason?.name === 'DataCloneError' || event.error?.name === 'DataCloneError') {
-        console.warn('DataCloneError detected - likely from postMessage with non-cloneable objects:', event);
+        console.warn('DataCloneError detected - likely from postMessage with non-cloneable objects:', {
+          message: event.reason?.message || event.error?.message,
+          stack: event.reason?.stack || event.error?.stack,
+          timestamp: Date.now()
+        });
         // Log the error but don't crash the app
+        event.preventDefault();
+        return false;
       }
     };
 
-    const handleMessageError = (event) => {
-      console.warn('Message error detected:', event);
-      // Handle postMessage errors gracefully
+const handleMessageError = (event) => {
+      console.warn('Message error detected:', {
+        origin: event.origin,
+        source: event.source,
+        lastEventId: event.lastEventId,
+        timestamp: Date.now()
+      });
+      // Handle postMessage errors gracefully without blocking the app
+      event.preventDefault();
     };
-    
     window.addEventListener('unhandledrejection', handleError);
     window.addEventListener('messageerror', handleMessageError);
     return () => {
