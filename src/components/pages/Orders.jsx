@@ -6,12 +6,11 @@ import { formatCurrency } from "@/utils/currency";
 import { clipboardService } from "@/services/ClipboardService";
 import { orderService } from "@/services/api/orderService";
 import ApperIcon from "@/components/ApperIcon";
-import Badge from "@/components/atoms/Badge";
+import { Badge } from "@/components/atoms/Badge";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
 import Error from "@/components/ui/Error";
 import Empty from "@/components/ui/Empty";
 import Loading from "@/components/ui/Loading";
-
 const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -161,7 +160,7 @@ const Orders = () => {
                           Rejected
 </Badge>
                       )}
-</div>
+                    </div>
                   )}
                 </div>
                 <>
@@ -512,6 +511,7 @@ const Orders = () => {
                       </span>
                     </div>
                   </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -519,7 +519,6 @@ const Orders = () => {
         ))}
       </div>
     </div>
-  );
 };
 
 export default Orders;

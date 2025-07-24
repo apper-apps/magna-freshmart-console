@@ -1269,10 +1269,10 @@ action.isAction ? (
                           <ApperIcon name="TrendingUp" size={16} className="text-green-600" />
                           <span className="text-sm font-medium text-green-800">High Margin</span>
                         </div>
-                        <p className="text-lg font-bold text-green-600">
+<p className="text-lg font-bold text-green-600">
                           {paymentVerificationData.data.filter(item => (item.profitMargin || 0) > 25).length}
                         </p>
-                        <p className="text-xs text-green-600">Items > 25% margin</p>
+                        <p className="text-xs text-green-600">Items &gt; 25% margin</p>
                       </div>
                       
                       <div className="bg-blue-50 p-3 rounded-lg">

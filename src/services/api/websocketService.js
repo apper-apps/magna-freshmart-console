@@ -412,6 +412,7 @@ console.error('Max reconnection attempts reached, giving up');
             const value = error[key];
             
             // Skip functions and non-serializable objects
+const value = error[key];
             if (typeof value === 'function') continue;
             
             // Skip DOM nodes
@@ -422,6 +423,7 @@ console.error('Max reconnection attempts reached, giving up');
             serialized[key] = value;
           } catch (serializationError) {
             // If serialization fails, convert to string
+            const value = error[key];
             serialized[key] = String(value);
           }
         }
@@ -472,7 +474,7 @@ console.error('Max reconnection attempts reached, giving up');
       // Handle Error objects
       if (message instanceof Error) {
         return this.serializeErrorSafely(message);
-      }
+}
       
       // Handle arrays
       if (Array.isArray(message)) {
@@ -482,7 +484,7 @@ console.error('Max reconnection attempts reached, giving up');
       // Handle plain objects
       const serialized = {};
       for (const key in message) {
-        if (message.hasOwnProperty(key)) {
+        if (Object.prototype.hasOwnProperty.call(message, key)) {
           try {
             const value = message[key];
             
@@ -497,13 +499,13 @@ console.error('Max reconnection attempts reached, giving up');
               serialized[key] = `[${value.constructor.name}]`;
               continue;
             }
-            
-            // Skip Window objects
-            if (typeof Window !== 'undefined' && value instanceof Window) {
+// Skip Window objects
+            if (typeof window !== 'undefined' && typeof window.Window !== 'undefined' && value instanceof window.Window) {
               serialized[key] = `[${value.constructor.name}]`;
               continue;
             }
             
+            // Handle URL objects
             // Handle URL objects
             if (value instanceof URL) {
               serialized[key] = {

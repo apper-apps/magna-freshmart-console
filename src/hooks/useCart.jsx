@@ -48,12 +48,13 @@ export const useCart = () => {
   const getCartCount = () => cartCount;
   const getCartItems = () => cart;
   
-const isProductInCart = (productId) => {
-    return useSelector(state => selectIsProductInCart(productId)(state));
+  const isProductInCart = (productId) => {
+    return cart.some(item => item.id === productId);
   };
   
   const getProductQuantityInCart = (productId) => {
-    return useSelector(state => selectProductQuantityInCart(productId)(state));
+    const item = cart.find(item => item.id === productId);
+    return item ? item.quantity : 0;
   };
   
   return {

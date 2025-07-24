@@ -804,11 +804,10 @@ const performanceMonitor = {
         message: e.message,
         source: e.source,
         category: e.category,
-        timestamp: new Date(e.timestamp).toISOString()
+timestamp: new Date(e.timestamp).toISOString()
       }))
     };
   }
-};
 };
 
 // Missing function for SDK initialization
