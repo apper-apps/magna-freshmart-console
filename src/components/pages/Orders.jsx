@@ -88,9 +88,9 @@ const Orders = () => {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="flex items-center justify-between mb-8">
+<div className="flex items-center justify-between mb-8">
         <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
-<Link 
+        <Link 
           to="/category/All"
           className="flex items-center space-x-2 text-primary hover:text-primary-dark transition-colors"
         >
@@ -153,9 +153,8 @@ const Orders = () => {
                         <Badge variant="warning" className="text-xs animate-pulse">
                           <ApperIcon name="Clock" size={12} className="mr-1" />
                           Pending Approval
-                        </Badge>
-                      )}
-{order.approvalStatus === 'rejected' && (
+)}
+                      {order.approvalStatus === 'rejected' && (
                         <Badge variant="danger" className="text-xs">
                           <ApperIcon name="XCircle" size={12} className="mr-1" />
                           Rejected
@@ -244,10 +243,10 @@ const Orders = () => {
                         </div>
                         <span className={`text-xs font-medium ${isCompleted ? 'text-gray-900' : 'text-gray-400'}`}>
                           {statusLabels[status]}
-                        </span>
+</span>
                         {isActive && (
                           <div className="w-2 h-2 bg-primary rounded-full mt-1 animate-pulse"></div>
-)}
+                        )}
                       </div>
                     );
                   })}
@@ -313,74 +312,73 @@ const Orders = () => {
                                   {(order.paymentProof.fileSize / 1024 / 1024).toFixed(2)} MB
                                 </span>
                               </div>
-                            )}
+)}
                           </div>
                           <div className="relative group">
-                              <img
-                                src={(() => {
-                                  // Validate and return payment proof image URL
-                                  const proofData = order.paymentProof?.dataUrl;
-                                  if (proofData && typeof proofData === 'string') {
-                                    // Check if it's a valid base64 data URL
-                                    if (proofData.startsWith('data:image/') && proofData.includes('base64,')) {
-                                      return proofData;
-                                    }
-                                    // Handle other URL formats
-                                    if (proofData.startsWith('http') || proofData.startsWith('/')) {
-                                      return proofData;
-                                    }
+                            <img
+                              src={(() => {
+                                // Validate and return payment proof image URL
+                                const proofData = order.paymentProof?.dataUrl;
+                                if (proofData && typeof proofData === 'string') {
+                                  // Check if it's a valid base64 data URL
+                                  if (proofData.startsWith('data:image/') && proofData.includes('base64,')) {
+                                    return proofData;
                                   }
-                                  // Fallback to enhanced placeholder
-                                  return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDE1MCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxNTAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRUZGNkZGIiBzdHJva2U9IiNENERBRjciIHN0cm9rZS13aWR0aD0iMSIvPgo8cGF0aCBkPSJNNjAgNDBMOTAgNzBMNjAgNDBaIiBzdHJva2U9IiM2MkM0NjIiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIvPgo8Y2lyY2xlIGN4PSI3MCIgY3k9IjMwIiByPSI1IiBmaWxsPSIjNjJDNDYyIi8+Cjx0ZXh0IHg9Ijc1IiB5PSI1NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjMzc0MTUxIj5QYXltZW50IFByb29mPC90ZXh0Pgo8dGV4dCB4PSI3NSIgeT0iNjgiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSI4IiBmaWxsPSIjNjc3NDgwIj5DbGljayB0byBWaWV3PC90ZXh0Pgo8L3N2Zz4K';
-                                })()}
-                                alt="Payment proof"
-                                className="w-24 h-16 sm:w-32 sm:h-20 object-cover rounded-lg border border-blue-200 cursor-pointer transition-transform group-hover:scale-105"
-                                onError={(e) => {
-                                  // Only set fallback if not already a fallback
-                                  if (!e.target.src.includes('data:image/svg+xml')) {
-                                    e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDE1MCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxNTAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRkVGMkYyIiBzdHJva2U9IiNGQ0E1QTUiIHN0cm9rZS13aWR0aD0iMSIvPgo8cGF0aCBkPSJNNTUgNDVMNzAgNjBMODUgNDVNNzAgNDBWNzAiIHN0cm9rZT0iI0VGNDQ0NCIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+Cjx0ZXh0IHg9Ijc1IiB5PSI1NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjOTkxQjFCIj5JbWFnZSBFcnJvcjwvdGV4dD4KPHR4dCB4PSI3NSIgeT0iNjgiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSI4IiBmaWxsPSIjOTkxQjFCIj5DbGljayB0byBWaWV3PC90ZXh0Pgo8L3N2Zz4K';
+                                  // Handle other URL formats
+                                  if (proofData.startsWith('http') || proofData.startsWith('/')) {
+                                    return proofData;
                                   }
-                                }}
-                                onClick={() => {
-                                  // Enhanced modal display with better error handling
-                                  const proofData = order.paymentProof?.dataUrl;
-                                  let imageUrl = proofData;
-                                  
-                                  // Validate image URL before modal display
-                                  if (!imageUrl || typeof imageUrl !== 'string') {
-                                    imageUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRjlGQUZCIiBzdHJva2U9IiNFNUU3RUIiIHN0cm9rZS13aWR0aD0iMiIvPgo8cGF0aCBkPSJNMTYwIDE0MEwyNDAgMjAwTDE2MCAxNDBaIiBzdHJva2U9IiM2MkM0NjIiIHN0cm9rZS13aWR0aD0iMyIgZmlsbD0ibm9uZSIvPgo8Y2lyY2xlIGN4PSIyMDAiIGN5PSIxMjAiIHI9IjEwIiBmaWxsPSIjNjJDNDYyIi8+Cjx0ZXh0IHg9IjIwMCIgeT0iMTcwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTYiIGZpbGw9IiMzNzQxNTEiIHRleHQtYW5jaG9yPSJtaWRkbGUiPlBheW1lbnQgUHJvb2Y8L3RleHQ+Cjx0ZXh0IHg9IjIwMCIgeT0iMTkwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM2Nzc0ODAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk5vIGltYWdlIGF2YWlsYWJsZTwvdGV4dD4KPHR4dCB4PSIyMDAiIHk9IjIxMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjOUI5Q0EwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5DbGljayB0byBjbG9zZTwvdGV4dD4KPC9zdmc+Cg==';
+                                }
+                                // Fallback to enhanced placeholder
+                                return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDE1MCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxNTAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRUZGNkZGIiBzdHJva2U9IiNENERBRjciIHN0cm9rZS13aWR0aD0iMSIvPgo8cGF0aCBkPSJNNjAgNDBMOTAgNzBMNjAgNDBaIiBzdHJva2U9IiM2MkM0NjIiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIvPgo8Y2lyY2xlIGN4PSI3MCIgY3k9IjMwIiByPSI1IiBmaWxsPSIjNjJDNDYyIi8+Cjx0ZXh0IHg9Ijc1IiB5PSI1NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjMzc0MTUxIj5QYXltZW50IFByb29mPC90ZXh0Pgo8dGV4dCB4PSI3NSIgeT0iNjgiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSI4IiBmaWxsPSIjNjc3NDgwIj5DbGljayB0byBWaWV3PC90ZXh0Pgo8L3N2Zz4K';
+                              })()}
+                              alt="Payment proof"
+                              className="w-24 h-16 sm:w-32 sm:h-20 object-cover rounded-lg border border-blue-200 cursor-pointer transition-transform group-hover:scale-105"
+                              onError={(e) => {
+                                // Only set fallback if not already a fallback
+                                if (!e.target.src.includes('data:image/svg+xml')) {
+                                  e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjEwMCIgdmlld0JveD0iMCAwIDE1MCAxMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxNTAiIGhlaWdodD0iMTAwIiBmaWxsPSIjRkVGMkYyIiBzdHJva2U9IiNGQ0E1QTUiIHN0cm9rZS13aWR0aD0iMSIvPgo8cGF0aCBkPSJNNTUgNDVMNzAgNjBMODUgNDVNNzAgNDBWNzAiIHN0cm9rZT0iI0VGNDQ0NCIgc3Ryb2tlLXdpZHRoPSIyIiBmaWxsPSJub25lIi8+Cjx0ZXh0IHg9Ijc1IiB5PSI1NSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjOTkxQjFCIj5JbWFnZSBFcnJvcjwvdGV4dD4KPHR4dCB4PSI3NSIgeT0iNjgiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSI4IiBmaWxsPSIjOTkxQjFCIj5DbGljayB0byBWaWV3PC90ZXh0Pgo8L3N2Zz4K';
+                                }
+                              }}
+                              onClick={() => {
+                                // Enhanced modal display with better error handling
+                                const proofData = order.paymentProof?.dataUrl;
+                                let imageUrl = proofData;
+                                
+                                // Validate image URL before modal display
+                                if (!imageUrl || typeof imageUrl !== 'string') {
+                                  imageUrl = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgdmlld0JveD0iMCAwIDQwMCAzMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMzAwIiBmaWxsPSIjRjlGQUZCIiBzdHJva2U9IiNFNUU3RUIiIHN0cm9rZS13aWR0aD0iMiIvPgo8cGF0aCBkPSJNMTYwIDE0MEwyNDAgMjAwTDE2MCAxNDBaIiBzdHJva2U9IiM2MkM0NjIiIHN0cm9rZS13aWR0aD0iMyIgZmlsbD0ibm9uZSIvPgo8Y2lyY2xlIGN4PSIyMDAiIGN5PSIxMjAiIHI9IjEwIiBmaWxsPSIjNjJDNDYyIi8+Cjx0ZXh0IHg9IjIwMCIgeT0iMTcwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTYiIGZpbGw9IiMzNzQxNTEiIHRleHQtYW5jaG9yPSJtaWRkbGUiPlBheW1lbnQgUHJvb2Y8L3RleHQ+Cjx0ZXh0IHg9IjIwMCIgeT0iMTkwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMTIiIGZpbGw9IiM2Nzc0ODAiIHRleHQtYW5jaG9yPSJtaWRkbGUiPk5vIGltYWdlIGF2YWlsYWJsZTwvdGV4dD4KPHR4dCB4PSIyMDAiIHk9IjIxMCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEwIiBmaWxsPSIjOUI5Q0EwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5DbGljayB0byBjbG9zZTwvdGV4dD4KPC9zdmc+Cg==';
+                                }
+                                
+                                const modal = document.createElement('div');
+                                modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
+                                modal.innerHTML = `
+                                  <div class="relative max-w-4xl max-h-full">
+                                    <img src="${imageUrl}" alt="Payment proof" class="max-w-full max-h-full object-contain rounded-lg" />
+                                    <button class="absolute top-2 right-2 bg-white text-black rounded-full p-2 hover:bg-gray-100 min-w-[48px] min-h-[48px] flex items-center justify-center">
+                                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                                      </svg>
+                                    </button>
+                                  </div>
+                                `;
+                                modal.onclick = (e) => {
+                                  if (e.target === modal || e.target.tagName === 'BUTTON' || e.target.tagName === 'svg' || e.target.tagName === 'line') {
+                                    document.body.removeChild(modal);
                                   }
-                                  
-                                  const modal = document.createElement('div');
-                                  modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
-                                  modal.innerHTML = `
-                                    <div class="relative max-w-4xl max-h-full">
-                                      <img src="${imageUrl}" alt="Payment proof" class="max-w-full max-h-full object-contain rounded-lg" />
-                                      <button class="absolute top-2 right-2 bg-white text-black rounded-full p-2 hover:bg-gray-100 min-w-[48px] min-h-[48px] flex items-center justify-center">
-                                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                          <line x1="18" y1="6" x2="6" y2="18"></line>
-                                          <line x1="6" y1="6" x2="18" y2="18"></line>
-                                        </svg>
-                                      </button>
-                                    </div>
-                                  `;
-                                  modal.onclick = (e) => {
-                                    if (e.target === modal || e.target.tagName === 'BUTTON' || e.target.tagName === 'svg' || e.target.tagName === 'line') {
-                                      document.body.removeChild(modal);
-                                    }
-                                  };
-                                  document.body.appendChild(modal);
-                                }}
-                              />
-<div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 flex items-center justify-center rounded-lg transition-all">
-                                <ApperIcon name="Eye" size={14} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </div>
+                                };
+                                document.body.appendChild(modal);
+                              }}
+                            />
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 flex items-center justify-center rounded-lg transition-all">
+                              <ApperIcon name="Eye" size={14} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
-</div>
+                  </div>
                 )}
               </div>
               
@@ -458,9 +456,9 @@ const Orders = () => {
                   className="flex items-center space-x-1 sm:space-x-2 text-primary hover:text-primary-dark transition-colors text-sm bg-primary/5 px-3 py-1.5 rounded-lg"
                 >
                   <ApperIcon name="Eye" size={14} />
-                  <span>View Details</span>
+<span>View Details</span>
                 </Link>
-<button className="flex items-center space-x-1 sm:space-x-2 text-blue-600 hover:text-blue-700 transition-colors text-sm bg-blue-50 px-3 py-1.5 rounded-lg">
+                <button className="flex items-center space-x-1 sm:space-x-2 text-blue-600 hover:text-blue-700 transition-colors text-sm bg-blue-50 px-3 py-1.5 rounded-lg">
                   <ApperIcon name="MessageCircle" size={14} />
                   <span>Chat Support</span>
                 </button>
@@ -500,9 +498,9 @@ const Orders = () => {
                     <div className="flex justify-between">
                       <span className="text-purple-700">Type:</span>
                       <span className="font-medium text-purple-900 capitalize">
-                        {order.walletTransaction.type.replace('_', ' ')}
+{order.walletTransaction.type.replace('_', ' ')}
                       </span>
-</div>
+                    </div>
                     <div className="flex justify-between">
                       <span className="text-purple-700">Amount:</span>
                       <span className="font-semibold text-purple-900">
