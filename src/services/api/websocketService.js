@@ -380,9 +380,9 @@ console.error('Max reconnection attempts reached, giving up');
         });
       }
     }, delay);
-}, delay);
   }
-serializeErrorSafely(error) {
+
+  serializeErrorSafely(error) {
     if (!error) return 'Unknown error';
     
     try {
@@ -404,7 +404,6 @@ serializeErrorSafely(error) {
           timestamp: new Date().toISOString()
         };
       }
-// Handle objects with potential circular references
 // Handle objects with potential circular references
       if (typeof error === 'object') {
         const serialized = {};
@@ -436,10 +435,8 @@ serializeErrorSafely(error) {
     } catch (serializationError) {
       return 'Serialization failed: ' + String(error);
     }
-// Skip functions and non-serializable objects
-}
   }
-  // Safe message serialization to prevent DataCloneError
+// Safe message serialization to prevent DataCloneError
   serializeMessageSafely(message) {
     if (!message) return null;
     

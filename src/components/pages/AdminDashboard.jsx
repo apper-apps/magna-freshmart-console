@@ -792,7 +792,7 @@ action.isAction ? (
                             </div>
                           )}
                         </div>
-                        <div className="flex-1">
+<div className="flex-1">
                           <span className="font-medium text-gray-900 group-hover:text-primary transition-colors block">
                             {action.label}
                           </span>
@@ -808,7 +808,6 @@ action.isAction ? (
             })}
           </div>
         </div>
-
         {/* Recent Orders */}
         <div className="card p-6">
           <div className="flex items-center justify-between mb-4">

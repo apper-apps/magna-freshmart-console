@@ -794,10 +794,10 @@ const performanceMonitor = {
         detail: { type: 'server', count: serverErrors }
       }));
     }
-  },
 },
   
   getErrorSummary() {
+    return {
       totalErrors: this.errors.length,
       categories: { ...this.errorCategories },
       recentErrors: this.errors.slice(-5).map(e => ({
@@ -808,6 +808,7 @@ const performanceMonitor = {
       }))
     };
   }
+};
 };
 
 // Missing function for SDK initialization

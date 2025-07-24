@@ -13,11 +13,10 @@ import {
   selectIsProductInCart,
   selectProductQuantityInCart
 } from '@/store/cartSlice';
-
 export const useCart = () => {
   const dispatch = useDispatch();
   
-  // Selectors
+// Selectors
   const cart = useSelector(selectCartItems);
   const cartTotal = useSelector(selectCartTotal);
   const cartCount = useSelector(selectCartItemCount);
@@ -49,7 +48,7 @@ export const useCart = () => {
   const getCartCount = () => cartCount;
   const getCartItems = () => cart;
   
-  const isProductInCart = (productId) => {
+const isProductInCart = (productId) => {
     return useSelector(state => selectIsProductInCart(productId)(state));
   };
   

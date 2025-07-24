@@ -88,7 +88,7 @@ const notificationSlice = createSlice({
     },
     updatePaymentStage: (state, action) => {
       const { stage, status, metadata } = action.payload;
-      if (state.paymentFlowStatus.hasOwnProperty(stage)) {
+if (Object.prototype.hasOwnProperty.call(state.paymentFlowStatus, stage)) {
         state.paymentFlowStatus[stage] = status;
       }
       if (metadata) {

@@ -32,7 +32,7 @@ export const store = configureStore({
         ]
       }
     }),
-  devTools: (typeof process !== 'undefined' && process.env && process.env.NODE_ENV !== 'production') || import.meta.env.DEV
+devTools: import.meta.env.DEV
 });
 
 export const persistor = persistStore(store);

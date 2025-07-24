@@ -161,10 +161,10 @@ const Orders = () => {
                           Rejected
 </Badge>
                       )}
-                    </div>
+</div>
                   )}
                 </div>
-                <React.Fragment>
+                <>
                   {(order.paymentMethod === 'jazzcash' || order.paymentMethod === 'easypaisa' || order.paymentMethod === 'bank') && (
                     <div className="flex items-center space-x-1">
                       {order.verificationStatus === 'verified' && (
@@ -201,14 +201,13 @@ const Orders = () => {
                         return formatCurrency(order.total);
                       })()}
                     </p>
-<p className="text-xs sm:text-sm text-gray-600">
+                    <p className="text-xs sm:text-sm text-gray-600">
                       {order?.items?.length || 0} items
                     </p>
                   </div>
-                </React.Fragment>
+                </>
               </div>
             </div>
-
             {/* Mini Status Timeline for Mobile */}
             <div className="block sm:hidden mb-4">
               <div className="flex items-center justify-between mb-2">
