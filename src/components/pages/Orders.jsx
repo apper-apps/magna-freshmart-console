@@ -6,8 +6,8 @@ import { formatCurrency } from "@/utils/currency";
 import { clipboardService } from "@/services/ClipboardService";
 import { orderService } from "@/services/api/orderService";
 import ApperIcon from "@/components/ApperIcon";
-import { Badge } from "@/components/atoms/Badge";
-import { Button } from "@/components/atoms/Button";
+import Badge from "@/components/atoms/Badge";
+import Button from "@/components/atoms/Button";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
 import Error from "@/components/ui/Error";
 import Empty from "@/components/ui/Empty";
@@ -149,11 +149,12 @@ const Orders = () => {
                           Approved
                         </Badge>
                       )}
-                      {order.approvalStatus === 'pending' && (
+{order.approvalStatus === 'pending' && (
                         <Badge variant="warning" className="text-xs animate-pulse">
                           <ApperIcon name="Clock" size={12} className="mr-1" />
                           Pending Approval
-)}
+                        </Badge>
+                      )}
                       {order.approvalStatus === 'rejected' && (
                         <Badge variant="danger" className="text-xs">
                           <ApperIcon name="XCircle" size={12} className="mr-1" />
@@ -312,7 +313,8 @@ const Orders = () => {
                                   {(order.paymentProof.fileSize / 1024 / 1024).toFixed(2)} MB
                                 </span>
                               </div>
-)}
+</div>
+                            )}
                           </div>
                           <div className="relative group">
                             <img
