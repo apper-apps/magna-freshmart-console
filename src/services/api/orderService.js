@@ -285,7 +285,7 @@ async update(id, orderData) {
   }
 
   // Get vendor orders
-  async getVendorOrders(vendorId) {
+async getVendorOrdersBasic(vendorId) {
     try {
       const orders = ordersData.filter(order => 
         order.items.some(item => item.vendorId === vendorId)
