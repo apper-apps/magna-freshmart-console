@@ -553,8 +553,6 @@ console.error('Max reconnection attempts reached, giving up');
           }
         }
       }
-      
-      return serialized;
 return serialized;
     } catch (error) {
       console.error('Critical message serialization failure:', error);
@@ -565,7 +563,6 @@ return serialized;
         timestamp: Date.now(),
         fallback: String(message)
       };
-};
     }
   }
   

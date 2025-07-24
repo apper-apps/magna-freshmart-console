@@ -386,13 +386,12 @@ const attemptSend = async () => {
         return false;
       }
       
-      // Test if message can be cloned first
+// Test if message can be cloned first
       try {
         window.structuredClone(message);
         targetWindow.postMessage(message, targetOrigin);
         return true;
       } catch (cloneError) {
-} catch (cloneError) {
         if (cloneError.name === 'DataCloneError') {
           console.warn('Message requires serialization for postMessage');
           
