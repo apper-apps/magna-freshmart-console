@@ -1,5 +1,3 @@
-import React from "react";
-import Error from "@/components/ui/Error";
 /**
  * Safe PostMessage Utility
  * Provides secure cross-window communication with proper error handling
