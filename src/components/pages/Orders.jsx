@@ -2,12 +2,12 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
-import { formatCurrency } from "@/utils/currency";
-import { clipboardService } from "@/services/ClipboardService";
+import formatCurrency from "@/utils/currency";
+import clipboardService from "@/services/ClipboardService";
 import { orderService } from "@/services/api/orderService";
 import ApperIcon from "@/components/ApperIcon";
-import { Badge } from "@/components/atoms/Badge";
-import { Button } from "@/components/atoms/Button";
+import Badge from "@/components/atoms/Badge";
+import Button from "@/components/atoms/Button";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
 import Error from "@/components/ui/Error";
 import Empty from "@/components/ui/Empty";
@@ -164,7 +164,7 @@ const Orders = () => {
                     </div>
                   )}
                 </div>
-                <>
+<>
                   {(order.paymentMethod === 'jazzcash' || order.paymentMethod === 'easypaisa' || order.paymentMethod === 'bank') && (
                     <div className="flex items-center space-x-1">
                       {order.verificationStatus === 'verified' && (
