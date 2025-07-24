@@ -7,6 +7,7 @@ import { clipboardService } from "@/services/ClipboardService";
 import { orderService } from "@/services/api/orderService";
 import ApperIcon from "@/components/ApperIcon";
 import { Badge } from "@/components/atoms/Badge";
+import { Button } from "@/components/atoms/Button";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
 import Error from "@/components/ui/Error";
 import Empty from "@/components/ui/Empty";
@@ -156,10 +157,10 @@ const Orders = () => {
                       )}
                       {order.approvalStatus === 'rejected' && (
                         <Badge variant="danger" className="text-xs">
-                          <ApperIcon name="XCircle" size={12} className="mr-1" />
-                          Rejected
-</Badge>
+Rejected
+                        </Badge>
                       )}
+                    </div>
                     </div>
                   )}
                 </div>
@@ -246,8 +247,8 @@ const Orders = () => {
                         </span>
                         {isActive && (
                           <div className="w-2 h-2 bg-primary rounded-full mt-1 animate-pulse"></div>
-                        )}
-</div>
+)}
+                      </div>
                     );
                   })}
                 </div>
@@ -371,20 +372,19 @@ const Orders = () => {
                                   document.body.appendChild(modal);
                                 }}
                               />
-                              <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 flex items-center justify-center rounded-lg transition-all">
-<ApperIcon name="Eye" size={14} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+<div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 flex items-center justify-center rounded-lg transition-all">
+                                <ApperIcon name="Eye" size={14} className="text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                               </div>
                             </div>
                           </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+</div>
                 )}
               </div>
               
               {/* Order Items Preview */}
-{/* Order Items Preview */}
               <div className="mt-4 pt-4 border-t border-gray-200">
                 <h4 className="text-sm font-medium text-gray-900 mb-3">Items ({order?.items?.length || 0})</h4>
                 <div className="space-y-2">
@@ -460,7 +460,6 @@ const Orders = () => {
                   <ApperIcon name="Eye" size={14} />
                   <span>View Details</span>
                 </Link>
-                
 <button className="flex items-center space-x-1 sm:space-x-2 text-blue-600 hover:text-blue-700 transition-colors text-sm bg-blue-50 px-3 py-1.5 rounded-lg">
                   <ApperIcon name="MessageCircle" size={14} />
                   <span>Chat Support</span>
@@ -503,14 +502,13 @@ const Orders = () => {
                       <span className="font-medium text-purple-900 capitalize">
                         {order.walletTransaction.type.replace('_', ' ')}
                       </span>
-                    </div>
-<div className="flex justify-between">
+</div>
+                    <div className="flex justify-between">
                       <span className="text-purple-700">Amount:</span>
                       <span className="font-semibold text-purple-900">
                         {formatCurrency(order.walletTransaction.amount)}
                       </span>
                     </div>
-                  </div>
                   </div>
                 </div>
               )}
@@ -519,6 +517,7 @@ const Orders = () => {
         ))}
       </div>
     </div>
+  );
 };
 
 export default Orders;

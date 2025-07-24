@@ -407,17 +407,15 @@ console.error('Max reconnection attempts reached, giving up');
 // Handle objects with potential circular references
       if (typeof error === 'object') {
         const serialized = {};
-        for (const key in error) {
+for (const key in error) {
           try {
             const value = error[key];
             
             // Skip functions and non-serializable objects
-const value = error[key];
             if (typeof value === 'function') continue;
             
             // Skip DOM nodes
             if (value && value instanceof Node) continue;
-            
             // Try to serialize the value
             JSON.stringify(value);
             serialized[key] = value;

@@ -1289,14 +1289,13 @@ action.isAction ? (
                       <div className="bg-orange-50 p-3 rounded-lg">
                         <div className="flex items-center space-x-2">
                           <ApperIcon name="AlertTriangle" size={16} className="text-orange-600" />
-                          <span className="text-sm font-medium text-orange-800">Low Margin</span>
+<span className="text-sm font-medium text-orange-800">Low Margin</span>
                         </div>
                         <p className="text-lg font-bold text-orange-600">
                           {paymentVerificationData.data.filter(item => (item.profitMargin || 0) < 10).length}
                         </p>
-                        <p className="text-xs text-orange-600">Items < 10% margin</p>
+                        <p className="text-xs text-orange-600">Items &lt; 10% margin</p>
                       </div>
-                      
                       <div className="bg-red-50 p-3 rounded-lg">
                         <div className="flex items-center space-x-2">
                           <ApperIcon name="TrendingDown" size={16} className="text-red-600" />
