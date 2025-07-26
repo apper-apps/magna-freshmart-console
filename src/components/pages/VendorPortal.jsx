@@ -11,6 +11,7 @@ import Category from "@/components/pages/Category";
 import { orderService } from "@/services/api/orderService";
 import { vendorService } from "@/services/api/vendorService";
 import { productService } from "@/services/api/productService";
+import { productUnitService } from "@/services/api/productUnitService";
 
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -1580,23 +1581,52 @@ const VendorPackingTab = ({ vendor }) => {
     setSelectedOrder(order);
     setPackingData({
       orderId: order.id,
-      items: order.items?.filter(item => (item.productId % 3 + 1) === vendor.Id).map(item => ({
-        ...item,
-        packedQuantity: item.quantity,
-        actualWeight: '',
-        verified: false
-      })) || []
+items: order.items?.filter(item => (item.productId % 3 + 1) === vendor.Id).map(item => {
+        const fieldConfig = productUnitService.getFieldConfig(item);
+        return {
+          ...item,
+          packedQuantity: item.quantity,
+          actualMeasurement: '',
+          measurementSkipped: false,
+          photoSkipped: false,
+          verified: false,
+          fieldConfig
+        };
+      }) || []
     });
   };
 
-  const handleItemVerification = (itemIndex, field, value) => {
+const handleItemVerification = (itemIndex, field, value) => {
     setPackingData(prev => ({
       ...prev,
-      items: prev.items.map((item, index) => 
-        index === itemIndex 
-          ? { ...item, [field]: value, verified: field === 'verified' ? value : item.verified }
-          : item
-      )
+      items: prev.items.map((item, index) => {
+        if (index !== itemIndex) return item;
+        
+        const updatedItem = { ...item, [field]: value };
+        
+        // Auto-verify if measurement is skipped or not required
+        if (field === 'measurementSkipped' && value) {
+          updatedItem.actualMeasurement = '';
+          updatedItem.verified = true; // Auto-verify when skipped
+        }
+        
+        // Handle verification logic
+        if (field === 'verified') {
+          updatedItem.verified = value;
+        } else if (field !== 'verified') {
+          // Auto-verify if all required fields are completed or skipped
+          const hasRequiredMeasurement = !productUnitService.isMeasurementRequired(item) || 
+                                        updatedItem.measurementSkipped || 
+                                        updatedItem.actualMeasurement;
+          const hasRequiredPhoto = updatedItem.photoSkipped || photoCapture;
+          
+          if (hasRequiredMeasurement && hasRequiredPhoto) {
+            updatedItem.verified = true;
+          }
+        }
+        
+        return updatedItem;
+      })
     }));
   };
 
@@ -1615,9 +1645,23 @@ const VendorPackingTab = ({ vendor }) => {
     }
   };
 
-  const handlePackingComplete = async () => {
-    if (!selectedOrder || !packingData.items.every(item => item.verified)) {
-      toast.error('Please verify all items before completing packing');
+const handlePackingComplete = async () => {
+    // Validate that all items are verified or properly skipped
+    const invalidItems = packingData.items.filter(item => {
+      if (!item.verified) return true;
+      
+      // Check if measurement is required but not provided or skipped
+      if (productUnitService.isMeasurementRequired(item) && 
+          !item.measurementSkipped && 
+          !item.actualMeasurement) {
+        return true;
+      }
+      
+      return false;
+    });
+    
+    if (invalidItems.length > 0) {
+      toast.error('Please verify all items or skip optional fields before completing packing');
       return;
     }
 
@@ -1626,9 +1670,17 @@ const VendorPackingTab = ({ vendor }) => {
         packingTimestamp: new Date().toISOString(),
         vendorId: vendor.Id,
         packedItems: packingData.items,
-        totalWeight: packingData.items.reduce((sum, item) => sum + (parseFloat(item.actualWeight) || 0), 0),
+        totalMeasurement: packingData.items.reduce((sum, item) => {
+          if (item.measurementSkipped) return sum;
+          return sum + (parseFloat(item.actualMeasurement) || 0);
+        }, 0),
         photo: photoCapture,
-        qualityChecked: true
+        photoSkipped: packingData.items.some(item => item.photoSkipped),
+        qualityChecked: true,
+        skippedFields: {
+          measurement: packingData.items.filter(item => item.measurementSkipped).length,
+          photo: packingData.items.some(item => item.photoSkipped)
+        }
       };
 
       await orderService.updateFulfillmentStage(selectedOrder.id, 'packed', packingInfo);
@@ -1757,14 +1809,17 @@ const VendorPackingTab = ({ vendor }) => {
             </div>
             
             <div className="p-6 space-y-6">
-              {/* Items Checklist */}
+{/* Items Checklist */}
               <div>
                 <h4 className="font-medium text-gray-900 mb-3">Items Verification</h4>
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {packingData.items?.map((item, index) => (
-                    <div key={index} className="p-3 border rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium">{item.name}</span>
+                    <div key={index} className="p-4 border rounded-lg bg-gray-50">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <span className="font-medium text-gray-900">{item.name}</span>
+                          <span className="text-sm text-gray-600 ml-2">({item.fieldConfig?.unit || item.unit})</span>
+                        </div>
                         <input
                           type="checkbox"
                           checked={item.verified}
@@ -1772,26 +1827,81 @@ const VendorPackingTab = ({ vendor }) => {
                           className="rounded border-gray-300 text-primary focus:ring-primary"
                         />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      
+                      <div className="space-y-3">
+                        {/* Quantity */}
                         <div>
-                          <label className="block text-xs text-gray-600 mb-1">Quantity</label>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Packed Quantity
+                          </label>
                           <input
                             type="number"
                             value={item.packedQuantity}
                             onChange={(e) => handleItemVerification(index, 'packedQuantity', parseInt(e.target.value))}
-                            className="w-full px-2 py-1 border rounded text-sm"
+                            className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
                           />
                         </div>
+
+                        {/* Dynamic Measurement Field */}
                         <div>
-                          <label className="block text-xs text-gray-600 mb-1">Weight (kg)</label>
-                          <input
-                            type="number"
-                            step="0.1"
-                            value={item.actualWeight}
-                            onChange={(e) => handleItemVerification(index, 'actualWeight', e.target.value)}
-                            className="w-full px-2 py-1 border rounded text-sm"
-                            placeholder="Actual weight"
-                          />
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="block text-xs font-medium text-gray-700">
+                              <ApperIcon name={item.fieldConfig?.icon || 'Scale'} size={12} className="inline mr-1" />
+                              {item.fieldConfig?.label || 'Weight (kg)'}
+                              {!productUnitService.isMeasurementRequired(item) && (
+                                <span className="text-gray-500 ml-1">(Optional)</span>
+                              )}
+                            </label>
+                            
+                            {!productUnitService.isMeasurementRequired(item) && (
+                              <div className="flex items-center">
+                                <Button
+                                  onClick={() => handleItemVerification(index, 'measurementSkipped', !item.measurementSkipped)}
+                                  variant={item.measurementSkipped ? "primary" : "outline"}
+                                  size="sm"
+                                  className="text-xs px-2 py-1"
+                                >
+                                  {item.measurementSkipped ? (
+                                    <>
+                                      <ApperIcon name="Check" size={10} className="mr-1" />
+                                      Skipped
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ApperIcon name="SkipForward" size={10} className="mr-1" />
+                                      Skip
+                                    </>
+                                  )}
+                                </Button>
+                                
+                                <div className="relative group ml-2">
+                                  <ApperIcon name="Info" size={12} className="text-gray-400 cursor-help" />
+                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                                    Optional - only if quality verification needed
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          
+                          {!item.measurementSkipped && (
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={item.actualMeasurement}
+                              onChange={(e) => handleItemVerification(index, 'actualMeasurement', e.target.value)}
+                              className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+                              placeholder={item.fieldConfig?.placeholder || 'Enter measurement'}
+                              required={productUnitService.isMeasurementRequired(item)}
+                            />
+                          )}
+                          
+                          {item.measurementSkipped && (
+                            <div className="px-3 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+                              <ApperIcon name="SkipForward" size={12} className="inline mr-1" />
+                              Measurement skipped - quality verification not required
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1799,47 +1909,98 @@ const VendorPackingTab = ({ vendor }) => {
                 </div>
               </div>
               
-              {/* Photo Capture */}
+{/* Photo Capture - Optional */}
               <div>
-                <h4 className="font-medium text-gray-900 mb-3">Package Photo</h4>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                  {photoCapture ? (
-                    <div>
-                      <img 
-                        src={photoCapture.dataUrl} 
-                        alt="Package" 
-                        className="mx-auto max-h-32 rounded mb-2"
-                      />
-                      <p className="text-sm text-gray-600">Photo captured</p>
-                      <button
-                        onClick={() => setPhotoCapture(null)}
-                        className="text-red-600 text-xs hover:underline"
-                      >
-                        Remove
-                      </button>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium text-gray-900">
+                    Package Photo 
+                    <span className="text-gray-500 text-sm font-normal ml-2">(Optional)</span>
+                  </h4>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      onClick={() => {
+                        const allItemsPhotoSkipped = !packingData.items.some(item => !item.photoSkipped);
+                        packingData.items.forEach((_, index) => {
+                          handleItemVerification(index, 'photoSkipped', !allItemsPhotoSkipped);
+                        });
+                        if (!allItemsPhotoSkipped) {
+                          setPhotoCapture(null);
+                        }
+                      }}
+                      variant={packingData.items.some(item => item.photoSkipped) ? "primary" : "outline"}
+                      size="sm"
+                    >
+                      {packingData.items.some(item => item.photoSkipped) ? (
+                        <>
+                          <ApperIcon name="Check" size={12} className="mr-1" />
+                          Photo Skipped
+                        </>
+                      ) : (
+                        <>
+                          <ApperIcon name="SkipForward" size={12} className="mr-1" />
+                          Skip Photo
+                        </>
+                      )}
+                    </Button>
+                    
+                    <div className="relative group">
+                      <ApperIcon name="Info" size={14} className="text-gray-400 cursor-help" />
+                      <div className="absolute bottom-full right-0 mb-2 px-3 py-2 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                        Optional - only if quality verification needed
+                      </div>
                     </div>
-                  ) : (
-                    <div>
-                      <ApperIcon name="Camera" size={32} className="mx-auto text-gray-400 mb-2" />
-                      <p className="text-sm text-gray-600 mb-3">Capture package photo</p>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={handlePhotoCapture}
-                        className="hidden"
-                        id="photo-capture"
-                      />
-                      <label
-                        htmlFor="photo-capture"
-                        className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg cursor-pointer hover:bg-primary-dark"
-                      >
-                        <ApperIcon name="Camera" size={16} className="mr-2" />
-                        Take Photo
-                      </label>
-                    </div>
-                  )}
+                  </div>
                 </div>
+                
+                {!packingData.items.some(item => item.photoSkipped) && (
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    {photoCapture ? (
+                      <div>
+                        <img 
+                          src={photoCapture.dataUrl} 
+                          alt="Package" 
+                          className="mx-auto max-h-32 rounded mb-2"
+                        />
+                        <p className="text-sm text-gray-600 mb-2">Photo captured</p>
+                        <button
+                          onClick={() => setPhotoCapture(null)}
+                          className="text-red-600 text-xs hover:underline"
+                        >
+                          Remove Photo
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <ApperIcon name="Camera" size={32} className="mx-auto text-gray-400 mb-2" />
+                        <p className="text-sm text-gray-600 mb-3">Capture package photo for quality verification</p>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          onChange={handlePhotoCapture}
+                          className="hidden"
+                          id="photo-capture"
+                        />
+                        <label
+                          htmlFor="photo-capture"
+                          className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-lg cursor-pointer hover:bg-primary-dark transition-colors"
+                        >
+                          <ApperIcon name="Camera" size={16} className="mr-2" />
+                          Take Photo
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {packingData.items.some(item => item.photoSkipped) && (
+                  <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+                    <ApperIcon name="SkipForward" size={20} className="mx-auto text-yellow-600 mb-2" />
+                    <p className="text-sm text-yellow-800 font-medium">Photo capture skipped</p>
+                    <p className="text-xs text-yellow-700 mt-1">Quality verification not required for this order</p>
+                  </div>
+                )}
               </div>
             </div>
             
@@ -1854,10 +2015,10 @@ const VendorPackingTab = ({ vendor }) => {
               >
                 Cancel
               </Button>
-              <Button
+<Button
                 onClick={handlePackingComplete}
                 variant="primary"
-                disabled={!packingData.items?.every(item => item.verified) || !photoCapture}
+                disabled={!packingData.items?.every(item => item.verified)}
               >
                 <ApperIcon name="CheckCircle" size={16} className="mr-2" />
                 Complete Packing
