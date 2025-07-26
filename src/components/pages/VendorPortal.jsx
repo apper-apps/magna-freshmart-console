@@ -2097,8 +2097,7 @@ const VendorOrdersTab = ({ vendor }) => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('pending');
-
-  useEffect(() => {
+useEffect(() => {
     loadVendorOrders();
   }, [vendor]);
 
@@ -2167,6 +2166,57 @@ const VendorOrdersTab = ({ vendor }) => {
 
   return (
     <div className="space-y-6">
+{/* Payment Status Helper Function */}
+      {(() => {
+        const getPaymentStatus = (order) => {
+          // Check verification status first
+          if (order.verificationStatus === 'verified' || order.paymentStatus === 'completed') {
+            return 'approved';
+          }
+          if (order.verificationStatus === 'rejected' || order.paymentStatus === 'verification_failed') {
+            return 'rejected';
+          }
+          // Check if payment proof is submitted and pending
+          if (order.paymentProof || order.verificationStatus === 'pending') {
+            return 'pending';
+          }
+          // Default to pending for new orders
+          return 'pending';
+        };
+
+        const getPaymentStatusDisplay = (status) => {
+          switch (status) {
+            case 'approved':
+              return {
+                label: 'Approved',
+                icon: 'CheckCircle',
+                color: 'text-green-600',
+                bgColor: 'bg-green-100',
+                symbol: '✅'
+              };
+            case 'rejected':
+              return {
+                label: 'Rejected',
+                icon: 'XCircle', 
+                color: 'text-red-600',
+                bgColor: 'bg-red-100',
+                symbol: '❌'
+              };
+            case 'pending':
+            default:
+              return {
+                label: 'Pending',
+                icon: 'Clock',
+                color: 'text-yellow-600',
+                bgColor: 'bg-yellow-100',
+                symbol: '⏳'
+              };
+          }
+        };
+
+        return null;
+      })()}
+
       {/* Search and Filter */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1">
@@ -2194,7 +2244,7 @@ const VendorOrdersTab = ({ vendor }) => {
       {/* Orders List */}
       <div className="space-y-4">
         {filteredOrders.map((order) => (
-          <div key={order.id} className="border border-gray-200 rounded-lg overflow-hidden">
+<div key={order.id} className="border border-gray-200 rounded-lg overflow-hidden">
             <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <h3 className="font-semibold text-gray-900">Order #{order.id}</h3>
@@ -2202,8 +2252,69 @@ const VendorOrdersTab = ({ vendor }) => {
                   {order.deliveryAddress?.name || 'N/A'}
                 </span>
               </div>
-              <div className="text-sm text-gray-600">
-                {new Date(order.createdAt).toLocaleDateString()}
+              <div className="flex items-center space-x-4">
+                {/* Payment Status Display */}
+                {(() => {
+                  const getPaymentStatus = (order) => {
+                    if (order.verificationStatus === 'verified' || order.paymentStatus === 'completed') {
+                      return 'approved';
+                    }
+                    if (order.verificationStatus === 'rejected' || order.paymentStatus === 'verification_failed') {
+                      return 'rejected';
+                    }
+                    if (order.paymentProof || order.verificationStatus === 'pending') {
+                      return 'pending';
+                    }
+                    return 'pending';
+                  };
+
+                  const getPaymentStatusDisplay = (status) => {
+                    switch (status) {
+                      case 'approved':
+                        return {
+                          label: 'Approved',
+                          icon: 'CheckCircle',
+                          color: 'text-green-600',
+                          bgColor: 'bg-green-100',
+                          symbol: '✅'
+                        };
+                      case 'rejected':
+                        return {
+                          label: 'Rejected',
+                          icon: 'XCircle', 
+                          color: 'text-red-600',
+                          bgColor: 'bg-red-100',
+                          symbol: '❌'
+                        };
+                      case 'pending':
+                      default:
+                        return {
+                          label: 'Pending',
+                          icon: 'Clock',
+                          color: 'text-yellow-600',
+                          bgColor: 'bg-yellow-100',
+                          symbol: '⏳'
+                        };
+                    }
+                  };
+
+                  const paymentStatus = getPaymentStatus(order);
+                  const statusDisplay = getPaymentStatusDisplay(paymentStatus);
+
+                  return (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-gray-500">Payment:</span>
+                      <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${statusDisplay.bgColor} ${statusDisplay.color}`}>
+                        <ApperIcon name={statusDisplay.icon} size={12} />
+                        <span>{statusDisplay.label}</span>
+                        <span>{statusDisplay.symbol}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+                <div className="text-sm text-gray-600">
+                  {new Date(order.createdAt).toLocaleDateString()}
+                </div>
               </div>
             </div>
             
@@ -2228,51 +2339,76 @@ const VendorOrdersTab = ({ vendor }) => {
                       
                       {/* Availability Status & Actions */}
                       <div className="flex items-center space-x-2">
-                        {getAvailabilityStatus(order, item.productId) === 'pending' ? (
-                          <div className="flex space-x-2">
-                            <Button
-                              size="sm"
-                              variant="primary"
-                              onClick={() => handleAvailabilityUpdate(order.id, item.productId, true)}
-                            >
-                              <ApperIcon name="CheckCircle" size={14} className="mr-1" />
-                              Available
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleAvailabilityUpdate(order.id, item.productId, false)}
-                            >
-                              <ApperIcon name="XCircle" size={14} className="mr-1" />
-                              Unavailable
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center space-x-2">
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              getAvailabilityStatus(order, item.productId) === 'available' 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              <ApperIcon 
-                                name={getAvailabilityStatus(order, item.productId) === 'available' ? 'CheckCircle' : 'XCircle'} 
-                                size={12} 
-                                className="mr-1" 
-                              />
-                              {getAvailabilityStatus(order, item.productId) === 'available' ? 'Available' : 'Unavailable'}
-                            </span>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                const currentStatus = getAvailabilityStatus(order, item.productId);
-                                handleAvailabilityUpdate(order.id, item.productId, currentStatus !== 'available');
-                              }}
-                            >
-                              <ApperIcon name="RefreshCw" size={14} />
-                            </Button>
-                          </div>
-                        )}
+                        {(() => {
+                          const getPaymentStatus = (order) => {
+                            if (order.verificationStatus === 'verified' || order.paymentStatus === 'completed') {
+                              return 'approved';
+                            }
+                            if (order.verificationStatus === 'rejected' || order.paymentStatus === 'verification_failed') {
+                              return 'rejected';
+                            }
+                            return 'pending';
+                          };
+
+                          const paymentStatus = getPaymentStatus(order);
+                          const isPaymentApproved = paymentStatus === 'approved';
+                          
+                          if (getAvailabilityStatus(order, item.productId) === 'pending') {
+                            return (
+                              <div className="flex space-x-2">
+                                <Button
+                                  size="sm"
+                                  variant="primary"
+                                  disabled={!isPaymentApproved}
+                                  onClick={() => handleAvailabilityUpdate(order.id, item.productId, true)}
+                                  className={!isPaymentApproved ? 'opacity-50 cursor-not-allowed' : ''}
+                                >
+                                  <ApperIcon name="CheckCircle" size={14} className="mr-1" />
+                                  Available
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={!isPaymentApproved}
+                                  onClick={() => handleAvailabilityUpdate(order.id, item.productId, false)}
+                                  className={!isPaymentApproved ? 'opacity-50 cursor-not-allowed' : ''}
+                                >
+                                  <ApperIcon name="XCircle" size={14} className="mr-1" />
+                                  Unavailable
+                                </Button>
+                              </div>
+                            );
+                          } else {
+                            return (
+                              <div className="flex items-center space-x-2">
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                  getAvailabilityStatus(order, item.productId) === 'available' 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-red-100 text-red-800'
+                                }`}>
+                                  <ApperIcon 
+                                    name={getAvailabilityStatus(order, item.productId) === 'available' ? 'CheckCircle' : 'XCircle'} 
+                                    size={12} 
+                                    className="mr-1" 
+                                  />
+                                  {getAvailabilityStatus(order, item.productId) === 'available' ? 'Available' : 'Unavailable'}
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={!isPaymentApproved}
+                                  onClick={() => {
+                                    const currentStatus = getAvailabilityStatus(order, item.productId);
+                                    handleAvailabilityUpdate(order.id, item.productId, currentStatus !== 'available');
+                                  }}
+                                  className={!isPaymentApproved ? 'opacity-50 cursor-not-allowed' : ''}
+                                >
+                                  <ApperIcon name="RefreshCw" size={14} />
+                                </Button>
+                              </div>
+                            );
+                          }
+                        })()}
                       </div>
                     </div>
                   </div>

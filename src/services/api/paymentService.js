@@ -192,7 +192,7 @@ async processDigitalWalletPayment(walletType, amount, orderId, phone) {
     return { ...transaction };
   }
 
-  // Payment Verification
+// Payment Verification
   async verifyPayment(transactionId, verificationData) {
     await this.delay(500);
 
@@ -211,13 +211,25 @@ async processDigitalWalletPayment(walletType, amount, orderId, phone) {
     if (verified) {
       transaction.status = 'completed';
       transaction.verifiedAt = new Date().toISOString();
-transaction.verificationData = verificationData;
+      transaction.verificationData = verificationData;
+      // Enhanced payment approval tracking
+      transaction.adminApproval = 'approved';
+      transaction.adminApprovalAt = new Date().toISOString();
+      transaction.adminApprovalBy = verificationData?.approvedBy || 'admin';
     } else {
       transaction.status = 'verification_failed';
+      transaction.adminApproval = 'rejected';
+      transaction.adminApprovalAt = new Date().toISOString();
+      transaction.rejectionReason = verificationData?.rejectionReason || 'Verification failed';
     }
 
-    // Return verification result
-    return { verified, transaction: { ...transaction } };
+    // Return verification result with enhanced approval data
+    return { 
+      verified, 
+      transaction: { ...transaction },
+      adminApproval: transaction.adminApproval,
+      approvalTimestamp: transaction.adminApprovalAt
+    };
   }
 
   // Enhanced Payment Retry Logic
@@ -448,7 +460,7 @@ return holdTransaction;
 async processApprovalAdjustment(adjustmentData) {
     await this.delay(500);
     
-    const { requestId, adjustmentAmount, adjustmentType, transactionId } = adjustmentData;
+    const { requestId, adjustmentAmount, adjustmentType, transactionId, orderId } = adjustmentData;
     
     if (!requestId || adjustmentAmount === undefined) {
       throw new Error('Request ID and adjustment amount are required');
@@ -467,13 +479,20 @@ async processApprovalAdjustment(adjustmentData) {
       description: `Price adjustment (${adjustmentType}): Request #${requestId}`,
       reference: transactionId || this.generateReference(),
       requestId,
-      orderId: null,
+      orderId: orderId || null,
       transactionId: transactionId || null,
       adjustmentType,
       status: 'completed',
+      // Enhanced payment approval status tracking
+      paymentApprovalStatus: 'approved',
+      adminApprovalRequired: false,
+      approvedBy: 'admin',
+      approvedAt: new Date().toISOString(),
       metadata: {
         adjustmentReason: adjustmentType,
-        approvalType: 'approved'
+        approvalType: 'approved',
+        paymentVerified: true,
+        vendorNotified: true
       }
     };
 
@@ -484,7 +503,7 @@ async processApprovalAdjustment(adjustmentData) {
     return adjustmentTransaction;
   }
 
-  async recordWalletTransaction(transactionData) {
+async recordWalletTransaction(transactionData) {
     await this.delay(200);
     
     const { 
@@ -496,7 +515,9 @@ async processApprovalAdjustment(adjustmentData) {
       orderId = null, 
       transactionId = null,
       status = 'completed',
-      metadata = {}
+      metadata = {},
+      paymentApprovalStatus = null,
+      adminApprovalRequired = false
     } = transactionData;
     
     if (!type || amount === undefined) {
@@ -515,11 +536,20 @@ async processApprovalAdjustment(adjustmentData) {
       orderId,
       transactionId,
       status,
-      metadata
+      // Enhanced payment approval tracking
+      paymentApprovalStatus: paymentApprovalStatus || (status === 'completed' ? 'approved' : 'pending'),
+      adminApprovalRequired,
+      approvedBy: status === 'completed' ? 'admin' : null,
+      approvedAt: status === 'completed' ? new Date().toISOString() : null,
+      metadata: {
+        ...metadata,
+        paymentVerificationRequired: adminApprovalRequired,
+        autoApproved: !adminApprovalRequired && status === 'completed'
+      }
     };
 
     this.walletTransactions.push(transaction);
-    console.log(`Recorded wallet transaction: ${type} - Rs. ${amount}`);
+    console.log(`Recorded wallet transaction: ${type} - Rs. ${amount} (Approval: ${transaction.paymentApprovalStatus})`);
     
     return transaction;
   }

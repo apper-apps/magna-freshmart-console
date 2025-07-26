@@ -135,6 +135,10 @@ const newOrder = {
       approvalStatus: orderData.approvalStatus || 'pending',
       approvalRequestId: orderData.approvalRequestId || null,
       priceApprovalRequired: orderData.priceApprovalRequired || false,
+      // Enhanced payment verification tracking
+      verificationStatus: orderData.verificationStatus || null,
+      paymentVerificationRequired: orderData.paymentProof ? true : false,
+      adminPaymentApproval: orderData.adminPaymentApproval || 'pending',
       // Vendor availability tracking (JSONB structure)
       vendor_availability: vendorAvailability,
       // Real-time vendor visibility for Phase 1 implementation
@@ -151,6 +155,7 @@ if (orderData.paymentMethod === 'wallet') {
         const walletTransaction = await paymentService.processWalletPayment(orderData.total, newOrder.id);
         newOrder.paymentResult = walletTransaction;
         newOrder.paymentStatus = 'completed';
+        newOrder.adminPaymentApproval = 'approved';
       } catch (walletError) {
         // Enhanced wallet error handling
         const error = new Error('Wallet payment failed: ' + walletError.message);
@@ -163,12 +168,14 @@ if (orderData.paymentMethod === 'wallet') {
     if (orderData.paymentMethod === 'bank' && orderData.paymentResult?.requiresVerification) {
       newOrder.paymentStatus = 'pending_verification';
       newOrder.status = 'payment_pending';
+      newOrder.adminPaymentApproval = 'pending';
     }
     
 // Handle payment proof submissions with enhanced validation
     if (orderData.paymentProof && (orderData.paymentMethod === 'bank' || orderData.paymentMethod === 'jazzcash' || orderData.paymentMethod === 'easypaisa')) {
       newOrder.verificationStatus = 'pending';
       newOrder.paymentProofSubmittedAt = new Date().toISOString();
+      newOrder.adminPaymentApproval = 'pending';
       
       // Enhanced payment proof data validation and storage
       const proofData = orderData.paymentProof;
@@ -208,6 +215,8 @@ if (orderData.paymentMethod === 'wallet') {
             orderId: newOrder.id,
             status: newOrder.status,
             vendor_visibility: newOrder.vendor_visibility,
+            paymentStatus: newOrder.paymentStatus,
+            adminPaymentApproval: newOrder.adminPaymentApproval,
             timestamp: newOrder.createdAt,
             items: newOrder.items,
             totalAmount: newOrder.totalAmount,
@@ -457,7 +466,7 @@ this.orders.forEach(order => {
   }
 // Enhanced Payment Verification Methods with Flow Tracking
 async getPendingVerifications() {
-    await this.delay();
+await this.delay();
     return this.orders
       .filter(order => {
         // Include orders with payment proof requiring verification
@@ -478,6 +487,9 @@ customerName: order?.deliveryAddress?.name || 'Unknown',
         paymentProofFileName: order?.paymentProof?.fileName || order?.paymentProofFileName || 'unknown',
         submittedAt: order?.paymentProof?.uploadedAt || order?.paymentProofSubmittedAt || order?.createdAt,
         verificationStatus: order?.verificationStatus || 'pending',
+        // Enhanced Payment Approval Status Tracking
+        adminPaymentApproval: order?.adminPaymentApproval || 'pending',
+        paymentVerificationRequired: order?.paymentVerificationRequired || false,
         // Enhanced Payment Flow Status Tracking
         flowStage: order?.paymentFlowStage || 'vendor_processed',
         vendorProcessed: order?.vendorProcessed || false,
@@ -514,6 +526,9 @@ async updateVerificationStatus(orderId, status, notes = '') {
       verifiedAt: new Date().toISOString(),
       verifiedBy: 'admin',
       paymentStatus: status === 'verified' ? 'completed' : 'verification_failed',
+      // Enhanced admin payment approval tracking
+      adminPaymentApproval: status === 'verified' ? 'approved' : 'rejected',
+      adminPaymentApprovalAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
@@ -532,10 +547,45 @@ async updateVerificationStatus(orderId, status, notes = '') {
           console.error('Failed to update order to confirmed:', error);
         }
       }, 100);
+
+      // Broadcast payment approval to vendor portal
+      if (typeof window !== 'undefined' && window.webSocketService) {
+        try {
+          window.webSocketService.send({
+            type: 'payment_approved',
+            data: {
+              orderId: updatedOrder.id,
+              adminPaymentApproval: 'approved',
+              verificationStatus: 'verified',
+              timestamp: updatedOrder.adminPaymentApprovalAt
+            }
+          });
+        } catch (wsError) {
+          console.warn('WebSocket payment approval broadcast failed:', wsError);
+        }
+      }
     } else {
       updatedOrder.status = 'payment_rejected';
       updatedOrder.paymentRejectedAt = new Date().toISOString();
       updatedOrder.approvalStatus = 'rejected'; // Update approval status
+
+      // Broadcast payment rejection to vendor portal
+      if (typeof window !== 'undefined' && window.webSocketService) {
+        try {
+          window.webSocketService.send({
+            type: 'payment_rejected',
+            data: {
+              orderId: updatedOrder.id,
+              adminPaymentApproval: 'rejected',
+              verificationStatus: 'rejected',
+              timestamp: updatedOrder.adminPaymentApprovalAt,
+              notes: notes
+            }
+          });
+        } catch (wsError) {
+          console.warn('WebSocket payment rejection broadcast failed:', wsError);
+        }
+      }
     }
 
     this.orders[orderIndex] = updatedOrder;
@@ -847,7 +897,7 @@ async getPendingAvailabilityRequests() {
   }
 // Enhanced Fulfillment Workflow Methods with Payment Flow Integration
   async updateFulfillmentStage(orderId, stage, additionalData = {}) {
-    await this.delay();
+await this.delay();
     
     const validStages = [
       'availability_confirmed',
@@ -873,8 +923,12 @@ async getPendingAvailabilityRequests() {
       order.order_status_timestamps = {};
     }
     
-    // Enhanced Payment Flow Integration
+    // Enhanced Payment Flow Integration with Payment Approval Checks
     if (stage === 'payment_processed') {
+      // Check if payment is approved before processing
+      if (order.adminPaymentApproval !== 'approved') {
+        throw new Error('Payment must be approved by admin before processing');
+      }
       order.vendorProcessed = true;
       order.paymentFlowStage = 'vendor_processed';
       order.paymentTimestamp = new Date().toISOString();
@@ -887,6 +941,8 @@ async getPendingAvailabilityRequests() {
       order.adminPaymentTimestamp = new Date().toISOString();
       order.adminPaymentProof = additionalData.proofData || null;
       order.amountMatched = this.checkAmountMatch(order, additionalData.paymentAmount);
+      // Ensure payment approval is set when admin pays
+      order.adminPaymentApproval = 'approved';
     }
     
     // Auto-assign delivery personnel when moving to packed stage

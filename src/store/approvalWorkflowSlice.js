@@ -72,12 +72,17 @@ const initialState = {
     itemsPerPage: 10,
     totalItems: 0
   },
-  walletIntegration: {
+walletIntegration: {
     holdingBalance: 0,
     pendingAdjustments: [],
     walletTransactions: [],
     autoAdjustEnabled: true,
-    lastBalanceUpdate: null
+    lastBalanceUpdate: null,
+    // Enhanced payment approval integration
+    paymentApprovalStatus: {},
+    pendingPaymentApprovals: [],
+    approvedPayments: [],
+    rejectedPayments: []
   }
 };
 
@@ -205,8 +210,8 @@ addNewApprovalRequest: (state, action) => {
       }
     },
     
-    adjustWalletBalance: (state, action) => {
-      const { requestId, finalAdjustment, transactionId } = action.payload;
+adjustWalletBalance: (state, action) => {
+      const { requestId, finalAdjustment, transactionId, paymentApprovalStatus } = action.payload;
       
       // Remove from pending adjustments
       const adjustmentIndex = state.walletIntegration.pendingAdjustments.findIndex(
@@ -219,14 +224,27 @@ addNewApprovalRequest: (state, action) => {
         state.walletIntegration.pendingAdjustments.splice(adjustmentIndex, 1);
 }
       
-      // Add transaction record
+      // Add transaction record with enhanced payment approval tracking
       state.walletIntegration.walletTransactions.unshift({
         requestId,
         transactionId,
         adjustmentAmount: finalAdjustment,
         processedAt: new Date().toISOString(),
-        type: 'approval_adjustment'
+        type: 'approval_adjustment',
+        paymentApprovalStatus: paymentApprovalStatus || 'approved',
+        approvedBy: 'admin',
+        adminApproved: true
       });
+
+      // Update payment approval status tracking
+      if (paymentApprovalStatus === 'approved') {
+        state.walletIntegration.approvedPayments.push({
+          requestId,
+          transactionId,
+          approvedAt: new Date().toISOString(),
+          amount: finalAdjustment
+        });
+      }
       
       state.walletIntegration.lastBalanceUpdate = new Date().toISOString();
     },
@@ -303,7 +321,7 @@ addNewApprovalRequest: (state, action) => {
       
       // Approve request
 // Approve request
-      .addCase(approveRequest.pending, (state) => {
+.addCase(approveRequest.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
@@ -317,7 +335,7 @@ addNewApprovalRequest: (state, action) => {
         // Add to history
         state.approvalHistory.unshift(action.payload);
         
-        // Process wallet adjustment for approved request
+        // Process wallet adjustment for approved request with payment approval
         if (action.payload.walletAdjustment) {
           const adjustmentIndex = state.walletIntegration.pendingAdjustments.findIndex(
             adj => adj.requestId === requestId
@@ -328,8 +346,8 @@ if (adjustmentIndex !== -1) {
             state.walletIntegration.holdingBalance -= adjustment.holdAmount;
             state.walletIntegration.pendingAdjustments.splice(adjustmentIndex, 1);
             
-            // Record wallet transaction
-            state.walletIntegration.walletTransactions.unshift({
+            // Record wallet transaction with enhanced payment approval tracking
+            const walletTransaction = {
               Id: state.walletIntegration.walletTransactions.length + 1,
               requestId,
               transactionId: action.payload.walletAdjustment.transactionId,
@@ -340,10 +358,28 @@ if (adjustmentIndex !== -1) {
               orderId: null,
               processedAt: new Date().toISOString(),
               status: 'completed',
+              // Enhanced payment approval fields
+              paymentApprovalStatus: 'approved',
+              adminApproved: true,
+              approvedBy: 'admin',
+              approvedAt: new Date().toISOString(),
               metadata: {
                 approvalType: 'approved',
-                adjustmentReason: 'price_change_approval'
+                adjustmentReason: 'price_change_approval',
+                paymentVerified: true,
+                vendorNotified: true
               }
+            };
+
+            state.walletIntegration.walletTransactions.unshift(walletTransaction);
+            
+            // Track approved payment
+            state.walletIntegration.approvedPayments.push({
+              requestId,
+              transactionId: action.payload.walletAdjustment.transactionId,
+              amount: action.payload.walletAdjustment.amount,
+              approvedAt: new Date().toISOString(),
+              type: 'approval_adjustment'
             });
             
             state.walletIntegration.lastBalanceUpdate = new Date().toISOString();
