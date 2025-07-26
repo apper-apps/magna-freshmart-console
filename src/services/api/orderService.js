@@ -137,6 +137,10 @@ const newOrder = {
       priceApprovalRequired: orderData.priceApprovalRequired || false,
       // Vendor availability tracking (JSONB structure)
       vendor_availability: vendorAvailability,
+      // Real-time vendor visibility for Phase 1 implementation
+      vendor_visibility: orderData.vendor_visibility || 'immediate',
+      // Initial status for vendor portal display
+      status: orderData.status || 'awaiting_payment_verification',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -192,7 +196,33 @@ if (orderData.paymentMethod === 'wallet') {
         newOrder.paymentProof.backupRef = null;
       }
     }
+    
     this.orders.push(newOrder);
+    
+    // Real-time order sync - broadcast to vendors immediately
+    if (typeof window !== 'undefined' && window.webSocketService) {
+      try {
+        window.webSocketService.send({
+          type: 'order_created_immediate',
+          data: {
+            orderId: newOrder.id,
+            status: newOrder.status,
+            vendor_visibility: newOrder.vendor_visibility,
+            timestamp: newOrder.createdAt,
+            items: newOrder.items,
+            totalAmount: newOrder.totalAmount,
+            customerInfo: {
+              name: newOrder.deliveryAddress?.name,
+              phone: newOrder.deliveryAddress?.phone
+            }
+          },
+          timestamp: new Date().toISOString()
+        });
+      } catch (wsError) {
+        console.warn('WebSocket order broadcast failed:', wsError);
+      }
+    }
+    
     return { ...newOrder };
   }
 async update(id, orderData) {

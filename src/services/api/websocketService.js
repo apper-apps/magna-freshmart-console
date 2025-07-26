@@ -1,5 +1,3 @@
-import React from "react";
-import Error from "@/components/ui/Error";
 class WebSocketService {
   constructor() {
     this.connection = null;
@@ -111,7 +109,7 @@ this.connection.onerror = (error) => {
   }
 
 // Enhanced mock message simulation with payment flow updates
-  startMockMessages(mockWS) {
+startMockMessages(mockWS) {
     const messageTypes = [
       'approval_request_submitted',
       'approval_status_changed',
@@ -123,7 +121,13 @@ this.connection.onerror = (error) => {
       'payment_proof_uploaded',
       'amount_auto_matched',
       'vendor_payment_confirmed',
-      'system_notification'
+      'system_notification',
+      // Phase 1: Real-time Order Sync message types
+      'order_created_immediate',
+      'order_status_update',
+      'vendor_visibility_sync',
+      'order_awaiting_verification',
+      'real_time_order_notification'
     ];
 
     setInterval(() => {
@@ -137,8 +141,7 @@ this.connection.onerror = (error) => {
       }
     }, 15000); // Every 15 seconds
   }
-
-// Enhanced mock message generation with payment flow updates
+// Enhanced mock message generation with payment flow updates and Phase 1 order sync
   generateMockMessage(type) {
     const baseMessage = {
       id: `msg_${Date.now()}`,
@@ -177,6 +180,81 @@ requestId: Math.floor(Math.random() * 10) + 1,
             approvedBy: 'price_admin',
             priceChange: Math.floor(Math.random() * 1000) + 100,
             comments: 'Price approval processed automatically'
+          }
+        };
+
+      // Phase 1: Real-time Order Sync Messages
+      case 'order_created_immediate':
+        return {
+          ...baseMessage,
+          data: {
+            orderId: Math.floor(Math.random() * 1000) + 100,
+            status: 'awaiting_payment_verification',
+            vendor_visibility: 'immediate',
+            totalAmount: Math.floor(Math.random() * 5000) + 500,
+            customerInfo: {
+              name: 'Customer ' + Math.floor(Math.random() * 100),
+              phone: '+92300' + Math.floor(Math.random() * 9999999)
+            },
+            items: [
+              {
+                productId: Math.floor(Math.random() * 50) + 1,
+                name: 'Fresh Product ' + Math.floor(Math.random() * 20),
+                quantity: Math.floor(Math.random() * 5) + 1,
+                unit: 'kg'
+              }
+            ],
+            priority: 'high',
+            responseDeadline: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+          }
+        };
+
+      case 'order_status_update':
+        return {
+          ...baseMessage,
+          data: {
+            orderId: Math.floor(Math.random() * 100) + 1,
+            oldStatus: 'awaiting_payment_verification',
+            newStatus: ['payment_verified', 'processing', 'ready_for_pickup'][Math.floor(Math.random() * 3)],
+            updatedBy: 'system',
+            vendor_visibility: 'immediate'
+          }
+        };
+
+      case 'vendor_visibility_sync':
+        return {
+          ...baseMessage,
+          data: {
+            orderId: Math.floor(Math.random() * 100) + 1,
+            vendorId: Math.floor(Math.random() * 3) + 1,
+            visibility: 'immediate',
+            syncStatus: 'completed',
+            timestamp: new Date().toISOString()
+          }
+        };
+
+      case 'order_awaiting_verification':
+        return {
+          ...baseMessage,
+          data: {
+            orderId: Math.floor(Math.random() * 100) + 1,
+            status: 'awaiting_payment_verification',
+            vendorIds: [1, 2, 3],
+            responseRequired: true,
+            deadline: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+          }
+        };
+
+      case 'real_time_order_notification':
+        return {
+          ...baseMessage,
+          data: {
+            orderId: Math.floor(Math.random() * 100) + 1,
+            type: 'immediate_vendor_sync',
+            message: 'New order requires immediate attention',
+            urgency: 'high',
+            clockIcon: true,
+            responseDeadline: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
           }
         };
 

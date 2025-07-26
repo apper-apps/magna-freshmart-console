@@ -1221,6 +1221,27 @@ const VendorAvailabilityTab = ({ vendor }) => {
 
   useEffect(() => {
     loadPendingAvailabilityOrders();
+    
+    // Phase 1: Real-time order sync - WebSocket listener for immediate order updates
+    const handleOrderUpdate = (data) => {
+      if (data.type === 'order_created_immediate' || data.type === 'real_time_order_notification') {
+        loadPendingAvailabilityOrders();
+        toast.info(`New order #${data.orderId} requires immediate attention`, {
+          icon: '🕐',
+          autoClose: 5000
+        });
+      }
+    };
+
+    // Subscribe to real-time order updates
+    let unsubscribe;
+    if (typeof window !== 'undefined' && window.webSocketService) {
+      unsubscribe = window.webSocketService.subscribe('order_created_immediate', handleOrderUpdate);
+    }
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [vendor]);
 
   const loadPendingAvailabilityOrders = async () => {
@@ -1230,10 +1251,26 @@ const VendorAvailabilityTab = ({ vendor }) => {
     setError(null);
     
     try {
+      // Load both pending availability requests and immediate visibility orders
       const pendingOrders = await orderService.getPendingAvailabilityRequests();
-      const vendorOrders = pendingOrders.filter(order => {
+      const allOrders = await orderService.getAll();
+      
+      // Phase 1: Include orders with immediate vendor visibility
+      const immediateOrders = allOrders.filter(order => 
+        order.vendor_visibility === 'immediate' && 
+        (order.status === 'awaiting_payment_verification' || order.status === 'pending')
+      );
+      
+      // Combine and deduplicate orders
+      const combinedOrders = [...pendingOrders, ...immediateOrders];
+      const uniqueOrders = combinedOrders.filter((order, index, self) => 
+        index === self.findIndex(o => o.id === order.id)
+      );
+      
+      const vendorOrders = uniqueOrders.filter(order => {
         return order.items?.some(item => (item.productId % 3 + 1) === vendor.Id);
       });
+      
       setOrders(vendorOrders);
     } catch (error) {
       console.error('Error loading availability orders:', error);
@@ -1330,6 +1367,21 @@ const VendorAvailabilityTab = ({ vendor }) => {
     }
   };
 
+  // Phase 1: Enhanced status display for immediate visibility orders
+  const getOrderStatusBadge = (order) => {
+    if (order.vendor_visibility === 'immediate') {
+      if (order.status === 'awaiting_payment_verification') {
+        return (
+          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full flex items-center">
+            <ApperIcon name="Clock" size={12} className="mr-1" />
+            Awaiting Payment Verification
+          </span>
+        );
+      }
+    }
+    return null;
+  };
+
   const filteredOrders = orders.filter(order => 
     order.id.toString().includes(searchTerm) ||
     order.deliveryAddress?.name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -1340,16 +1392,20 @@ const VendorAvailabilityTab = ({ vendor }) => {
 
   return (
     <div className="space-y-6">
-      {/* Header with Stats */}
+      {/* Header with Stats - Phase 1 Enhanced */}
       <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-6 rounded-lg">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold mb-2">Availability Confirmation</h2>
-            <p className="text-blue-100">Respond to availability requests within 2 hours</p>
+            <h2 className="text-2xl font-bold mb-2">Real-time Order Sync & Availability</h2>
+            <p className="text-blue-100">Phase 1: Immediate order visibility • Respond within 2 hours</p>
           </div>
           <div className="text-right">
             <div className="text-3xl font-bold">{filteredOrders.length}</div>
             <div className="text-blue-100">Pending Responses</div>
+            <div className="text-xs text-blue-200 mt-1">
+              <ApperIcon name="Zap" size={12} className="inline mr-1" />
+              Real-time sync active
+            </div>
           </div>
         </div>
       </div>
@@ -1393,7 +1449,7 @@ const VendorAvailabilityTab = ({ vendor }) => {
         )}
       </div>
 
-      {/* Orders List */}
+      {/* Orders List - Phase 1 Enhanced */}
       <div className="space-y-4">
         {filteredOrders.map((order) => {
           const deadline = getDeadlineStatus(order.createdAt);
@@ -1420,6 +1476,8 @@ const VendorAvailabilityTab = ({ vendor }) => {
                     <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
                       {order.deliveryAddress?.name || 'N/A'}
                     </span>
+                    {/* Phase 1: Order status badge */}
+                    {getOrderStatusBadge(order)}
                   </div>
                   <div className="flex items-center space-x-3">
                     <span className={`px-3 py-1 text-xs font-medium rounded-full ${deadline.color}`}>
@@ -1497,6 +1555,7 @@ const VendorAvailabilityTab = ({ vendor }) => {
           <ApperIcon name="CheckCircle" size={48} className="mx-auto text-green-400 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">All caught up!</h3>
           <p className="text-gray-500">No pending availability requests at the moment.</p>
+          <p className="text-xs text-gray-400 mt-2">Real-time sync is active - new orders will appear instantly</p>
         </div>
       )}
 
