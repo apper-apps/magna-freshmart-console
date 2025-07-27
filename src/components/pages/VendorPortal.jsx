@@ -12,7 +12,7 @@ import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
 import Input from "@/components/atoms/Input";
 import Button from "@/components/atoms/Button";
-import { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
+import formatCurrency, { calculateMargin, calculateTotals } from "@/utils/currency";
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [vendor, setVendor] = useState(null);
@@ -228,42 +228,7 @@ setLoading(true);
     }
   };
 
-  // Calculate totals for vendor products
-  const calculateTotals = (products, fields) => {
-    if (!products || products.length === 0) {
-      return {
-        totalCost: 0,
-        totalSellingValue: 0,
-        totalMargin: 0,
-        averageMargin: 0
-      };
-    }
-
-    const totals = products.reduce((acc, product) => {
-      const cost = product[fields.costField] || 0;
-      const selling = product[fields.sellingField] || 0;
-      const quantity = product[fields.quantityField] || 0;
-      
-      acc.totalCost += cost * quantity;
-      acc.totalSellingValue += selling * quantity;
-      acc.totalMargin += (selling - cost) * quantity;
-      
-      return acc;
-    }, {
-      totalCost: 0,
-      totalSellingValue: 0,
-      totalMargin: 0
-    });
-
-    const averageMargin = totals.totalCost > 0 
-      ? ((totals.totalSellingValue - totals.totalCost) / totals.totalCost) * 100 
-      : 0;
-
-    return {
-      ...totals,
-      averageMargin: Math.round(averageMargin * 100) / 100
-    };
-  };
+// Use imported calculateTotals from utils/currency
 
   const handleProductUpdate = async (productId, priceData) => {
     try {
@@ -1231,7 +1196,7 @@ const VendorAvailabilityTab = ({ vendor }) => {
         const paymentStatus = data.data?.paymentApprovalStatus || 'pending';
         
         toast.info(`${statusIcon} New order #${data.orderId} - Payment: ${paymentStatus}`, {
-          icon: statusIcon,
+icon: statusIcon,
           autoClose: 5000,
           className: `toast-priority-${data.data?.priority || 'normal'}`
         });
