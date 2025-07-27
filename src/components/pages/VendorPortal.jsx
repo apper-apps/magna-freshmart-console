@@ -10,9 +10,9 @@ import Loading from "@/components/ui/Loading";
 import Error from "@/components/ui/Error";
 import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
-import Input from "@/components/atoms/Input";
-import Button from "@/components/atoms/Button";
-import { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
+import Input, { Input } from "@/components/atoms/Input";
+import Button, { Button } from "@/components/atoms/Button";
+import formatCurrency, { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [vendor, setVendor] = useState(null);
@@ -1217,22 +1217,21 @@ toast.info(`${statusIcon} New order #${data.orderId} - Payment: ${paymentStatus}
     };
 
     // Subscribe to real-time order updates with enhanced event handling
-    let unsubscribe;
+let unsubscribe;
+    let paymentUnsubscribe;
+    let rejectionUnsubscribe;
+    
     if (typeof window !== 'undefined' && window.webSocketService) {
       unsubscribe = window.webSocketService.subscribe('order_created_immediate', handleOrderUpdate);
       // Also subscribe to payment approval events
-      const paymentUnsubscribe = window.webSocketService.subscribe('admin_payment_approved', handleOrderUpdate);
-      const rejectionUnsubscribe = window.webSocketService.subscribe('admin_payment_rejected', handleOrderUpdate);
-      
-      return () => {
-        if (unsubscribe) unsubscribe();
-        if (paymentUnsubscribe) paymentUnsubscribe();
-        if (rejectionUnsubscribe) rejectionUnsubscribe();
-      };
+      paymentUnsubscribe = window.webSocketService.subscribe('admin_payment_approved', handleOrderUpdate);
+      rejectionUnsubscribe = window.webSocketService.subscribe('admin_payment_rejected', handleOrderUpdate);
     }
 
     return () => {
       if (unsubscribe) unsubscribe();
+      if (paymentUnsubscribe) paymentUnsubscribe();
+      if (rejectionUnsubscribe) rejectionUnsubscribe();
     };
   }, [vendor]);
 
