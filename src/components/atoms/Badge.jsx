@@ -18,7 +18,15 @@ const variants = {
     promotional: 'bg-gradient-to-r from-orange-500 to-red-500 text-white shadow-lg animate-pulse',
     featured: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg',
     offer: 'bg-gradient-to-r from-green-500 to-blue-500 text-white shadow-md',
-    strikethrough: 'bg-gray-200 text-gray-500 line-through'
+    strikethrough: 'bg-gray-200 text-gray-500 line-through',
+    // Enhanced Payment Status Variants
+    'payment-pending': 'bg-blue-100 text-blue-800 border border-blue-200',
+    'payment-approved': 'bg-green-100 text-green-800 border border-green-200',
+    'payment-declined': 'bg-red-100 text-red-800 border border-red-200',
+    'payment-verification': 'bg-orange-100 text-orange-800 border border-orange-200',
+    // Real-time status indicators
+    'live-order': 'bg-green-100 text-green-800 border border-green-200 animate-pulse',
+    'urgent-payment': 'bg-red-100 text-red-800 border border-red-200 animate-pulse'
   };
 
   const sizes = {

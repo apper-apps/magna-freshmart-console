@@ -183,7 +183,7 @@ requestId: Math.floor(Math.random() * 10) + 1,
           }
         };
 
-      // Phase 1: Real-time Order Sync Messages
+// Enhanced Real-time Order Sync Messages for Vendor Portal
       case 'order_created_immediate':
         return {
           ...baseMessage,
@@ -192,6 +192,8 @@ requestId: Math.floor(Math.random() * 10) + 1,
             status: 'awaiting_payment_verification',
             vendor_visibility: 'immediate',
             totalAmount: Math.floor(Math.random() * 5000) + 500,
+            paymentStatus: ['pending_approval', 'requires_verification', 'approved'][Math.floor(Math.random() * 3)],
+            adminPaymentApproval: ['pending', 'approved', 'rejected'][Math.floor(Math.random() * 3)],
             customerInfo: {
               name: 'Customer ' + Math.floor(Math.random() * 100),
               phone: '+92300' + Math.floor(Math.random() * 9999999)
@@ -205,7 +207,9 @@ requestId: Math.floor(Math.random() * 10) + 1,
               }
             ],
             priority: 'high',
-            responseDeadline: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+            responseDeadline: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+            notificationIcon: '🔔',
+            urgencyLevel: 'immediate'
           }
         };
 
@@ -216,8 +220,10 @@ requestId: Math.floor(Math.random() * 10) + 1,
             orderId: Math.floor(Math.random() * 100) + 1,
             oldStatus: 'awaiting_payment_verification',
             newStatus: ['payment_verified', 'processing', 'ready_for_pickup'][Math.floor(Math.random() * 3)],
-            updatedBy: 'system',
-            vendor_visibility: 'immediate'
+            paymentStatus: ['pending_approval', 'approved', 'declined', 'requires_verification'][Math.floor(Math.random() * 4)],
+            updatedBy: 'admin',
+            vendor_visibility: 'immediate',
+            statusSymbol: ['◻️', '✅', '❌', '⚠️'][Math.floor(Math.random() * 4)]
           }
         };
 
@@ -229,19 +235,21 @@ requestId: Math.floor(Math.random() * 10) + 1,
             vendorId: Math.floor(Math.random() * 3) + 1,
             visibility: 'immediate',
             syncStatus: 'completed',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            syncType: 'real_time'
           }
         };
 
-      case 'order_awaiting_verification':
+      case 'payment_approval_update':
         return {
           ...baseMessage,
           data: {
             orderId: Math.floor(Math.random() * 100) + 1,
-            status: 'awaiting_payment_verification',
-            vendorIds: [1, 2, 3],
-            responseRequired: true,
-            deadline: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+            adminPaymentApproval: ['approved', 'rejected', 'pending'][Math.floor(Math.random() * 3)],
+            approvalTimestamp: new Date().toISOString(),
+            approvedBy: 'admin_user',
+            statusSymbol: ['✅', '❌', '◻️'][Math.floor(Math.random() * 3)],
+            canProcessPayment: Math.random() > 0.5
           }
         };
 
@@ -253,20 +261,24 @@ requestId: Math.floor(Math.random() * 10) + 1,
             type: 'immediate_vendor_sync',
             message: 'New order requires immediate attention',
             urgency: 'high',
+            paymentStatus: ['pending_approval', 'requires_verification'][Math.floor(Math.random() * 2)],
             clockIcon: true,
+            notificationSound: true,
             responseDeadline: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
           }
         };
-
-      // Enhanced Payment Flow Messages
+// Enhanced Payment Flow Messages with New Status System
       case 'payment_flow_update':
         return {
           ...baseMessage,
           data: {
             orderId: Math.floor(Math.random() * 100) + 1,
-            flowStage: ['vendor_processed', 'admin_paid', 'proof_uploaded', 'amount_matched', 'vendor_confirmed'][Math.floor(Math.random() * 5)],
+            flowStage: ['pending_approval', 'approved', 'declined', 'requires_verification'][Math.floor(Math.random() * 4)],
             amount: Math.floor(Math.random() * 5000) + 500,
             vendor: 'Fresh Foods Co.',
+            adminPaymentApproval: ['pending', 'approved', 'rejected'][Math.floor(Math.random() * 3)],
+            statusSymbol: ['◻️', '✅', '❌', '⚠️'][Math.floor(Math.random() * 4)],
+            canProcessPayment: Math.random() > 0.5,
             status: 'updated'
           }
         };
@@ -279,58 +291,71 @@ requestId: Math.floor(Math.random() * 10) + 1,
             vendorId: Math.floor(Math.random() * 3) + 1,
             amount: Math.floor(Math.random() * 5000) + 500,
             paymentMethod: ['jazzcash', 'easypaisa', 'bank'][Math.floor(Math.random() * 3)],
+            adminPaymentApproval: 'approved',
             timestamp: new Date().toISOString(),
-            status: 'processed'
+            status: 'processed',
+            confirmationRequired: true,
+            statusSymbol: '✅'
           }
         };
 
-      case 'admin_payment_confirmed':
+      case 'admin_payment_approved':
         return {
           ...baseMessage,
           data: {
             orderId: Math.floor(Math.random() * 100) + 1,
             adminId: 'admin_1',
+            adminPaymentApproval: 'approved',
+            approvalTimestamp: new Date().toISOString(),
+            canProcessPayment: true,
+            statusSymbol: '✅',
+            notificationText: 'Payment approved - Ready to process',
+            status: 'approved'
+          }
+        };
+
+      case 'admin_payment_rejected':
+        return {
+          ...baseMessage,
+          data: {
+            orderId: Math.floor(Math.random() * 100) + 1,
+            adminId: 'admin_1',
+            adminPaymentApproval: 'rejected',
+            rejectionReason: 'Insufficient documentation',
+            rejectionTimestamp: new Date().toISOString(),
+            statusSymbol: '❌',
+            requiresAction: true,
+            status: 'rejected'
+          }
+        };
+
+      case 'payment_verification_required':
+        return {
+          ...baseMessage,
+          data: {
+            orderId: Math.floor(Math.random() * 100) + 1,
+            paymentProofUploaded: true,
+            verificationStatus: 'pending',
+            adminPaymentApproval: 'pending',
+            statusSymbol: '⚠️',
+            requiresVerification: true,
+            timestamp: new Date().toISOString(),
+            status: 'verification_required'
+          }
+        };
+
+      case 'one_click_payment_confirmation':
+        return {
+          ...baseMessage,
+          data: {
+            orderId: Math.floor(Math.random() * 100) + 1,
+            confirmationRequired: true,
             amount: Math.floor(Math.random() * 5000) + 500,
-            proofUploaded: true,
-            timestamp: new Date().toISOString(),
-            status: 'confirmed'
-          }
-        };
-
-      case 'payment_proof_uploaded':
-        return {
-          ...baseMessage,
-          data: {
-            orderId: Math.floor(Math.random() * 100) + 1,
-            fileName: 'payment_proof_' + Date.now() + '.jpg',
-            uploadedBy: 'admin_1',
-            timestamp: new Date().toISOString(),
-            status: 'uploaded'
-          }
-        };
-
-      case 'amount_auto_matched':
-        return {
-          ...baseMessage,
-          data: {
-            orderId: Math.floor(Math.random() * 100) + 1,
-            vendorAmount: Math.floor(Math.random() * 5000) + 500,
-            adminAmount: Math.floor(Math.random() * 5000) + 500,
-            matched: true,
-            tolerance: 0.01,
+            paymentMethod: ['jazzcash', 'easypaisa', 'bank'][Math.floor(Math.random() * 3)],
+            adminApprovalStatus: 'approved',
+            statusSymbol: '✅',
+            actionType: 'one_click_process',
             timestamp: new Date().toISOString()
-          }
-        };
-
-      case 'vendor_payment_confirmed':
-        return {
-          ...baseMessage,
-          data: {
-            orderId: Math.floor(Math.random() * 100) + 1,
-            vendorId: Math.floor(Math.random() * 3) + 1,
-            confirmationMethod: 'receipt_verification',
-            timestamp: new Date().toISOString(),
-            status: 'confirmed'
           }
         };
 

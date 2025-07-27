@@ -2174,50 +2174,61 @@ useEffect(() => {
 
   return (
     <div className="space-y-6">
-{/* Payment Status Helper Function */}
+{/* Enhanced Payment Status Helper Functions */}
       {(() => {
         const getPaymentStatus = (order) => {
-          // Check verification status first
-          if (order.verificationStatus === 'verified' || order.paymentStatus === 'completed') {
+          // Enhanced payment status logic with admin approval checks
+          if (order.payment_verified || order.adminPaymentApproval === 'approved') {
             return 'approved';
           }
-          if (order.verificationStatus === 'rejected' || order.paymentStatus === 'verification_failed') {
-            return 'rejected';
+          if (order.adminPaymentApproval === 'rejected' || order.verificationStatus === 'rejected') {
+            return 'declined';
           }
-          // Check if payment proof is submitted and pending
-          if (order.paymentProof || order.verificationStatus === 'pending') {
-            return 'pending';
+          if (order.paymentProof && order.adminPaymentApproval === 'pending') {
+            return 'requires_verification';
           }
-          // Default to pending for new orders
-          return 'pending';
+          // Default to pending approval for new orders
+          return 'pending_approval';
         };
 
         const getPaymentStatusDisplay = (status) => {
           switch (status) {
             case 'approved':
               return {
-                label: 'Approved',
+                label: 'Approved (Process Payment)',
                 icon: 'CheckCircle',
                 color: 'text-green-600',
                 bgColor: 'bg-green-100',
-                symbol: '✅'
+                symbol: '✅',
+                variant: 'success'
               };
-            case 'rejected':
+            case 'declined':
               return {
-                label: 'Rejected',
+                label: 'Declined',
                 icon: 'XCircle', 
                 color: 'text-red-600',
                 bgColor: 'bg-red-100',
-                symbol: '❌'
+                symbol: '❌',
+                variant: 'danger'
               };
-            case 'pending':
+            case 'requires_verification':
+              return {
+                label: 'Requires Verification',
+                icon: 'AlertTriangle',
+                color: 'text-orange-600',
+                bgColor: 'bg-orange-100',
+                symbol: '⚠️',
+                variant: 'warning'
+              };
+            case 'pending_approval':
             default:
               return {
-                label: 'Pending',
+                label: 'Pending Approval',
                 icon: 'Clock',
-                color: 'text-yellow-600',
-                bgColor: 'bg-yellow-100',
-                symbol: '⏳'
+                color: 'text-blue-600',
+                bgColor: 'bg-blue-100',
+                symbol: '◻️',
+                variant: 'info'
               };
           }
         };
@@ -2249,60 +2260,78 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Orders List */}
+      {/* Enhanced Orders List with Real-time Updates */}
       <div className="space-y-4">
         {filteredOrders.map((order) => (
-<div key={order.id} className="border border-gray-200 rounded-lg overflow-hidden">
+          <div key={order.id} className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
             <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <h3 className="font-semibold text-gray-900">Order #{order.id}</h3>
                 <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
                   {order.deliveryAddress?.name || 'N/A'}
                 </span>
+                {/* Real-time order indicator */}
+                {order.vendor_visibility === 'immediate' && (
+                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full flex items-center space-x-1">
+                    <ApperIcon name="Zap" size={10} />
+                    <span>Live</span>
+                  </span>
+                )}
               </div>
               <div className="flex items-center space-x-4">
-                {/* Payment Status Display */}
+                {/* Enhanced Payment Status Display */}
                 {(() => {
-const getPaymentStatus = (order) => {
-                    // Use payment_verified field from backend schema for primary status
-                    if (order.payment_verified || (order.verificationStatus === 'verified' || order.paymentStatus === 'completed')) {
+                  const getPaymentStatus = (order) => {
+                    if (order.payment_verified || order.adminPaymentApproval === 'approved') {
                       return 'approved';
                     }
-                    if (order.verificationStatus === 'rejected' || order.paymentStatus === 'verification_failed') {
-                      return 'rejected';
+                    if (order.adminPaymentApproval === 'rejected' || order.verificationStatus === 'rejected') {
+                      return 'declined';
                     }
-                    if (order.paymentProof || order.verificationStatus === 'pending') {
-                      return 'pending';
+                    if (order.paymentProof && order.adminPaymentApproval === 'pending') {
+                      return 'requires_verification';
                     }
-                    return 'pending';
+                    return 'pending_approval';
                   };
 
                   const getPaymentStatusDisplay = (status) => {
                     switch (status) {
                       case 'approved':
                         return {
-                          label: 'Payment Verified',
+                          label: 'Approved (Process Payment)',
                           icon: 'CheckCircle',
                           color: 'text-green-600',
                           bgColor: 'bg-green-100',
-                          symbol: '✅'
+                          symbol: '✅',
+                          variant: 'success'
                         };
-                      case 'rejected':
+                      case 'declined':
                         return {
-                          label: 'Rejected',
+                          label: 'Declined',
                           icon: 'XCircle', 
                           color: 'text-red-600',
                           bgColor: 'bg-red-100',
-                          symbol: '❌'
+                          symbol: '❌',
+                          variant: 'danger'
                         };
-                      case 'pending':
+                      case 'requires_verification':
+                        return {
+                          label: 'Requires Verification',
+                          icon: 'AlertTriangle',
+                          color: 'text-orange-600',
+                          bgColor: 'bg-orange-100',
+                          symbol: '⚠️',
+                          variant: 'warning'
+                        };
+                      case 'pending_approval':
                       default:
                         return {
-                          label: 'Pending',
+                          label: 'Pending Approval',
                           icon: 'Clock',
-                          color: 'text-yellow-600',
-                          bgColor: 'bg-yellow-100',
-                          symbol: '⏳'
+                          color: 'text-blue-600',
+                          bgColor: 'bg-blue-100',
+                          symbol: '◻️',
+                          variant: 'info'
                         };
                     }
                   };
@@ -2312,11 +2341,11 @@ const getPaymentStatus = (order) => {
 
                   return (
                     <div className="flex items-center space-x-2">
-                      <span className="text-xs text-gray-500">Payment:</span>
-                      <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${statusDisplay.bgColor} ${statusDisplay.color}`}>
+                      <span className="text-xs text-gray-500">Payment Status:</span>
+                      <div className={`flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-medium ${statusDisplay.bgColor} ${statusDisplay.color} border`}>
+                        <span className="text-sm">{statusDisplay.symbol}</span>
                         <ApperIcon name={statusDisplay.icon} size={12} />
                         <span>{statusDisplay.label}</span>
-                        <span>{statusDisplay.symbol}</span>
                       </div>
                     </div>
                   );
@@ -2496,13 +2525,45 @@ const VendorFulfillmentTab = ({ vendor }) => {
     }
   };
 
-  const handleProcessPayment = async (orderId) => {
+const handleProcessPayment = async (orderId) => {
     try {
+      // Check payment approval status before processing
+      const order = filteredOrders.find(o => o.id === orderId);
+      if (!order) {
+        toast.error('Order not found');
+        return;
+      }
+
+      if (order.adminPaymentApproval !== 'approved' && !order.payment_verified) {
+        toast.error('Payment must be approved by admin before processing');
+        return;
+      }
+
+      // Show confirmation modal for one-click processing
+      const confirmed = window.confirm(
+        `Process payment for Order #${orderId}?\n\nThis will mark the payment as processed and notify the admin.`
+      );
+
+      if (!confirmed) return;
+
       await orderService.updateFulfillmentStage(orderId, 'payment_processed');
       await loadFulfillmentOrders();
-      toast.success('Payment processed');
+      toast.success('✅ Payment processed successfully - Admin notified');
+
+      // Broadcast payment processing update
+      if (typeof window !== 'undefined' && window.webSocketService) {
+        window.webSocketService.send({
+          type: 'vendor_payment_processed',
+          data: {
+            orderId: orderId,
+            vendorId: vendor.Id,
+            timestamp: new Date().toISOString(),
+            status: 'processed'
+          }
+        });
+      }
     } catch (error) {
-      toast.error('Failed to process payment: ' + error.message);
+      toast.error('❌ Failed to process payment: ' + error.message);
     }
   };
 
