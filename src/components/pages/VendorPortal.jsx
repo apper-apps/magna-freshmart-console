@@ -10,9 +10,9 @@ import Loading from "@/components/ui/Loading";
 import Error from "@/components/ui/Error";
 import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
-import Input from "@/components/atoms/Input";
-import Button from "@/components/atoms/Button";
-import formatCurrency, { calculateMargin, calculateTotals } from "@/utils/currency";
+import { Input } from "@/components/atoms/Input";
+import { Button } from "@/components/atoms/Button";
+import { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [vendor, setVendor] = useState(null);
@@ -1195,8 +1195,8 @@ const VendorAvailabilityTab = ({ vendor }) => {
         const statusIcon = data.data?.statusSymbol || '🕐';
         const paymentStatus = data.data?.paymentApprovalStatus || 'pending';
         
-        toast.info(`${statusIcon} New order #${data.orderId} - Payment: ${paymentStatus}`, {
-icon: statusIcon,
+toast.info(`${statusIcon} New order #${data.orderId} - Payment: ${paymentStatus}`, {
+          icon: statusIcon,
           autoClose: 5000,
           className: `toast-priority-${data.data?.priority || 'normal'}`
         });
@@ -2357,12 +2357,12 @@ useEffect(() => {
                           variant: 'info'
                         };
                     }
+}
                   };
 
-const statusDisplay = getPaymentStatusDisplay(paymentStatus);
+                  const statusDisplay = getPaymentStatusDisplay(paymentStatus);
                   
                   return (
-                    <div className="flex items-center space-x-2">
                       <span className="text-xs text-gray-500">Payment Status:</span>
                       <div className={`flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-medium ${statusDisplay.bgColor} ${statusDisplay.color} border priority-badge ${statusDisplay.variant === 'success' ? 'high' : ''}`}>
                         <span className="text-sm">{statusDisplay.symbol}</span>
@@ -2397,9 +2397,9 @@ const statusDisplay = getPaymentStatusDisplay(paymentStatus);
                         {formatCurrency(item.price * item.quantity)}
                       </span>
                       
-                      {/* Availability Status & Actions */}
+{/* Availability Status & Actions */}
                       <div className="flex items-center space-x-2">
-{(() => {
+                        {(() => {
                           // Enhanced payment approval check with new four-state system
                           const currentPaymentStatus = order.paymentApprovalStatus || order.adminPaymentApproval || 'pending';
                           const isPaymentApproved = currentPaymentStatus === 'approved' || order.payment_verified;
