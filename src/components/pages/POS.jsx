@@ -26,6 +26,7 @@ const POS = () => {
   const [paymentType, setPaymentType] = useState('cash');
   const [customerPaid, setCustomerPaid] = useState('');
   const [processingPayment, setProcessingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState(null);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
   
 // Receipt configuration state
@@ -388,8 +389,39 @@ if (paymentType === 'cash') {
     } else {
       showReceiptPreviewModal(transactionData);
     }
-  } catch (err) {
+} catch (err) {
     console.error('Payment processing failed:', err);
+    
+    // Clear any previous payment errors
+    setPaymentError(null);
+    
+    // Handle specific error types
+    let errorMessage = 'Payment processing failed. Please try again.';
+    
+    if (err?.message) {
+      if (err.message.includes('network') || err.message.includes('fetch')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (err.message.includes('invalid') || err.message.includes('validation')) {
+        errorMessage = 'Invalid payment information. Please check your details.';
+      } else if (err.message.includes('insufficient')) {
+        errorMessage = 'Insufficient funds. Please check your balance.';
+      } else if (err.message.includes('timeout')) {
+        errorMessage = 'Payment processing timed out. Please try again.';
+      } else if (err.message.includes('constructor') || err.message.includes('not a function')) {
+        errorMessage = 'Payment service unavailable. Please contact support.';
+      } else {
+        errorMessage = err.message;
+      }
+    }
+    
+    setPaymentError(errorMessage);
+    
+    // Show user-friendly error notification
+    if (typeof window !== 'undefined' && window.toast) {
+      window.toast.error(errorMessage);
+    } else {
+      alert(errorMessage);
+    }
   } finally {
     setProcessingPayment(false);
   }
