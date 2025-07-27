@@ -94,8 +94,9 @@ const [selectedApproval, setSelectedApproval] = useState(null);
     endDate: '',
     vendor: '',
     paymentMethod: '',
-    flowStage: '',
-    verificationStatus: ''
+flowStage: '',
+    verificationStatus: '',
+    paymentStatus: ''
   });
   const [exportLoading, setExportLoading] = useState(false);
   const reportRefreshRef = useRef(null);
@@ -169,31 +170,55 @@ const loadPaymentVerificationReport = async (filters = {}) => {
   try {
     const reportData = await reportService.getPaymentVerificationReport(filters);
     
-    // Enhanced report data with payment flow metrics
+    // Apply payment status filtering
+    let filteredData = [...reportData.data];
+    if (filters.paymentStatus) {
+      filteredData = filteredData.filter(item => {
+        const paymentStatus = paymentService.getPaymentStatusFromVerification(item);
+        switch (filters.paymentStatus) {
+          case 'approved':
+            return paymentStatus === 'approved';
+          case 'pending':
+            return paymentStatus === 'pending';
+          default:
+            return true; // 'all' - show all orders
+        }
+      });
+    }
+    
+    // Enhanced report data with payment flow metrics and payment status
     const enhancedReportData = {
       ...reportData,
+      data: filteredData,
       summary: {
         ...reportData.summary,
         // Payment Flow Stage Metrics
-        vendorProcessed: reportData.data.filter(item => item.flowStage === 'vendor_processed').length,
-        adminConfirmed: reportData.data.filter(item => item.flowStage === 'admin_paid').length,
-        proofUploaded: reportData.data.filter(item => item.proofStatus === 'uploaded').length,
-        autoMatched: reportData.data.filter(item => item.amountMatched === true).length,
-        vendorConfirmed: reportData.data.filter(item => item.vendorConfirmed === true).length,
+        vendorProcessed: filteredData.filter(item => item.flowStage === 'vendor_processed').length,
+        adminConfirmed: filteredData.filter(item => item.flowStage === 'admin_paid').length,
+        proofUploaded: filteredData.filter(item => item.proofStatus === 'uploaded').length,
+        autoMatched: filteredData.filter(item => item.amountMatched === true).length,
+        vendorConfirmed: filteredData.filter(item => item.vendorConfirmed === true).length,
+        // Payment Status Distribution
+        paymentStatusDistribution: {
+          approved: filteredData.filter(item => paymentService.getPaymentStatusFromVerification(item) === 'approved').length,
+          pending: filteredData.filter(item => paymentService.getPaymentStatusFromVerification(item) === 'pending').length,
+          processing: filteredData.filter(item => paymentService.getPaymentStatusFromVerification(item) === 'processing').length
+        },
         // Real-time Flow Indicators
         flowStageDistribution: {
-          vendor_processed: reportData.data.filter(item => item.flowStage === 'vendor_processed').length,
-          admin_paid: reportData.data.filter(item => item.flowStage === 'admin_paid').length,
-          proof_uploaded: reportData.data.filter(item => item.proofStatus === 'uploaded').length,
-          amount_matched: reportData.data.filter(item => item.amountMatched === true).length,
-          vendor_confirmed: reportData.data.filter(item => item.vendorConfirmed === true).length
+          vendor_processed: filteredData.filter(item => item.flowStage === 'vendor_processed').length,
+          admin_paid: filteredData.filter(item => item.flowStage === 'admin_paid').length,
+          proof_uploaded: filteredData.filter(item => item.proofStatus === 'uploaded').length,
+          amount_matched: filteredData.filter(item => item.amountMatched === true).length,
+          vendor_confirmed: filteredData.filter(item => item.vendorConfirmed === true).length
         }
       },
       metadata: {
         ...reportData.metadata,
         realTimeEnabled: true,
         lastWebSocketUpdate: new Date().toISOString(),
-        flowStageTracking: true
+        flowStageTracking: true,
+        paymentStatusEnabled: true
       }
     };
     
@@ -204,7 +229,9 @@ const loadPaymentVerificationReport = async (filters = {}) => {
       paymentVerification: enhancedReportData.summary.totalPending,
       paymentProcessed: enhancedReportData.summary.vendorProcessed,
       adminPaid: enhancedReportData.summary.adminConfirmed,
-      paymentProofPending: enhancedReportData.summary.proofUploaded
+      paymentProofPending: enhancedReportData.summary.proofUploaded,
+      paymentStatusApproved: enhancedReportData.summary.paymentStatusDistribution.approved,
+      paymentStatusPending: enhancedReportData.summary.paymentStatusDistribution.pending
     }));
     
   } catch (error) {
@@ -1055,7 +1082,7 @@ action.isAction ? (
                 {/* Filters */}
 <div className="bg-gray-50 p-4 rounded-lg">
                   <h3 className="font-semibold text-gray-900 mb-3">Enhanced Filters</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
                       <input
@@ -1095,6 +1122,18 @@ action.isAction ? (
                         <option value="jazzcash">JazzCash</option>
                         <option value="easypaisa">EasyPaisa</option>
                         <option value="bank">Bank Transfer</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Payment Status</label>
+                      <select
+                        value={reportFilters.paymentStatus}
+                        onChange={(e) => handleFilterChange('paymentStatus', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">All Orders</option>
+                        <option value="approved">🟢 Approved Payments</option>
+                        <option value="pending">🔴 Pending Approval</option>
                       </select>
                     </div>
                     <div>
@@ -1148,7 +1187,7 @@ action.isAction ? (
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-200">
+<tbody className="divide-y divide-gray-200">
 {paymentVerificationData.data.map((verification) => {
                           const flowStageIcons = {
                             vendor_processed: { icon: 'CreditCard', color: 'text-orange-600' },
@@ -1159,6 +1198,15 @@ action.isAction ? (
                           };
                           
                           const currentStage = flowStageIcons[verification.flowStage] || { icon: 'Clock', color: 'text-gray-600' };
+                          
+                          // Get payment status for real-time badge
+                          const paymentStatus = paymentService.getPaymentStatusFromVerification(verification);
+                          const paymentStatusConfig = {
+                            approved: { emoji: '🟢', text: 'Approved', variant: 'success' },
+                            pending: { emoji: '🔴', text: 'Pending Approval', variant: 'danger' },
+                            processing: { emoji: '🟡', text: 'Processing', variant: 'warning' }
+                          };
+                          const statusInfo = paymentStatusConfig[paymentStatus] || paymentStatusConfig.pending;
                           
                           return (
                             <tr key={verification.Id} className="hover:bg-gray-50">
@@ -1190,8 +1238,9 @@ action.isAction ? (
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <div className="flex items-center space-x-2">
-                                  <Badge variant="warning" className="text-xs">
-                                    {verification.verificationStatus}
+                                  <Badge variant={statusInfo.variant} className="text-xs flex items-center space-x-1">
+                                    <span>{statusInfo.emoji}</span>
+                                    <span>{statusInfo.text}</span>
                                   </Badge>
                                   {verification.vendorConfirmed && (
                                     <Badge variant="success" className="text-xs">✓ Confirmed</Badge>

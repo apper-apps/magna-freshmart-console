@@ -1873,6 +1873,32 @@ validateRecurringPayment(recurringPayment) {
   getNextAutomationRuleId() {
     return this.automationRuleIdCounter++;
   }
+// Payment Status Mapping for Verification Reports
+  getPaymentStatusFromVerification(verification) {
+    // Determine payment status based on verification data
+    if (!verification) return 'pending';
+    
+    // Check if payment is approved (verified and completed)
+    if (verification.verificationStatus === 'verified' || 
+        verification.verificationStatus === 'matched' ||
+        verification.adminApproval === 'approved' ||
+        verification.status === 'completed' ||
+        verification.vendorConfirmed === true) {
+      return 'approved';
+    }
+    
+    // Check if payment is in processing state
+    if (verification.proofStatus === 'uploaded' ||
+        verification.proofStatus === 'pending' ||
+        verification.flowStage === 'proof_uploaded' ||
+        verification.flowStage === 'amount_matched' ||
+        verification.status === 'processing') {
+      return 'processing';
+    }
+    
+    // Default to pending for all other states
+    return 'pending';
+  }
 }
 
 export const paymentService = new PaymentService();
