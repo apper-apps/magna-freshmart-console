@@ -66,13 +66,78 @@ const categoryUnits = {
     default: 'Pack'
   }
 };
+// Dynamic unit mapping for product-specific units
+const unitMap = {
+  bananas: 'dozen',
+  banana: 'dozen',
+  milk: 'liter',
+  rice: 'pack',
+  wheat: 'pack',
+  flour: 'pack',
+  sugar: 'pack',
+  oil: 'liter',
+  ghee: 'liter',
+  yogurt: 'liter',
+  cheese: 'pack',
+  butter: 'pack',
+  eggs: 'dozen',
+  bread: 'piece',
+  biscuits: 'pack',
+  cookies: 'pack',
+  chips: 'pack',
+  juice: 'liter',
+  water: 'liter',
+  soda: 'liter',
+  tea: 'pack',
+  coffee: 'pack',
+  default: 'kg'
+};
+
+// Get dynamic unit label based on product name and category
+const getUnitLabel = (product) => {
+  if (!product) return 'kg';
+  
+  const name = product.name?.toLowerCase() || '';
+  const category = product.category?.toLowerCase() || '';
+  
+  // Check direct name matches first
+  for (const [key, unit] of Object.entries(unitMap)) {
+    if (key !== 'default' && name.includes(key)) {
+      return unit;
+    }
+  }
+  
+  // Check category-based mappings
+  if (category.includes('dairy')) {
+    if (name.includes('milk') || name.includes('yogurt') || name.includes('cream')) {
+      return 'liter';
+    }
+    return 'pack';
+  }
+  
+  if (category.includes('grains') || category.includes('flour') || category.includes('rice')) {
+    return 'pack';
+  }
+  
+  if (category.includes('beverages') || category.includes('drinks')) {
+    return 'liter';
+  }
+  
+  if (category.includes('fruits')) {
+    if (name.includes('banana') || name.includes('orange') || name.includes('apple')) {
+      return name.includes('banana') ? 'dozen' : 'piece';
+    }
+  }
+  
+  // Return existing unit if available, otherwise default
+  return product.unit || unitMap.default;
+};
 
 // Determine field type based on product category
 const getFieldType = (product) => {
   const category = product.category?.toLowerCase();
   const subcategory = product.subcategory?.toLowerCase();
   const name = product.name?.toLowerCase();
-  
   // Liquid products
   if (name.includes('milk') || name.includes('juice') || name.includes('oil')) {
     return 'liquid';

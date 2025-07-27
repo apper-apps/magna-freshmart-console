@@ -7,7 +7,7 @@ import { Badge } from '@/components/atoms/Badge';
 import Loading from '@/components/ui/Loading';
 import Error from '@/components/ui/Error';
 import { productService } from '@/services/api/productService';
-
+import { productUnitService } from '@/services/api/productUnitService';
 const ProductAssignment = ({ 
   vendor, 
   availableProducts = [], 
@@ -221,11 +221,11 @@ const ProductAssignment = ({
                         Rs. {product.price}
                       </span>
                     </div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Stock: {product.stock} {product.unit} • Vendor: {product.vendor}
+<p className="text-xs text-gray-500 mt-1">
+                    Stock: {product.stock} {productUnitService.getUnitLabel ? productUnitService.getUnitLabel(product) : product.unit} • Vendor: {product.vendor}
                   </p>
                 </div>
+              </div>
               </div>
             ))}
           </div>
