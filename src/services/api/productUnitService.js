@@ -68,28 +68,71 @@ const categoryUnits = {
 };
 // Dynamic unit mapping for product-specific units
 const unitMap = {
+  // Fruits - various units
   bananas: 'dozen',
   banana: 'dozen',
+  apple: 'piece',
+  mango: 'piece',
+  orange: 'piece',
+  grape: 'bunch',
+  watermelon: 'piece',
+  
+  // Dairy and liquids - volume based
   milk: 'liter',
+  yogurt: 'liter',
+  ghee: 'liter',
+  oil: 'liter',
+  juice: 'liter',
+  water: 'liter',
+  soda: 'liter',
+  
+  // Grains and packaged items
   rice: 'pack',
   wheat: 'pack',
   flour: 'pack',
   sugar: 'pack',
-  oil: 'liter',
-  ghee: 'liter',
-  yogurt: 'liter',
-  cheese: 'pack',
-  butter: 'pack',
+  salt: 'pack',
+  
+  // Proteins
   eggs: 'dozen',
+  chicken: 'kg',
+  beef: 'kg',
+  mutton: 'kg',
+  fish: 'kg',
+  
+  // Bakery items
   bread: 'piece',
   biscuits: 'pack',
   cookies: 'pack',
+  cake: 'piece',
+  
+  // Snacks and processed
   chips: 'pack',
-  juice: 'liter',
-  water: 'liter',
-  soda: 'liter',
+  nuts: 'pack',
+  cheese: 'pack',
+  butter: 'pack',
+  
+  // Beverages
   tea: 'pack',
   coffee: 'pack',
+  
+  // Vegetables - mostly weight based
+  potato: 'kg',
+  onion: 'kg',
+  tomato: 'kg',
+  carrot: 'kg',
+  
+  // Leafy vegetables
+  spinach: 'bundle',
+  mint: 'bundle',
+  coriander: 'bundle',
+  
+  // Large vegetables
+  cauliflower: 'piece',
+  cabbage: 'piece',
+  pumpkin: 'piece',
+  
+  // Default fallback
   default: 'kg'
 };
 // Determine field type based on product category
@@ -115,20 +158,27 @@ const getFieldType = (product) => {
 
 // Get appropriate unit label for product
 const getUnitLabel = (product) => {
-  if (!product) return 'Weight';
+  if (!product) return 'kg';
   
-  const name = product.name?.toLowerCase();
+  const name = product.name?.toLowerCase() || '';
   const category = product.category;
   const subcategory = product.subcategory;
   
-  // Check specific product mappings first
+  // First, check the unitMap for direct product name matches
+  for (const [key, unit] of Object.entries(unitMap)) {
+    if (key !== 'default' && name.includes(key)) {
+      return unit;
+    }
+  }
+  
+  // Then check specific product mappings from unitLabels
   for (const [key, label] of Object.entries(unitLabels)) {
-    if (name?.includes(key)) {
+    if (name.includes(key)) {
       return label;
     }
   }
   
-  // Check category mappings
+  // Check category-based mappings
   if (categoryUnits[category]) {
     if (categoryUnits[category][subcategory]) {
       return categoryUnits[category][subcategory];
@@ -138,8 +188,13 @@ const getUnitLabel = (product) => {
     }
   }
   
-  // Fallback to product's original unit or Weight
-  return product.unit || 'Weight';
+  // Use product's existing unit if available
+  if (product.unit && product.unit !== 'pcs' && product.unit !== 'piece') {
+    return product.unit;
+  }
+  
+  // Final fallback to default from unitMap
+  return unitMap.default;
 };
 
 // Get field configuration based on product type

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { productService } from "@/services/api/productService";
+import { getUnitLabel } from "@/services/api/productUnitService";
 import ApperIcon from "@/components/ApperIcon";
 import Category from "@/components/pages/Category";
 import Cart from "@/components/pages/Cart";
@@ -834,7 +835,7 @@ handleVisibilityToggle={handleVisibilityToggle}
                         <Badge 
                           variant={product.stock <= (product.minStock || 5) ? "error" : "success"}
                         >
-                          {product.stock || 0} {product.unit || "pcs"}
+                          {product.stock || 0} {getUnitLabel(product)}
                         </Badge>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -4584,18 +4585,17 @@ const CustomerProductDetail = ({
           )}
 
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
+<div>
               <span className="text-gray-600">Stock:</span>
               <span className="ml-2 font-medium">
-                {product.stock} {product.unit || 'pcs'}
+                {product.stock} {getUnitLabel(product)}
               </span>
             </div>
-            <div>
+<div>
               <span className="text-gray-600">Unit:</span>
-              <span className="ml-2 font-medium">{product.unit || 'piece'}</span>
+              <span className="ml-2 font-medium">{getUnitLabel(product)}</span>
             </div>
           </div>
-
           {/* Quantity Selector */}
           <div className="space-y-4">
             <div>
