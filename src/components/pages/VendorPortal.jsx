@@ -10,9 +10,9 @@ import Loading from "@/components/ui/Loading";
 import Error from "@/components/ui/Error";
 import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
-import Input from "@/components/atoms/Input";
-import Button from "@/components/atoms/Button";
-import { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
+import { Input } from "@/components/atoms/Input";
+import { Button } from "@/components/atoms/Button";
+import { formatCurrency, calculateMargin, calculateTotals } from "@/utils/currency";
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [vendor, setVendor] = useState(null);
@@ -198,9 +198,9 @@ const VendorDashboard = ({ vendor, onLogout, onProfileUpdate }) => {
   const loadVendorData = async () => {
     if (!vendor) return;
     
-    setLoading(true);
+setLoading(true);
     setError(null);
-try {
+    try {
       const [vendorProducts, vendorStats] = await Promise.all([
         productService.getVendorProducts(vendor.Id),
         productService.getVendorStats(vendor.Id)
