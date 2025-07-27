@@ -2244,9 +2244,17 @@ const handleSubmit = (e) => {
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h4 className="font-semibold text-gray-900 mb-3">Current Unit Distribution</h4>
                     <div className="space-y-2 max-h-40 overflow-y-auto">
-                      {(() => {
+{(() => {
                         const unitCounts = {};
-                        filteredProducts.forEach(product => {
+                        const currentFilteredProducts = filteredProducts || products.filter(product => {
+                          const matchesSearch = searchTerm === '' || 
+                            product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            product.category?.toLowerCase().includes(searchTerm.toLowerCase());
+                          const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
+                          return matchesSearch && matchesCategory;
+                        });
+                        
+                        currentFilteredProducts.forEach(product => {
                           const unit = product.unit || 'Not Set';
                           unitCounts[unit] = (unitCounts[unit] || 0) + 1;
                         });
@@ -2265,7 +2273,6 @@ const handleSubmit = (e) => {
                     </div>
                   </div>
                 </div>
-
                 {unitData.smartSuggestions && (
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                     <h4 className="font-semibold text-green-900 mb-2">Smart Suggestions</h4>

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
-import clipboardService from "@/services/ClipboardService";
+import { clipboardService } from "@/services/ClipboardService";
 import { orderService } from "@/services/api/orderService";
 import ApperIcon from "@/components/ApperIcon";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
@@ -735,7 +735,7 @@ return (
           title="Scroll to Top"
         >
           <ApperIcon name="ArrowUp" size={20} />
-        </button>
+</button>
       </div>
       </div>
     </div>

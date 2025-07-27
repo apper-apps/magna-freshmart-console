@@ -1,9 +1,7 @@
-import ordersData from "../mockData/orders.json";
-import React from "react";
-import webSocketService, { webSocketService } from "@/services/api/websocketService";
+import ordersData from "@/services/mockData/orders.json";
+import { webSocketService } from "@/services/api/websocketService";
 import { paymentService } from "@/services/api/paymentService";
 import { productService } from "@/services/api/productService";
-import Error from "@/components/ui/Error";
 class OrderService {
   constructor() {
     this.orders = [...ordersData];
@@ -347,9 +345,11 @@ class OrderService {
       this.updatePerformanceMetrics(startTime);
       this.performanceMetrics.errorCount++;
       console.error('OrderService.create: Error creating order:', error);
-      throw error;
+throw error;
     }
-// Enhanced update with cache invalidation
+  }
+
+  // Enhanced update with cache invalidation
   async update(id, orderData) {
     const startTime = performance.now();
     
@@ -1140,11 +1140,11 @@ async getPendingAvailabilityRequests() {
     const finalDelay = Math.max(100, baseDelay + variance); // Minimum 100ms
     
     return new Promise(resolve => setTimeout(resolve, finalDelay));
-  }
-  }
-// Enhanced Fulfillment Workflow Methods with Payment Flow Integration
-// Enhanced Fulfillment Workflow Methods with New Payment Approval System
-async updateFulfillmentStage(orderId, stage, additionalData = {}) {
+}
+
+  // Enhanced Fulfillment Workflow Methods with Payment Flow Integration
+  // Enhanced Fulfillment Workflow Methods with New Payment Approval System
+  async updateFulfillmentStage(orderId, stage, additionalData = {}) {
   await this.delay();
   
   const validStages = [
@@ -1254,18 +1254,19 @@ async updateFulfillmentStage(orderId, stage, additionalData = {}) {
     order.paymentFlowStage = 'vendor_confirmed';
     order.vendorConfirmationTimestamp = new Date().toISOString();
   }
-  
 this.orders[orderIndex] = order;
   return { ...order };
 }
 
+// Check if payment amounts match between vendor and admin
 // Check if payment amounts match between vendor and admin
 checkAmountMatch(order, adminPaymentAmount) {
   if (!adminPaymentAmount || !order.total) return false;
   const tolerance = 0.01; // 1 cent tolerance
   return Math.abs(adminPaymentAmount - order.total) <= tolerance;
 }
-  async autoAssignDeliveryPersonnel(order) {
+
+async autoAssignDeliveryPersonnel(order) {
     await this.delay(200);
     
     // Simulate delivery personnel assignment
@@ -1349,10 +1350,9 @@ checkAmountMatch(order, adminPaymentAmount) {
     order.deliveryStatus = 'picked_up';
     order.updatedAt = new Date().toISOString();
     
-    this.orders[orderIndex] = order;
+this.orders[orderIndex] = order;
     return { ...order };
-}
-
+  }
   // Enhanced Price Summary Data Retrieval with Role-Based Filtering
   async getPriceSummaryData(orderId, options = {}) {
     try {
