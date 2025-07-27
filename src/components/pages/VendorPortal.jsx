@@ -208,7 +208,7 @@ try {
       
       setProducts(vendorProducts);
       
-      // Calculate enhanced stats with cost/selling/margin totals
+// Calculate enhanced stats with cost/selling/margin totals
       const enhancedStats = {
         ...vendorStats,
         ...calculateTotals(vendorProducts, {
