@@ -565,7 +565,7 @@ setFormData({
   };
 
   // Handle bulk price update
-  const handleBulkPriceUpdate = async (updateData) => {
+const handleBulkPriceUpdate = async (updateData) => {
     try {
       if (!updateData) {
         toast.error("Invalid update data");
@@ -573,12 +573,12 @@ setFormData({
       }
 
       await productService.bulkUpdatePrices(updateData);
-      toast.success("Bulk price update completed successfully!");
+      toast.success("Bulk operations completed successfully!");
       setShowBulkPriceModal(false);
       await loadProducts();
     } catch (err) {
-      console.error("Error updating prices:", err);
-      toast.error(err.message || "Failed to update prices");
+      console.error("Error updating products:", err);
+      toast.error(err.message || "Failed to update products");
     }
   };
 
@@ -645,7 +645,7 @@ return matchesSearch && matchesCategory;
           handleSubmit={handleSubmit}
           handleEdit={handleEdit}
           handleDelete={handleDelete}
-          handleVisibilityToggle={handleVisibilityToggle}
+handleVisibilityToggle={handleVisibilityToggle}
           resetForm={resetForm}
           handleBulkPriceUpdate={handleBulkPriceUpdate}
         />
@@ -1682,10 +1682,11 @@ return matchesSearch && matchesCategory;
 
       {/* Bulk Price Update Modal */}
 {/* Enhanced Bulk Actions Modal */}
-      {showBulkPriceModal && (
+{showBulkPriceModal && (
         <EnhancedBulkActionsModal
           products={products}
           categories={categories}
+          units={units}
           onUpdate={handleBulkPriceUpdate}
           onClose={() => setShowBulkPriceModal(false)}
 />
@@ -1697,10 +1698,10 @@ return matchesSearch && matchesCategory;
 };
 
 // Enhanced Bulk Actions Modal with Category Discounts and Validation
-const EnhancedBulkActionsModal = ({ products, categories, onUpdate, onClose }) => {
+const EnhancedBulkActionsModal = ({ products, categories, units, onUpdate, onClose }) => {
   const [activeTab, setActiveTab] = useState('pricing');
   const [updateData, setUpdateData] = useState({
-    strategy: 'percentage',
+strategy: 'percentage',
     value: '',
     minPrice: '',
     maxPrice: '',
@@ -1716,14 +1717,32 @@ const EnhancedBulkActionsModal = ({ products, categories, onUpdate, onClose }) =
     overrideExisting: false,
     conflictResolution: 'skip' // skip, override, merge
   });
+
+  const [unitData, setUnitData] = useState({
+    category: 'all',
+    newUnit: '',
+    applyToCategory: false,
+    smartSuggestions: true,
+    previewChanges: false
+  });
   const [preview, setPreview] = useState([]);
   const [showPreview, setShowPreview] = useState(false);
   const [validationResults, setValidationResults] = useState([]);
   const [conflictAnalysis, setConflictAnalysis] = useState(null);
 
-  const handleInputChange = (e) => {
+const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
     setUpdateData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+    setShowPreview(false);
+    setValidationResults([]);
+  };
+
+  const handleUnitChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setUnitData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
@@ -1802,7 +1821,7 @@ const EnhancedBulkActionsModal = ({ products, categories, onUpdate, onClose }) =
         return;
       }
 
-      const previews = filteredProducts.map(product => {
+const previews = filteredProducts.map(product => {
         if (!product || typeof product.price !== 'number') {
           return {
             ...product,
@@ -1813,7 +1832,9 @@ const EnhancedBulkActionsModal = ({ products, categories, onUpdate, onClose }) =
         }
 
         let newPrice = product.price;
+        let newUnit = product.unit;
         let hasDiscount = false;
+        let unitChanged = false;
         
         // Handle pricing strategy
         if (activeTab === 'pricing') {
@@ -1849,6 +1870,23 @@ const EnhancedBulkActionsModal = ({ products, categories, onUpdate, onClose }) =
           }
         }
 
+        // Handle unit management
+        if (activeTab === 'units') {
+          if (unitData.newUnit && unitData.newUnit !== product.unit) {
+            if (unitData.applyToCategory) {
+              // Apply to all products in same category
+              if (unitData.category === 'all' || product.category === unitData.category) {
+                newUnit = unitData.newUnit;
+                unitChanged = true;
+              }
+            } else {
+              // Apply to all filtered products
+              newUnit = unitData.newUnit;
+              unitChanged = true;
+            }
+          }
+        }
+
         // Apply min/max price guards
         if (updateData.minPrice && newPrice < parseFloat(updateData.minPrice)) {
           newPrice = parseFloat(updateData.minPrice);
@@ -1866,13 +1904,14 @@ const EnhancedBulkActionsModal = ({ products, categories, onUpdate, onClose }) =
         return {
           ...product,
           newPrice: Math.round(newPrice * 100) / 100,
+          newUnit,
           priceChange: Math.round((newPrice - product.price) * 100) / 100,
+          unitChanged,
           hasDiscount,
           hasConflicts,
           conflictType: hasConflicts ? 'existing_discount' : null
         };
       });
-
       setPreview(previews);
       setShowPreview(true);
     } catch (error) {
@@ -1881,7 +1920,7 @@ const EnhancedBulkActionsModal = ({ products, categories, onUpdate, onClose }) =
     }
   };
 
-  const handleSubmit = (e) => {
+const handleSubmit = (e) => {
     e.preventDefault();
     
     try {
@@ -1892,6 +1931,11 @@ const EnhancedBulkActionsModal = ({ products, categories, onUpdate, onClose }) =
 
       if (activeTab === 'discounts' && updateData.categoryDiscount && !updateData.discountValue) {
         toast.error('Please enter a discount value');
+        return;
+      }
+
+      if (activeTab === 'units' && !unitData.newUnit) {
+        toast.error('Please select a unit to apply');
         return;
       }
 
@@ -1922,11 +1966,15 @@ const EnhancedBulkActionsModal = ({ products, categories, onUpdate, onClose }) =
         return;
       }
 
-      const confirmMessage = `Are you sure you want to update ${preview.length} products?`;
+      const updateType = activeTab === 'units' ? 'unit assignments' : 
+                        activeTab === 'pricing' ? 'prices' : 'discounts';
+      const confirmMessage = `Are you sure you want to update ${updateType} for ${preview.length} products?`;
+      
       if (window.confirm(confirmMessage)) {
         // Enhanced update data with conflict resolution
         const enhancedUpdateData = {
           ...updateData,
+          ...unitData,
           activeTab,
           conflictResolution: updateData.conflictResolution,
           previewData: preview
@@ -1954,10 +2002,11 @@ const EnhancedBulkActionsModal = ({ products, categories, onUpdate, onClose }) =
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mt-4">
+<div className="flex space-x-1 bg-gray-100 p-1 rounded-lg mt-4">
             {[
               { id: 'pricing', label: 'Price Updates', icon: 'DollarSign' },
               { id: 'discounts', label: 'Category Discounts', icon: 'Tag' },
+              { id: 'units', label: 'Unit Management', icon: 'Scale' },
               { id: 'validation', label: 'Conflict Detection', icon: 'Shield' }
             ].map((tab) => (
               <button
@@ -2111,7 +2160,139 @@ const EnhancedBulkActionsModal = ({ products, categories, onUpdate, onClose }) =
             )}
           </div>
           )}
+{/* Unit Management Tab */}
+            {activeTab === 'units' && (
+              <div className="space-y-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start space-x-3">
+                    <ApperIcon name="Info" className="text-blue-600 mt-0.5" size={16} />
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-blue-900 mb-1">Unit Management</h4>
+                      <p className="text-blue-700 text-sm">
+                        Set standardized units for products to ensure consistency across categories.
+                        Units help customers understand product quantities and improve inventory management.
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Apply To
+                      </label>
+                      <select
+                        name="category"
+                        value={unitData.category}
+                        onChange={handleUnitChange}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="all">All Products</option>
+                        {categories.map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        New Unit
+                      </label>
+                      <select
+                        name="newUnit"
+                        value={unitData.newUnit}
+                        onChange={handleUnitChange}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Select Unit</option>
+                        {units.map(unit => (
+                          <option key={unit} value={unit}>{unit}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="applyToCategory"
+                        name="applyToCategory"
+                        checked={unitData.applyToCategory}
+                        onChange={handleUnitChange}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <label htmlFor="applyToCategory" className="text-sm text-gray-700">
+                        Apply only to selected category
+                      </label>
+                    </div>
+
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        id="smartSuggestions"
+                        name="smartSuggestions"
+                        checked={unitData.smartSuggestions}
+                        onChange={handleUnitChange}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <label htmlFor="smartSuggestions" className="text-sm text-gray-700">
+                        Use smart unit suggestions
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-900 mb-3">Current Unit Distribution</h4>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {(() => {
+                        const unitCounts = {};
+                        filteredProducts.forEach(product => {
+                          const unit = product.unit || 'Not Set';
+                          unitCounts[unit] = (unitCounts[unit] || 0) + 1;
+                        });
+                        
+                        return Object.entries(unitCounts)
+                          .sort(([,a], [,b]) => b - a)
+                          .map(([unit, count]) => (
+                            <div key={unit} className="flex justify-between items-center py-1">
+                              <span className="text-sm text-gray-700">{unit}</span>
+                              <span className="text-sm font-medium text-gray-900">
+                                {count} products
+                              </span>
+                            </div>
+                          ));
+                      })()}
+                    </div>
+                  </div>
+                </div>
+
+                {unitData.smartSuggestions && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h4 className="font-semibold text-green-900 mb-2">Smart Suggestions</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="bg-white rounded p-3 border border-green-200">
+                        <div className="font-medium text-green-800">Vegetables</div>
+                        <div className="text-sm text-green-600">
+                          Root: kg • Leafy: bundle • Fresh: kg
+                        </div>
+                      </div>
+                      <div className="bg-white rounded p-3 border border-green-200">
+                        <div className="font-medium text-green-800">Fruits</div>
+                        <div className="text-sm text-green-600">
+                          Tropical: piece • Seasonal: piece • Dried: pack
+                        </div>
+                      </div>
+                      <div className="bg-white rounded p-3 border border-green-200">
+                        <div className="font-medium text-green-800">Others</div>
+                        <div className="text-sm text-green-600">
+                          Dairy: liter • Grains: pack • Spices: pack
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           {/* Category Discounts Tab */}
           {activeTab === 'discounts' && (
             <div className="space-y-6">
@@ -2369,9 +2550,10 @@ const EnhancedBulkActionsModal = ({ products, categories, onUpdate, onClose }) =
                 variant="secondary"
                 icon="Eye"
                 onClick={generatePreview}
-                disabled={
+disabled={
                   (activeTab === 'pricing' && !updateData.value && updateData.strategy !== 'range') ||
-                  (activeTab === 'discounts' && updateData.categoryDiscount && !updateData.discountValue)
+                  (activeTab === 'discounts' && updateData.categoryDiscount && !updateData.discountValue) ||
+                  (activeTab === 'units' && !unitData.newUnit)
                 }
               >
                 Preview Changes
@@ -4057,9 +4239,10 @@ const PreviewMode = ({
 
 {/* Bulk Price Update Modal */}
       {showBulkPriceModal && (
-        <EnhancedBulkActionsModal
+<EnhancedBulkActionsModal
           products={products}
           categories={categories}
+          units={units}
           onUpdate={handleBulkPriceUpdate}
           onClose={() => setShowBulkPriceModal(false)}
         />
