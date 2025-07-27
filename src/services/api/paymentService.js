@@ -193,7 +193,7 @@ async processDigitalWalletPayment(walletType, amount, orderId, phone) {
   }
 
 // Payment Verification
-  async verifyPayment(transactionId, verificationData) {
+async verifyPayment(transactionId, verificationData) {
     await this.delay(500);
 
     const transaction = this.transactions.find(t => t.transactionId === transactionId);
@@ -212,15 +212,25 @@ async processDigitalWalletPayment(walletType, amount, orderId, phone) {
       transaction.status = 'completed';
       transaction.verifiedAt = new Date().toISOString();
       transaction.verificationData = verificationData;
-      // Enhanced payment approval tracking
+      // Enhanced payment approval tracking with new four-state system
       transaction.adminApproval = 'approved';
       transaction.adminApprovalAt = new Date().toISOString();
       transaction.adminApprovalBy = verificationData?.approvedBy || 'admin';
+      // New payment approval status for vendor portal workflow
+      transaction.paymentApprovalStatus = 'approved';
+      transaction.statusSymbol = '✅';
+      transaction.statusVariant = 'success';
+      transaction.vendorNotified = true;
     } else {
       transaction.status = 'verification_failed';
       transaction.adminApproval = 'rejected';
       transaction.adminApprovalAt = new Date().toISOString();
       transaction.rejectionReason = verificationData?.rejectionReason || 'Verification failed';
+      // New payment approval status for vendor portal workflow
+      transaction.paymentApprovalStatus = 'declined';
+      transaction.statusSymbol = '❌';
+      transaction.statusVariant = 'danger';
+      transaction.vendorNotified = true;
     }
 
     // Return verification result with enhanced approval data
@@ -228,7 +238,10 @@ async processDigitalWalletPayment(walletType, amount, orderId, phone) {
       verified, 
       transaction: { ...transaction },
       adminApproval: transaction.adminApproval,
-      approvalTimestamp: transaction.adminApprovalAt
+      approvalTimestamp: transaction.adminApprovalAt,
+      paymentApprovalStatus: transaction.paymentApprovalStatus,
+      statusSymbol: transaction.statusSymbol,
+      statusVariant: transaction.statusVariant
     };
   }
 
@@ -536,11 +549,16 @@ async recordWalletTransaction(transactionData) {
       orderId,
       transactionId,
       status,
-      // Enhanced payment approval tracking
-      paymentApprovalStatus: paymentApprovalStatus || (status === 'completed' ? 'approved' : 'pending'),
+      // Enhanced payment approval tracking with new four-state system
+      paymentApprovalStatus: paymentApprovalStatus || (status === 'completed' ? 'approved' : 'pending_approval'),
       adminApprovalRequired,
       approvedBy: status === 'completed' ? 'admin' : null,
       approvedAt: status === 'completed' ? new Date().toISOString() : null,
+      // Enhanced vendor portal integration fields
+      statusSymbol: this.getPaymentStatusSymbol({ paymentApprovalStatus: paymentApprovalStatus || (status === 'completed' ? 'approved' : 'pending_approval') }),
+      statusVariant: this.getPaymentStatusVariant({ paymentApprovalStatus: paymentApprovalStatus || (status === 'completed' ? 'approved' : 'pending_approval') }),
+      vendorNotified: status === 'completed',
+      adminApprovalTimestamp: status === 'completed' ? new Date().toISOString() : null,
       metadata: {
         ...metadata,
         paymentVerificationRequired: adminApprovalRequired,
@@ -552,6 +570,34 @@ async recordWalletTransaction(transactionData) {
     console.log(`Recorded wallet transaction: ${type} - Rs. ${amount} (Approval: ${transaction.paymentApprovalStatus})`);
     
     return transaction;
+  }
+
+  // Enhanced payment status symbol mapping for vendor portal
+  getPaymentStatusSymbol(payment) {
+    const status = payment.paymentApprovalStatus || payment.adminPaymentApproval || 'pending';
+    switch (status) {
+      case 'approved': return '✅';
+      case 'declined':
+      case 'rejected': return '❌';
+      case 'requires_verification': return '⚠️';
+      case 'pending_approval':
+      case 'pending':
+      default: return '◻️';
+    }
+  }
+
+  // Enhanced payment status variant mapping for vendor portal
+  getPaymentStatusVariant(payment) {
+    const status = payment.paymentApprovalStatus || payment.adminPaymentApproval || 'pending';
+    switch (status) {
+      case 'approved': return 'success';
+      case 'declined':
+      case 'rejected': return 'danger';
+      case 'requires_verification': return 'warning';
+      case 'pending_approval':
+      case 'pending':
+      default: return 'info';
+    }
   }
 
   async depositToWallet(amount) {
@@ -689,9 +735,20 @@ async processWalletPayment(amount, orderId) {
       orderId,
       transactionId: this.generateTransactionId(),
       status: 'completed',
+      // Enhanced wallet payment approval tracking - automatic approval for wallet payments
+      paymentApprovalStatus: 'approved',
+      adminApprovalRequired: false,
+      approvedBy: 'system',
+      approvedAt: new Date().toISOString(),
+      statusSymbol: '✅',
+      statusVariant: 'success',
+      vendorNotified: true,
+      adminApprovalTimestamp: new Date().toISOString(),
       metadata: {
         paymentMethod: 'wallet',
-        orderType: 'purchase'
+        orderType: 'purchase',
+        autoApproved: true,
+        paymentVerificationRequired: false
       }
     };
 
@@ -1594,7 +1651,7 @@ async processScheduledPayment(scheduledPayment) {
       return { success: true, payment };
 
 } catch (error) {
-      // Enhanced error logging with transaction details
+// Enhanced error logging with transaction details
       console.error('Scheduled payment processing error:', {
         scheduledPaymentId: scheduledPayment?.Id,
         recurringPaymentId: scheduledPayment?.recurringPaymentId,
@@ -1615,11 +1672,16 @@ async processScheduledPayment(scheduledPayment) {
           recurring.lastPaymentDate = new Date().toISOString();
           recurring.lastPaymentStatus = 'failed';
           
-          // Mark scheduled payment as failed
+          // Mark scheduled payment as failed with enhanced tracking
           scheduledPayment.status = 'failed';
           scheduledPayment.failedAt = new Date().toISOString();
           scheduledPayment.failureReason = error.message;
           scheduledPayment.retryCount = (scheduledPayment.retryCount || 0) + 1;
+          // Enhanced payment approval status tracking for failed payments
+          scheduledPayment.paymentApprovalStatus = 'declined';
+          scheduledPayment.statusSymbol = '❌';
+          scheduledPayment.statusVariant = 'danger';
+          scheduledPayment.vendorNotified = true;
 
           // Enhanced error classification for better handling
           let errorType = 'general';
@@ -1651,6 +1713,11 @@ async processScheduledPayment(scheduledPayment) {
               originalScheduledPaymentId: scheduledPayment.Id,
               retryCount: scheduledPayment.retryCount,
               errorType: errorType,
+              // Enhanced payment approval status for retry payments
+              paymentApprovalStatus: 'pending_approval',
+              statusSymbol: '◻️',
+              statusVariant: 'info',
+              vendorNotified: false,
               createdAt: new Date().toISOString()
             };
             
@@ -1699,7 +1766,10 @@ async processScheduledPayment(scheduledPayment) {
           return { 
             success: false, 
             error: 'Payment processing failed and error handling encountered issues',
-            requiresManualProcessing: true
+            requiresManualProcessing: true,
+            paymentApprovalStatus: 'declined',
+            statusSymbol: '❌',
+            statusVariant: 'danger'
           };
         }
       } else {
@@ -1715,7 +1785,10 @@ async processScheduledPayment(scheduledPayment) {
         success: false, 
         error: error.message,
         errorType: scheduledPayment?.errorType || 'unknown',
-        requiresManualProcessing: recurring?.requiresManualProcessing || false
+        requiresManualProcessing: recurring?.requiresManualProcessing || false,
+        paymentApprovalStatus: 'declined',
+        statusSymbol: '❌',
+        statusVariant: 'danger'
       };
     }
   }
@@ -1950,31 +2023,42 @@ validateRecurringPayment(recurringPayment) {
   getNextAutomationRuleId() {
     return this.automationRuleIdCounter++;
   }
-// Payment Status Mapping for Verification Reports
+// Enhanced Payment Status Mapping for Verification Reports with Four-State System
   getPaymentStatusFromVerification(verification) {
-    // Determine payment status based on verification data
-    if (!verification) return 'pending';
+    // Determine payment status based on verification data with new four-state system
+    if (!verification) return 'pending_approval';
     
     // Check if payment is approved (verified and completed)
     if (verification.verificationStatus === 'verified' || 
         verification.verificationStatus === 'matched' ||
         verification.adminApproval === 'approved' ||
         verification.status === 'completed' ||
-        verification.vendorConfirmed === true) {
+        verification.vendorConfirmed === true ||
+        verification.paymentApprovalStatus === 'approved' ||
+        verification.payment_verified === true) {
       return 'approved';
     }
     
-    // Check if payment is in processing state
+    // Check if payment is declined/rejected
+    if (verification.verificationStatus === 'rejected' ||
+        verification.adminApproval === 'rejected' ||
+        verification.status === 'verification_failed' ||
+        verification.paymentApprovalStatus === 'declined') {
+      return 'declined';
+    }
+    
+    // Check if payment requires verification
     if (verification.proofStatus === 'uploaded' ||
         verification.proofStatus === 'pending' ||
         verification.flowStage === 'proof_uploaded' ||
         verification.flowStage === 'amount_matched' ||
-        verification.status === 'processing') {
-      return 'processing';
+        verification.status === 'processing' ||
+        verification.paymentApprovalStatus === 'requires_verification') {
+      return 'requires_verification';
     }
     
-    // Default to pending for all other states
-    return 'pending';
+    // Default to pending approval for all other states
+    return 'pending_approval';
   }
 }
 

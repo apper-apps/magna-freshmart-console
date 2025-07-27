@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
-import formatCurrency from "@/utils/currency";
+import { orderService } from "@/services/api/orderService";
+import webSocketService from "@/services/api/websocketService";
+import { productService } from "@/services/api/productService";
+import { vendorService } from "@/services/api/vendorService";
+import { getFieldConfig, isMeasurementRequired, productUnitService } from "@/services/api/productUnitService";
 import ApperIcon from "@/components/ApperIcon";
-import Button from "@/components/atoms/Button";
-import Input from "@/components/atoms/Input";
-import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
+import Error from "@/components/ui/Error";
 import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
-import { orderService } from "@/services/api/orderService";
-import { vendorService } from "@/services/api/vendorService";
-import { productService } from "@/services/api/productService";
-import { productUnitService } from "@/services/api/productUnitService";
-
+import { Input } from "@/components/atoms/Input";
+import { Button } from "@/components/atoms/Button";
+import { formatCurrency, calculateMargin, calculateTotals } from "@/utils/currency";
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [vendor, setVendor] = useState(null);
@@ -1209,7 +1209,7 @@ const VendorProfileTab = ({ vendor, onProfileUpdate }) => {
   );
 };
 
-// Enhanced Vendor Availability Tab Component
+// Enhanced Vendor Availability Tab Component with Real-time Order Sync
 const VendorAvailabilityTab = ({ vendor }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1222,21 +1222,48 @@ const VendorAvailabilityTab = ({ vendor }) => {
   useEffect(() => {
     loadPendingAvailabilityOrders();
     
-    // Phase 1: Real-time order sync - WebSocket listener for immediate order updates
+    // Phase 1: Real-time order sync - Enhanced WebSocket listener for immediate order updates
     const handleOrderUpdate = (data) => {
       if (data.type === 'order_created_immediate' || data.type === 'real_time_order_notification') {
         loadPendingAvailabilityOrders();
-        toast.info(`New order #${data.orderId} requires immediate attention`, {
-          icon: '🕐',
-          autoClose: 5000
+        // Enhanced notification with payment status indicators
+        const statusIcon = data.data?.statusSymbol || '🕐';
+        const paymentStatus = data.data?.paymentApprovalStatus || 'pending';
+        
+        toast.info(`${statusIcon} New order #${data.orderId} - Payment: ${paymentStatus}`, {
+          icon: statusIcon,
+          autoClose: 5000,
+          className: `toast-priority-${data.data?.priority || 'normal'}`
         });
+      }
+      
+      // Enhanced payment approval notifications
+      if (data.type === 'admin_payment_approved' || data.type === 'admin_payment_rejected') {
+        loadPendingAvailabilityOrders();
+        const isApproved = data.type === 'admin_payment_approved';
+        toast[isApproved ? 'success' : 'error'](
+          `${data.data?.statusSymbol} Order #${data.data?.orderId} payment ${isApproved ? 'approved' : 'rejected'}`,
+          {
+            icon: data.data?.statusSymbol,
+            autoClose: 4000
+          }
+        );
       }
     };
 
-    // Subscribe to real-time order updates
+    // Subscribe to real-time order updates with enhanced event handling
     let unsubscribe;
     if (typeof window !== 'undefined' && window.webSocketService) {
       unsubscribe = window.webSocketService.subscribe('order_created_immediate', handleOrderUpdate);
+      // Also subscribe to payment approval events
+      const paymentUnsubscribe = window.webSocketService.subscribe('admin_payment_approved', handleOrderUpdate);
+      const rejectionUnsubscribe = window.webSocketService.subscribe('admin_payment_rejected', handleOrderUpdate);
+      
+      return () => {
+        if (unsubscribe) unsubscribe();
+        if (paymentUnsubscribe) paymentUnsubscribe();
+        if (rejectionUnsubscribe) rejectionUnsubscribe();
+      };
     }
 
     return () => {
@@ -1251,17 +1278,25 @@ const VendorAvailabilityTab = ({ vendor }) => {
     setError(null);
     
     try {
-      // Load both pending availability requests and immediate visibility orders
+// Enhanced order loading with real-time sync and payment status filtering
       const pendingOrders = await orderService.getPendingAvailabilityRequests();
       const allOrders = await orderService.getAll();
       
-      // Phase 1: Include orders with immediate vendor visibility
+      // Phase 1: Include orders with immediate vendor visibility and enhanced payment status tracking
       const immediateOrders = allOrders.filter(order => 
         order.vendor_visibility === 'immediate' && 
-        (order.status === 'awaiting_payment_verification' || order.status === 'pending')
+        (order.status === 'awaiting_payment_verification' || 
+         order.status === 'pending' || 
+         order.status === 'confirmed') &&
+        // Include orders with various payment approval states
+        (order.paymentApprovalStatus === 'pending_approval' ||
+         order.paymentApprovalStatus === 'requires_verification' ||
+         order.paymentApprovalStatus === 'approved' ||
+         order.adminPaymentApproval === 'pending' ||
+         order.adminPaymentApproval === 'approved')
       );
       
-      // Combine and deduplicate orders
+      // Combine and deduplicate orders with priority sorting
       const combinedOrders = [...pendingOrders, ...immediateOrders];
       const uniqueOrders = combinedOrders.filter((order, index, self) => 
         index === self.findIndex(o => o.id === order.id)
@@ -1271,7 +1306,21 @@ const VendorAvailabilityTab = ({ vendor }) => {
         return order.items?.some(item => (item.productId % 3 + 1) === vendor.Id);
       });
       
-      setOrders(vendorOrders);
+      // Enhanced priority sorting with payment status consideration
+      const sortedOrders = vendorOrders.sort((a, b) => {
+        // Priority 1: Payment approved orders first
+        if (a.paymentApprovalStatus === 'approved' && b.paymentApprovalStatus !== 'approved') return -1;
+        if (b.paymentApprovalStatus === 'approved' && a.paymentApprovalStatus !== 'approved') return 1;
+        
+        // Priority 2: Requires verification second
+        if (a.paymentApprovalStatus === 'requires_verification' && b.paymentApprovalStatus === 'pending_approval') return -1;
+        if (b.paymentApprovalStatus === 'requires_verification' && a.paymentApprovalStatus === 'pending_approval') return 1;
+        
+        // Priority 3: Creation time (newest first)
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+      
+      setOrders(sortedOrders);
     } catch (error) {
       console.error('Error loading availability orders:', error);
       setError(error.message);
@@ -1367,25 +1416,46 @@ const VendorAvailabilityTab = ({ vendor }) => {
     }
   };
 
-// Phase 1: Enhanced status display for immediate visibility orders
+// Phase 1: Enhanced status display with new four-state payment system
   const getOrderStatusBadge = (order) => {
     if (order.vendor_visibility === 'immediate') {
-      // Check payment_verified field from backend schema
-      if (!order.payment_verified && order.status === 'awaiting_payment_verification') {
-        return (
-          <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full flex items-center approval-badge pending">
-            <ApperIcon name="Clock" size={12} className="mr-1" />
-            Payment Verification Pending
-          </span>
-        );
-      }
-      if (order.payment_verified) {
-        return (
-          <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full flex items-center approval-badge">
-            <ApperIcon name="CheckCircle" size={12} className="mr-1" />
-            Payment Verified
-          </span>
-        );
+      const paymentStatus = order.paymentApprovalStatus || order.adminPaymentApproval || 'pending';
+      
+      switch (paymentStatus) {
+        case 'approved':
+          return (
+            <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full flex items-center approval-badge priority-badge">
+              <span className="text-sm mr-1">✅</span>
+              <ApperIcon name="CheckCircle" size={12} className="mr-1" />
+              Approved (Process Payment)
+            </span>
+          );
+        case 'requires_verification':
+          return (
+            <span className="px-3 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded-full flex items-center approval-badge pending priority-badge">
+              <span className="text-sm mr-1">⚠️</span>
+              <ApperIcon name="AlertTriangle" size={12} className="mr-1" />
+              Requires Verification
+            </span>
+          );
+        case 'declined':
+          return (
+            <span className="px-3 py-1 bg-red-100 text-red-800 text-xs font-medium rounded-full flex items-center approval-badge">
+              <span className="text-sm mr-1">❌</span>
+              <ApperIcon name="XCircle" size={12} className="mr-1" />
+              Declined
+            </span>
+          );
+        case 'pending_approval':
+        case 'pending':
+        default:
+          return (
+            <span className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full flex items-center approval-badge pending">
+              <span className="text-sm mr-1">◻️</span>
+              <ApperIcon name="Clock" size={12} className="mr-1" />
+              Pending Approval
+            </span>
+          );
       }
     }
     return null;
@@ -1400,16 +1470,30 @@ const VendorAvailabilityTab = ({ vendor }) => {
 
   return (
     <div className="space-y-6">
-      {/* Header with Stats - Phase 1 Enhanced */}
-      <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-6 rounded-lg">
+{/* Enhanced Header with Payment Status Statistics - Phase 1 */}
+      <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white p-6 rounded-lg mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold mb-2">Real-time Order Sync & Availability</h2>
-            <p className="text-blue-100">Phase 1: Immediate order visibility • Respond within 2 hours</p>
+            <h2 className="text-2xl font-bold mb-2">Real-time Order Sync & Enhanced Payment Flow</h2>
+            <p className="text-blue-100">Phase 1: Immediate order visibility • Four-state payment approval system</p>
+            <div className="flex items-center mt-2 space-x-4">
+              <div className="flex items-center">
+                <span className="text-lg mr-1">✅</span>
+                <span className="text-sm">Approved: {filteredOrders.filter(o => o.paymentApprovalStatus === 'approved').length}</span>
+              </div>
+              <div className="flex items-center">
+                <span className="text-lg mr-1">⚠️</span>
+                <span className="text-sm">Verification: {filteredOrders.filter(o => o.paymentApprovalStatus === 'requires_verification').length}</span>
+              </div>
+              <div className="flex items-center">
+                <span className="text-lg mr-1">◻️</span>
+                <span className="text-sm">Pending: {filteredOrders.filter(o => o.paymentApprovalStatus === 'pending_approval' || !o.paymentApprovalStatus).length}</span>
+              </div>
+            </div>
           </div>
           <div className="text-right">
             <div className="text-3xl font-bold">{filteredOrders.length}</div>
-            <div className="text-blue-100">Pending Responses</div>
+            <div className="text-blue-100">Total Orders</div>
             <div className="text-xs text-blue-200 mt-1">
               <ApperIcon name="Zap" size={12} className="inline mr-1" />
               Real-time sync active
@@ -1458,13 +1542,23 @@ const VendorAvailabilityTab = ({ vendor }) => {
       </div>
 
       {/* Orders List - Phase 1 Enhanced */}
+{/* Enhanced Orders List with Priority-based Visual Hierarchy */}
       <div className="space-y-4">
         {filteredOrders.map((order) => {
           const deadline = getDeadlineStatus(order.createdAt);
           const vendorProducts = order.items?.filter(item => (item.productId % 3 + 1) === vendor.Id) || [];
+          const paymentStatus = order.paymentApprovalStatus || order.adminPaymentApproval || 'pending';
+          
+          // Enhanced priority-based card styling
+          const getCardPriorityClass = () => {
+            if (paymentStatus === 'approved') return 'order-card-enhanced priority-high-card border-l-4 border-l-green-500 bg-gradient-to-r from-green-50 to-white';
+            if (paymentStatus === 'requires_verification') return 'order-card-enhanced priority-medium-card border-l-4 border-l-orange-500 bg-gradient-to-r from-orange-50 to-white';
+            if (paymentStatus === 'declined') return 'order-card-enhanced border-l-4 border-l-red-500 bg-gradient-to-r from-red-50 to-white';
+            return 'order-card-enhanced priority-low-card border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50 to-white';
+          };
           
           return (
-            <div key={order.id} className="bg-white rounded-lg shadow-sm border overflow-hidden">
+            <div key={order.id} className={`bg-white rounded-lg shadow-sm border overflow-hidden ${getCardPriorityClass()}`}>
               <div className="p-4">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-4">
@@ -1478,14 +1572,21 @@ const VendorAvailabilityTab = ({ vendor }) => {
                           setSelectedOrders(selectedOrders.filter(id => id !== order.id));
                         }
                       }}
-                      className="rounded border-gray-300 text-primary focus:ring-primary"
+                      className="rounded border-gray-300 text-primary focus:ring-primary touch-manipulation"
                     />
                     <h3 className="font-semibold text-gray-900">Order #{order.id}</h3>
                     <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
                       {order.deliveryAddress?.name || 'N/A'}
                     </span>
-                    {/* Phase 1: Order status badge */}
+                    {/* Enhanced order status badge with payment flow indicators */}
                     {getOrderStatusBadge(order)}
+                    {/* Real-time indicator for immediate visibility orders */}
+                    {order.vendor_visibility === 'immediate' && (
+                      <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full flex items-center animate-pulse">
+                        <ApperIcon name="Zap" size={10} className="mr-1" />
+                        LIVE
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center space-x-3">
                     <span className={`px-3 py-1 text-xs font-medium rounded-full ${deadline.color}`}>
@@ -2175,69 +2276,8 @@ useEffect(() => {
   return (
     <div className="space-y-6">
 {/* Enhanced Payment Status Helper Functions */}
-      {(() => {
-        const getPaymentStatus = (order) => {
-          // Enhanced payment status logic with admin approval checks
-          if (order.payment_verified || order.adminPaymentApproval === 'approved') {
-            return 'approved';
-          }
-          if (order.adminPaymentApproval === 'rejected' || order.verificationStatus === 'rejected') {
-            return 'declined';
-          }
-          if (order.paymentProof && order.adminPaymentApproval === 'pending') {
-            return 'requires_verification';
-          }
-          // Default to pending approval for new orders
-          return 'pending_approval';
-        };
-
-        const getPaymentStatusDisplay = (status) => {
-          switch (status) {
-            case 'approved':
-              return {
-                label: 'Approved (Process Payment)',
-                icon: 'CheckCircle',
-                color: 'text-green-600',
-                bgColor: 'bg-green-100',
-                symbol: '✅',
-                variant: 'success'
-              };
-            case 'declined':
-              return {
-                label: 'Declined',
-                icon: 'XCircle', 
-                color: 'text-red-600',
-                bgColor: 'bg-red-100',
-                symbol: '❌',
-                variant: 'danger'
-              };
-            case 'requires_verification':
-              return {
-                label: 'Requires Verification',
-                icon: 'AlertTriangle',
-                color: 'text-orange-600',
-                bgColor: 'bg-orange-100',
-                symbol: '⚠️',
-                variant: 'warning'
-              };
-            case 'pending_approval':
-            default:
-              return {
-                label: 'Pending Approval',
-                icon: 'Clock',
-                color: 'text-blue-600',
-                bgColor: 'bg-blue-100',
-                symbol: '◻️',
-                variant: 'info'
-              };
-          }
-        };
-
-        return null;
-      })()}
-
-      {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row gap-4">
+{/* Enhanced Search and Filter with Payment Status Options */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="flex-1">
           <Input
             type="text"
@@ -2254,46 +2294,63 @@ useEffect(() => {
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
           >
             <option value="all">All Orders</option>
-            <option value="pending">Pending Response</option>
-            <option value="responded">Responded</option>
+            <option value="approved">✅ Approved</option>
+            <option value="requires_verification">⚠️ Requires Verification</option>
+            <option value="pending_approval">◻️ Pending Approval</option>
+            <option value="declined">❌ Declined</option>
           </select>
         </div>
       </div>
 
-      {/* Enhanced Orders List with Real-time Updates */}
+      {/* Enhanced Orders List with Real-time Updates and Visual Hierarchy */}
       <div className="space-y-4">
-        {filteredOrders.map((order) => (
-          <div key={order.id} className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+        {filteredOrders.map((order) => {
+          const paymentStatus = order.paymentApprovalStatus || order.adminPaymentApproval || 'pending';
+          
+          // Enhanced priority-based card styling with floating action button placement
+          const getCardClasses = () => {
+            let baseClasses = "border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 relative";
+            
+            if (paymentStatus === 'approved') {
+              return `${baseClasses} border-l-4 border-l-green-500 bg-gradient-to-r from-green-50 to-white priority-high-card`;
+            }
+            if (paymentStatus === 'requires_verification') {
+              return `${baseClasses} border-l-4 border-l-orange-500 bg-gradient-to-r from-orange-50 to-white priority-medium-card`;
+            }
+            if (paymentStatus === 'declined') {
+              return `${baseClasses} border-l-4 border-l-red-500 bg-gradient-to-r from-red-50 to-white`;
+            }
+            return `${baseClasses} border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50 to-white priority-low-card`;
+          };
+
+          return (
+          <div key={order.id} className={getCardClasses()}>
+            {/* Floating Action Button for Priority Orders */}
+            {paymentStatus === 'approved' && (
+              <div className="absolute -top-2 -right-2 z-10">
+                <button className="w-8 h-8 bg-green-500 text-white rounded-full shadow-lg fab-primary flex items-center justify-center text-sm font-bold">
+                  ✅
+                </button>
+              </div>
+            )}
+            
             <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <h3 className="font-semibold text-gray-900">Order #{order.id}</h3>
                 <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
                   {order.deliveryAddress?.name || 'N/A'}
                 </span>
-                {/* Real-time order indicator */}
+                {/* Real-time order indicator with enhanced styling */}
                 {order.vendor_visibility === 'immediate' && (
-                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full flex items-center space-x-1">
+                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full flex items-center space-x-1 animate-pulse">
                     <ApperIcon name="Zap" size={10} />
-                    <span>Live</span>
+                    <span>LIVE</span>
                   </span>
                 )}
               </div>
               <div className="flex items-center space-x-4">
-                {/* Enhanced Payment Status Display */}
+                {/* Enhanced Payment Status Display with New Four-State System */}
                 {(() => {
-                  const getPaymentStatus = (order) => {
-                    if (order.payment_verified || order.adminPaymentApproval === 'approved') {
-                      return 'approved';
-                    }
-                    if (order.adminPaymentApproval === 'rejected' || order.verificationStatus === 'rejected') {
-                      return 'declined';
-                    }
-                    if (order.paymentProof && order.adminPaymentApproval === 'pending') {
-                      return 'requires_verification';
-                    }
-                    return 'pending_approval';
-                  };
-
                   const getPaymentStatusDisplay = (status) => {
                     switch (status) {
                       case 'approved':
@@ -2324,6 +2381,7 @@ useEffect(() => {
                           variant: 'warning'
                         };
                       case 'pending_approval':
+                      case 'pending':
                       default:
                         return {
                           label: 'Pending Approval',
@@ -2336,18 +2394,27 @@ useEffect(() => {
                     }
                   };
 
+                  const statusDisplay = getPaymentStatusDisplay(paymentStatus);
+                  
+                  return (
+                  };
+
                   const paymentStatus = getPaymentStatus(order);
                   const statusDisplay = getPaymentStatusDisplay(paymentStatus);
 
                   return (
-                    <div className="flex items-center space-x-2">
+<div className="flex items-center space-x-2">
                       <span className="text-xs text-gray-500">Payment Status:</span>
-                      <div className={`flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-medium ${statusDisplay.bgColor} ${statusDisplay.color} border`}>
+                      <div className={`flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-medium ${statusDisplay.bgColor} ${statusDisplay.color} border priority-badge ${statusDisplay.variant === 'success' ? 'high' : ''}`}>
                         <span className="text-sm">{statusDisplay.symbol}</span>
                         <ApperIcon name={statusDisplay.icon} size={12} />
                         <span>{statusDisplay.label}</span>
                       </div>
                     </div>
+                  );
+                })()}
+              </div>
+            </div>
                   );
                 })()}
                 <div className="text-sm text-gray-600">
@@ -2377,19 +2444,10 @@ useEffect(() => {
                       
                       {/* Availability Status & Actions */}
                       <div className="flex items-center space-x-2">
-                        {(() => {
-                          const getPaymentStatus = (order) => {
-                            if (order.verificationStatus === 'verified' || order.paymentStatus === 'completed') {
-                              return 'approved';
-                            }
-                            if (order.verificationStatus === 'rejected' || order.paymentStatus === 'verification_failed') {
-                              return 'rejected';
-                            }
-                            return 'pending';
-                          };
-
-                          const paymentStatus = getPaymentStatus(order);
-                          const isPaymentApproved = paymentStatus === 'approved';
+{(() => {
+                          // Enhanced payment approval check with new four-state system
+                          const currentPaymentStatus = order.paymentApprovalStatus || order.adminPaymentApproval || 'pending';
+                          const isPaymentApproved = currentPaymentStatus === 'approved' || order.payment_verified;
                           
                           if (getAvailabilityStatus(order, item.productId) === 'pending') {
                             return (
@@ -2399,7 +2457,8 @@ useEffect(() => {
                                   variant="primary"
                                   disabled={!isPaymentApproved}
                                   onClick={() => handleAvailabilityUpdate(order.id, item.productId, true)}
-                                  className={!isPaymentApproved ? 'opacity-50 cursor-not-allowed' : ''}
+                                  className={`${!isPaymentApproved ? 'opacity-50 cursor-not-allowed' : ''} touch-manipulation`}
+                                  title={!isPaymentApproved ? `Payment must be approved first (Current: ${currentPaymentStatus})` : 'Mark as available'}
                                 >
                                   <ApperIcon name="CheckCircle" size={14} className="mr-1" />
                                   Available
@@ -2409,7 +2468,8 @@ useEffect(() => {
                                   variant="outline"
                                   disabled={!isPaymentApproved}
                                   onClick={() => handleAvailabilityUpdate(order.id, item.productId, false)}
-                                  className={!isPaymentApproved ? 'opacity-50 cursor-not-allowed' : ''}
+                                  className={`${!isPaymentApproved ? 'opacity-50 cursor-not-allowed' : ''} touch-manipulation`}
+                                  title={!isPaymentApproved ? `Payment must be approved first (Current: ${currentPaymentStatus})` : 'Mark as unavailable'}
                                 >
                                   <ApperIcon name="XCircle" size={14} className="mr-1" />
                                   Unavailable
@@ -2419,7 +2479,7 @@ useEffect(() => {
                           } else {
                             return (
                               <div className="flex items-center space-x-2">
-                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center ${
                                   getAvailabilityStatus(order, item.productId) === 'available' 
                                     ? 'bg-green-100 text-green-800' 
                                     : 'bg-red-100 text-red-800'
@@ -2439,7 +2499,8 @@ useEffect(() => {
                                     const currentStatus = getAvailabilityStatus(order, item.productId);
                                     handleAvailabilityUpdate(order.id, item.productId, currentStatus !== 'available');
                                   }}
-                                  className={!isPaymentApproved ? 'opacity-50 cursor-not-allowed' : ''}
+                                  className={`${!isPaymentApproved ? 'opacity-50 cursor-not-allowed' : ''} touch-manipulation fab-secondary`}
+                                  title={!isPaymentApproved ? `Payment must be approved first (Current: ${currentPaymentStatus})` : 'Change availability status'}
                                 >
                                   <ApperIcon name="RefreshCw" size={14} />
                                 </Button>
@@ -2525,45 +2586,84 @@ const VendorFulfillmentTab = ({ vendor }) => {
     }
   };
 
+// Enhanced one-click payment processing with confirmation modal
 const handleProcessPayment = async (orderId) => {
     try {
-      // Check payment approval status before processing
+      // Enhanced payment approval status check with new four-state system
       const order = filteredOrders.find(o => o.id === orderId);
       if (!order) {
         toast.error('Order not found');
         return;
       }
 
-      if (order.adminPaymentApproval !== 'approved' && !order.payment_verified) {
-        toast.error('Payment must be approved by admin before processing');
+      const paymentStatus = order.paymentApprovalStatus || order.adminPaymentApproval || 'pending';
+      
+      if (paymentStatus !== 'approved' && !order.payment_verified) {
+        const statusMessages = {
+          'pending_approval': 'Payment is pending admin approval',
+          'requires_verification': 'Payment requires admin verification first',
+          'declined': 'Payment has been declined by admin'
+        };
+        
+        toast.error(`❌ Cannot process payment: ${statusMessages[paymentStatus] || 'Payment not approved'}`);
         return;
       }
 
-      // Show confirmation modal for one-click processing
+      // Enhanced confirmation modal with payment details
       const confirmed = window.confirm(
-        `Process payment for Order #${orderId}?\n\nThis will mark the payment as processed and notify the admin.`
+        `🔄 Process Payment for Order #${orderId}?\n\n` +
+        `💰 Amount: Rs. ${order.total || order.totalAmount || 0}\n` +
+        `📋 Status: ${paymentStatus.replace('_', ' ').toUpperCase()}\n` +
+        `👤 Customer: ${order.deliveryAddress?.name || 'N/A'}\n\n` +
+        `This will:\n` +
+        `• Mark payment as processed\n` +
+        `• Notify admin immediately\n` +
+        `• Update order workflow\n\n` +
+        `Continue?`
       );
 
       if (!confirmed) return;
 
-      await orderService.updateFulfillmentStage(orderId, 'payment_processed');
-      await loadFulfillmentOrders();
-      toast.success('✅ Payment processed successfully - Admin notified');
+      // Show processing indicator
+      toast.info('🔄 Processing payment...', { autoClose: 2000 });
 
-      // Broadcast payment processing update
+      await orderService.updateFulfillmentStage(orderId, 'payment_processed', {
+        vendorId: vendor.Id,
+        processedAt: new Date().toISOString(),
+        paymentAmount: order.total || order.totalAmount || 0
+      });
+      
+      await loadFulfillmentOrders();
+      
+      // Enhanced success notification with payment details
+      toast.success(`✅ Payment Processed Successfully!\n\nOrder #${orderId} - Rs. ${order.total || order.totalAmount || 0}\nAdmin has been notified`, {
+        autoClose: 5000
+      });
+
+      // Enhanced real-time broadcast with detailed payment processing info
       if (typeof window !== 'undefined' && window.webSocketService) {
         window.webSocketService.send({
           type: 'vendor_payment_processed',
           data: {
             orderId: orderId,
             vendorId: vendor.Id,
+            vendorName: vendor.businessName || vendor.name,
+            paymentAmount: order.total || order.totalAmount || 0,
+            customerName: order.deliveryAddress?.name,
+            paymentApprovalStatus: 'approved',
+            statusSymbol: '✅',
+            statusVariant: 'success',
             timestamp: new Date().toISOString(),
-            status: 'processed'
+            status: 'processed',
+            notificationText: `Payment processed by ${vendor.businessName || vendor.name} - Ready for admin confirmation`
           }
         });
       }
     } catch (error) {
-      toast.error('❌ Failed to process payment: ' + error.message);
+      console.error('Payment processing error:', error);
+      toast.error(`❌ Failed to process payment: ${error.message}`, {
+        autoClose: 6000
+      });
     }
   };
 
@@ -2598,42 +2698,49 @@ const handleProcessPayment = async (orderId) => {
     return matchesSearch && matchesStage;
   });
 
+// Enhanced stage color mapping with priority-based visual hierarchy
   const getStageColor = (stage) => {
     switch (stage) {
-      case 'availability_confirmed': return 'bg-blue-100 text-blue-800';
-      case 'packed': return 'bg-green-100 text-green-800';
-      case 'payment_processed': return 'bg-yellow-100 text-yellow-800';
-      case 'admin_paid': return 'bg-purple-100 text-purple-800';
-      case 'handed_over': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'availability_confirmed': return 'bg-blue-100 text-blue-800 border border-blue-200';
+      case 'packed': return 'bg-green-100 text-green-800 border border-green-200';
+      case 'payment_processed': return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+      case 'admin_paid': return 'bg-purple-100 text-purple-800 border border-purple-200';
+      case 'handed_over': return 'bg-gray-100 text-gray-800 border border-gray-200';
+      default: return 'bg-gray-100 text-gray-800 border border-gray-200';
     }
   };
 
+  // Enhanced card styling with gradient backgrounds and priority indicators
   const getCardColor = (stage) => {
     switch (stage) {
       case 'packed':
+        return 'border-l-4 border-l-green-500 bg-gradient-to-r from-green-50 to-white priority-high-card';
       case 'payment_processed':
+        return 'border-l-4 border-l-yellow-500 bg-gradient-to-r from-yellow-50 to-white priority-medium-card';
       case 'admin_paid':
-        return 'border-l-4 border-l-green-500 bg-green-50';
+        return 'border-l-4 border-l-purple-500 bg-gradient-to-r from-purple-50 to-white priority-high-card';
       case 'availability_confirmed':
-        return 'border-l-4 border-l-yellow-500 bg-yellow-50';
+        return 'border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50 to-white priority-low-card';
+      case 'handed_over':
+        return 'border-l-4 border-l-gray-400 bg-gradient-to-r from-gray-50 to-white';
       default:
         return 'border-l-4 border-l-gray-300 bg-white';
     }
   };
 
+// Enhanced next action mapping with payment flow integration
   const getNextAction = (stage) => {
     switch (stage) {
       case 'availability_confirmed':
-        return { action: 'pack', label: 'Pack Products', icon: 'Package' };
+        return { action: 'pack', label: 'Pack Products', icon: 'Package', priority: 'high' };
       case 'packed':
-        return { action: 'process_payment', label: 'Process Payment', icon: 'CreditCard' };
+        return { action: 'process_payment', label: 'Process Payment', icon: 'CreditCard', priority: 'critical' };
       case 'payment_processed':
-        return { action: 'await_admin', label: 'Awaiting Admin Payment', icon: 'Clock', disabled: true };
+        return { action: 'await_admin', label: 'Awaiting Admin Payment', icon: 'Clock', disabled: true, priority: 'waiting' };
       case 'admin_paid':
-        return { action: 'handover', label: 'Handover to Delivery', icon: 'Truck' };
+        return { action: 'handover', label: 'Handover to Delivery', icon: 'Truck', priority: 'high' };
       case 'handed_over':
-        return { action: 'completed', label: 'Completed', icon: 'CheckCircle', disabled: true };
+        return { action: 'completed', label: 'Completed', icon: 'CheckCircle', disabled: true, priority: 'completed' };
       default:
         return null;
     }
@@ -2688,41 +2795,61 @@ const handleProcessPayment = async (orderId) => {
                   <div className="flex items-center space-x-4">
                     <h3 className="font-semibold text-gray-900">Order #{order.id}</h3>
                     <span className={`px-3 py-1 text-xs font-medium rounded-full ${getStageColor(order.fulfillment_stage)}`}>
-                      {order.fulfillment_stage?.replace('_', ' ').toUpperCase() || 'PENDING'}
+{order.fulfillment_stage?.replace('_', ' ').toUpperCase() || 'PENDING'}
                     </span>
                     <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-medium rounded">
                       {order.deliveryAddress?.name || 'N/A'}
                     </span>
+                    {/* Payment status indicator for fulfillment stage */}
+                    {(() => {
+                      const paymentStatus = order.paymentApprovalStatus || order.adminPaymentApproval || 'pending';
+                      const statusSymbol = paymentStatus === 'approved' ? '✅' : 
+                                          paymentStatus === 'requires_verification' ? '⚠️' :
+                                          paymentStatus === 'declined' ? '❌' : '◻️';
+                      return (
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center ${
+                          paymentStatus === 'approved' ? 'bg-green-100 text-green-800' :
+                          paymentStatus === 'requires_verification' ? 'bg-orange-100 text-orange-800' :
+                          paymentStatus === 'declined' ? 'bg-red-100 text-red-800' :
+                          'bg-blue-100 text-blue-800'
+                        }`}>
+                          <span className="mr-1">{statusSymbol}</span>
+                          Payment
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div className="text-sm text-gray-600">
                     {formatCurrency(order.total)}
                   </div>
                 </div>
 
-                {/* Order Items */}
+                {/* Collapsible Order Items Section */}
                 <div className="mb-4">
-                  <div className="space-y-2">
-                    {order.items?.filter(item => 
-                      (item.productId % 3 + 1) === vendor.Id
-                    ).map((item) => (
-                      <div key={item.productId} className="flex items-center justify-between p-2 bg-white rounded border">
-                        <div>
-                          <span className="font-medium text-gray-900">{item.name}</span>
-                          <span className="text-sm text-gray-600 ml-2">
-                            {item.quantity} {item.unit} × {formatCurrency(item.price)}
+                  <div className="order-items-section expanded">
+                    <div className="space-y-2">
+                      {order.items?.filter(item => 
+                        (item.productId % 3 + 1) === vendor.Id
+                      ).map((item) => (
+                        <div key={item.productId} className="flex items-center justify-between p-2 bg-white rounded border hover:bg-gray-50 transition-colors">
+                          <div>
+                            <span className="font-medium text-gray-900">{item.name}</span>
+                            <span className="text-sm text-gray-600 ml-2">
+                              {item.quantity} {item.unit} × {formatCurrency(item.price)}
+                            </span>
+                          </div>
+                          <span className="font-medium text-gray-900">
+                            {formatCurrency(item.price * item.quantity)}
                           </span>
                         </div>
-                        <span className="font-medium text-gray-900">
-                          {formatCurrency(item.price * item.quantity)}
-                        </span>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                {/* Delivery Assignment Info */}
+                {/* Enhanced Delivery Assignment Info */}
                 {order.assignedDelivery && (
-                  <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                  <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                     <div className="flex items-center mb-2">
                       <ApperIcon name="Truck" size={16} className="text-blue-600 mr-2" />
                       <span className="font-medium text-blue-900">Delivery Assignment</span>
@@ -2748,7 +2875,7 @@ const handleProcessPayment = async (orderId) => {
                   </div>
                 )}
 
-                {/* Action Button */}
+                {/* Enhanced Action Button with Priority Styling */}
                 {nextAction && (
                   <div className="flex justify-end">
                     <Button
@@ -2761,12 +2888,21 @@ const handleProcessPayment = async (orderId) => {
                           handleHandover(order);
                         }
                       }}
-                      variant={nextAction.disabled ? "outline" : "primary"}
+                      variant={nextAction.disabled ? "outline" : nextAction.priority === 'critical' ? "primary" : "primary"}
                       size="sm"
                       disabled={nextAction.disabled}
+                      className={`touch-manipulation ${
+                        nextAction.priority === 'critical' ? 'fab-primary animate-pulse' :
+                        nextAction.priority === 'high' ? 'fab-secondary' : ''
+                      }`}
                     >
                       <ApperIcon name={nextAction.icon} size={16} className="mr-2" />
                       {nextAction.label}
+                      {nextAction.priority === 'critical' && (
+                        <span className="ml-2 text-xs bg-white bg-opacity-20 px-2 py-0.5 rounded-full">
+                          URGENT
+                        </span>
+                      )}
                     </Button>
                   </div>
                 )}

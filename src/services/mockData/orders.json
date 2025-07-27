@@ -26,7 +26,14 @@
       "fileSize": 2048,
       "uploadedAt": "2024-01-15T10:30:00Z"
     },
-"status": "delivered",
+    "status": "delivered",
+    "verificationStatus": "verified",
+    "adminPaymentApproval": "approved",
+    "payment_verified": true,
+    "paymentApprovalStatus": "approved",
+    "adminApprovalTimestamp": "2024-01-15T10:45:00Z",
+    "vendorNotified": true,
+    "vendor_visibility": "immediate",
     "deliveryPersonId": 1,
     "deliveryStatus": "delivered",
     "estimatedDelivery": "2024-01-15T12:00:00Z",
@@ -93,7 +100,7 @@
     },
     "createdAt": "2024-01-16T13:30:00Z"
   },
-  {
+{
     "id": 3,
     "customerId": "user789",
     "items": [
@@ -116,7 +123,14 @@
     "deliveryCharge": 150,
     "paymentMethod": "cash",
     "paymentProof": null,
-"status": "packed",
+    "status": "packed",
+    "adminPaymentApproval": "approved",
+    "payment_verified": false,
+    "paymentApprovalStatus": "approved",
+    "adminApprovalTimestamp": "2024-01-17T17:00:00Z",
+    "vendorNotified": true,
+    "vendor_visibility": "immediate",
+    "fulfillment_stage": "packed",
     "deliveryPersonId": 3,
     "deliveryStatus": "assigned",
     "estimatedDelivery": "2024-01-18T14:00:00Z",
@@ -183,7 +197,7 @@
     },
     "createdAt": "2024-01-18T10:00:00Z"
   },
-  {
+{
     "id": 5,
     "customerId": "user202",
     "items": [
@@ -210,7 +224,14 @@
       "fileSize": 1800,
       "uploadedAt": "2024-01-19T15:30:00Z"
     },
-"status": "pending",
+    "status": "awaiting_payment_verification",
+    "verificationStatus": "pending",
+    "adminPaymentApproval": "pending",
+    "payment_verified": false,
+    "paymentApprovalStatus": "requires_verification",
+    "adminApprovalTimestamp": null,
+    "vendorNotified": false,
+    "vendor_visibility": "immediate",
     "deliveryPersonId": null,
     "deliveryStatus": "pending_assignment",
     "estimatedDelivery": "2024-01-20T15:00:00Z",
@@ -221,7 +242,7 @@
       "email": "usman@example.com",
       "address": "654 Model Town, Block C",
       "city": "Lahore",
-"postalCode": "54700",
+      "postalCode": "54700",
       "coordinates": {
         "lat": 31.5497,
         "lng": 74.3436
@@ -271,7 +292,7 @@
     },
     "createdAt": "2024-01-20T08:45:00Z"
   },
-  {
+{
     "id": 7,
     "customerId": "user404",
     "items": [
@@ -300,6 +321,13 @@
     },
     "status": "confirmed",
     "verificationStatus": "verified",
+    "adminPaymentApproval": "approved",
+    "payment_verified": true,
+    "paymentApprovalStatus": "approved",
+    "adminApprovalTimestamp": "2024-01-21T10:30:00Z",
+    "vendorNotified": true,
+    "vendor_visibility": "immediate",
+    "fulfillment_stage": "availability_confirmed",
     "deliveryPersonId": null,
     "deliveryStatus": "pending_assignment",
     "estimatedDelivery": "2024-01-22T16:00:00Z",
@@ -316,7 +344,7 @@
         "lng": 74.2728
       },
       "instructions": "Please call before arriving"
-},
+    },
 "createdAt": "2024-01-21T09:30:00Z"
   },
   {
@@ -337,7 +365,7 @@
         "quantity": 1,
         "unit": "kg"
       }
-    ],
+],
     "total": 1200,
     "deliveryCharge": 150,
     "paymentMethod": "jazzcash",
@@ -347,8 +375,14 @@
       "fileSize": 2048,
       "uploadedAt": "2024-01-22T14:30:00Z"
     },
-    "status": "payment_pending",
+    "status": "awaiting_payment_verification",
     "verificationStatus": "pending",
+    "adminPaymentApproval": "pending",
+    "payment_verified": false,
+    "paymentApprovalStatus": "requires_verification",
+    "adminApprovalTimestamp": null,
+    "vendorNotified": false,
+    "vendor_visibility": "immediate",
     "deliveryPersonId": null,
     "deliveryStatus": "pending_assignment",
     "estimatedDelivery": "2024-01-23T16:00:00Z",

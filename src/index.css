@@ -95,9 +95,11 @@
   100% { transform: scale(1); }
 }
 
-/* Approval Status Badge Animations */
+/* Enhanced Approval Status Badge Animations */
 .approval-badge {
   transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .approval-badge.pending {
@@ -107,6 +109,57 @@
 @keyframes approval-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.6; }
+}
+
+/* Priority-based Badge Animations */
+.priority-badge {
+  position: relative;
+  overflow: hidden;
+}
+
+.priority-badge.high::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: priority-shimmer 2s infinite;
+}
+
+@keyframes priority-shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+/* Enhanced Payment Status System Animations */
+.payment-status-approved {
+  animation: payment-success-pulse 2s infinite;
+}
+
+.payment-status-requires-verification {
+  animation: payment-warning-pulse 2s infinite;
+}
+
+.payment-status-declined {
+  animation: payment-error-shake 0.5s ease-in-out;
+}
+
+@keyframes payment-success-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.3); }
+  50% { box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.1); }
+}
+
+@keyframes payment-warning-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.3); }
+  50% { box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1); }
+}
+
+@keyframes payment-error-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+  20%, 40%, 60%, 80% { transform: translateX(2px); }
 }
 
 /* Progressive Image Loading */
@@ -441,8 +494,6 @@
   .horizontal-timeline-container {
     overflow-x: visible;
   }
-  
-  .swipe-actions-container {
 .swipe-actions-container {
     overflow-x: visible;
   }
@@ -495,29 +546,69 @@
   }
 }
 
-/* Priority-based Order Card Animations */
+/* Enhanced Priority-based Order Card Animations with Four-State System */
 .priority-high-card {
-  animation: priority-pulse 2s infinite;
-  border-left: 4px solid #ef4444;
+  animation: priority-high-pulse 2s infinite;
+  position: relative;
 }
 
 .priority-medium-card {
-  border-left: 4px solid #f97316;
-  background: linear-gradient(135deg, rgba(249, 115, 22, 0.05), transparent);
+  animation: priority-medium-pulse 3s infinite;
+  position: relative;
 }
 
 .priority-low-card {
-  border-left: 4px solid #22c55e;
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.05), transparent);
+  transition: all 0.3s ease;
+  position: relative;
 }
 
-@keyframes priority-pulse {
+.priority-high-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(34, 197, 94, 0.2);
+}
+
+.priority-medium-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 32px rgba(249, 115, 22, 0.15);
+}
+
+.priority-low-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.1);
+}
+
+@keyframes priority-high-pulse {
   0%, 100% {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   }
   50% {
-    box-shadow: 0 8px 32px rgba(239, 68, 68, 0.2);
+    box-shadow: 0 8px 32px rgba(34, 197, 94, 0.2);
     transform: translateY(-1px);
+  }
+}
+
+@keyframes priority-medium-pulse {
+  0%, 100% {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 6px 24px rgba(249, 115, 22, 0.15);
+  }
+}
+
+/* Real-time Order Sync Visual Indicators */
+.live-order-indicator {
+  animation: live-order-pulse 1.5s infinite;
+}
+
+@keyframes live-order-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
   }
 }
 
@@ -581,21 +672,37 @@
   border-radius: 6px;
 }
 
-/* Priority Badge Animations */
+/* Enhanced Priority Badge Animations with Four-State Payment System */
 .priority-badge {
   position: relative;
   overflow: hidden;
+  transition: all 0.3s ease;
 }
 
-.priority-badge.high::after {
+.priority-badge.approved::after {
   content: '';
   position: absolute;
   top: 0;
   left: -100%;
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.4), transparent);
   animation: priority-shimmer 2s infinite;
+}
+
+.priority-badge.requires-verification::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(249, 115, 22, 0.4), transparent);
+  animation: priority-shimmer 3s infinite;
+}
+
+.priority-badge.declined {
+  animation: priority-error-shake 0.5s ease-in-out;
 }
 
 @keyframes priority-shimmer {
@@ -603,10 +710,17 @@
   100% { left: 100%; }
 }
 
-/* Improved Visual Hierarchy */
+@keyframes priority-error-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-1px); }
+  20%, 40%, 60%, 80% { transform: translateX(1px); }
+}
+
+/* Enhanced Order Card Visual Hierarchy */
 .order-card-enhanced {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  overflow: hidden;
 }
 
 .order-card-enhanced:hover {
@@ -614,17 +728,103 @@
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
 }
 
-.order-card-enhanced.priority-high {
-  background: linear-gradient(135deg, rgba(239, 68, 68, 0.05), rgba(239, 68, 68, 0.02));
+.order-card-enhanced::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--priority-gradient, linear-gradient(90deg, transparent, transparent));
+  transition: all 0.3s ease;
 }
 
-.order-card-enhanced.priority-medium {
-  background: linear-gradient(135deg, rgba(249, 115, 22, 0.05), rgba(249, 115, 22, 0.02));
+.order-card-enhanced.priority-high::before {
+  --priority-gradient: linear-gradient(90deg, #22c55e, #16a34a, #15803d);
 }
 
-.order-card-enhanced.priority-low {
-  background: linear-gradient(135deg, rgba(34, 197, 94, 0.05), rgba(34, 197, 94, 0.02));
+.order-card-enhanced.priority-medium::before {
+  --priority-gradient: linear-gradient(90deg, #f97316, #ea580c, #dc2626);
 }
+
+.order-card-enhanced.priority-low::before {
+  --priority-gradient: linear-gradient(90deg, #3b82f6, #2563eb, #1d4ed8);
+}
+
+/* Collapsible Order Sections Enhancement */
+.order-items-section {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.order-items-section.expanded {
+  max-height: 600px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.order-items-section.collapsed {
+  max-height: 80px;
+  opacity: 0.8;
+  transform: translateY(-2px);
+}
+
+/* Payment Status Timeline Animations */
+.payment-status-timeline {
+  position: relative;
+}
+
+.payment-status-timeline::before {
+  content: '';
+  position: absolute;
+  left: 12px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, var(--timeline-color, #e5e7eb), transparent);
+  transition: all 0.5s ease;
+}
+
+.payment-status-approved .payment-status-timeline::before {
+  --timeline-color: #22c55e;
+}
+
+.payment-status-requires-verification .payment-status-timeline::before {
+  --timeline-color: #f97316;
+}
+
+.payment-status-declined .payment-status-timeline::before {
+  --timeline-color: #ef4444;
+}
+
+/* One-click Processing Button Enhancements */
+.one-click-payment {
+  position: relative;
+  overflow: hidden;
+}
+
+.one-click-payment::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  transition: left 0.5s ease;
+}
+
+.one-click-payment:hover::after {
+  left: 100%;
+}
+
+.one-click-payment.processing::after {
+  animation: processing-shimmer 1s infinite;
+}
+
+@keyframes processing-shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
 }
 /* Payment Error Styles */
 .payment-error-container {

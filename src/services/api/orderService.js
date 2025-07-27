@@ -219,7 +219,7 @@ class OrderService {
       }
 
       // Initialize vendor availability tracking
-      const vendorAvailability = orderData.vendor_availability || {};
+const vendorAvailability = orderData.vendor_availability || {};
       
       const newOrder = {
         id: this.getNextId(),
@@ -234,12 +234,16 @@ class OrderService {
         approvalStatus: orderData.approvalStatus || 'pending',
         approvalRequestId: orderData.approvalRequestId || null,
         priceApprovalRequired: orderData.priceApprovalRequired || false,
-        // Enhanced payment verification tracking
+        // Enhanced payment verification tracking with new status system
         verificationStatus: orderData.verificationStatus || null,
         paymentVerificationRequired: orderData.paymentProof ? true : false,
         adminPaymentApproval: orderData.adminPaymentApproval || 'pending',
-        // Backend schema alignment - payment_verified boolean field
+        // Backend schema alignment - payment_verified boolean field for Phase 1
         payment_verified: orderData.payment_verified || false,
+        // Enhanced payment approval tracking for vendor portal workflow
+        paymentApprovalStatus: orderData.paymentApprovalStatus || 'pending_approval',
+        adminApprovalTimestamp: null,
+        vendorNotified: false,
         // Vendor availability tracking (JSONB structure)
         vendor_availability: vendorAvailability,
         // Real-time vendor visibility for Phase 1 implementation
@@ -253,13 +257,17 @@ class OrderService {
         processingTime: 0 // Will be updated at the end
       };
 // Handle wallet payments
-      if (orderData.paymentMethod === 'wallet') {
+if (orderData.paymentMethod === 'wallet') {
         try {
           const walletTransaction = await paymentService.processWalletPayment(orderData.total, newOrder.id);
           newOrder.paymentResult = walletTransaction;
           newOrder.paymentStatus = 'completed';
           newOrder.adminPaymentApproval = 'approved';
           newOrder.payment_verified = true;
+          // Enhanced payment approval for wallet payments - instant approval
+          newOrder.paymentApprovalStatus = 'approved';
+          newOrder.adminApprovalTimestamp = new Date().toISOString();
+          newOrder.vendorNotified = true;
         } catch (walletError) {
           // Enhanced wallet error handling
           const error = new Error('Wallet payment failed: ' + walletError.message);
@@ -312,7 +320,7 @@ class OrderService {
       this.orders.push(newOrder);
       
       // Real-time order sync - broadcast to vendors immediately
-      if (typeof window !== 'undefined' && window.webSocketService) {
+if (typeof window !== 'undefined' && window.webSocketService) {
         try {
           window.webSocketService.send({
             type: 'order_created_immediate',
@@ -322,13 +330,20 @@ class OrderService {
               vendor_visibility: newOrder.vendor_visibility,
               paymentStatus: newOrder.paymentStatus,
               adminPaymentApproval: newOrder.adminPaymentApproval,
+              payment_verified: newOrder.payment_verified,
+              paymentApprovalStatus: newOrder.paymentApprovalStatus,
+              vendorNotified: newOrder.vendorNotified,
               timestamp: newOrder.createdAt,
               items: newOrder.items,
               totalAmount: newOrder.totalAmount,
               customerInfo: {
                 name: newOrder.deliveryAddress?.name,
                 phone: newOrder.deliveryAddress?.phone
-              }
+              },
+              // Enhanced payment status indicators for vendor portal
+              statusSymbol: this.getPaymentStatusSymbol(newOrder),
+              statusVariant: this.getPaymentStatusVariant(newOrder),
+              canProcessPayment: this.canProcessPayment(newOrder)
             },
             timestamp: new Date().toISOString()
           });
@@ -616,12 +631,16 @@ async getPendingVerifications() {
       paymentProofFileName: order?.paymentProof?.fileName || order?.paymentProofFileName || 'unknown',
       submittedAt: order?.paymentProof?.uploadedAt || order?.paymentProofSubmittedAt || order?.createdAt,
       verificationStatus: order?.verificationStatus || 'pending',
-      // Enhanced Payment Status System
+      // Enhanced Payment Status System with New Four-State Approval
       adminPaymentApproval: order?.adminPaymentApproval || 'pending',
       payment_verified: order?.payment_verified || false,
       paymentStatusSymbol: this.getPaymentStatusSymbol(order),
       statusVariant: this.getPaymentStatusVariant(order),
       canProcessPayment: this.canProcessPayment(order),
+      // New payment approval status tracking for vendor workflow
+      paymentApprovalStatus: order?.paymentApprovalStatus || 'pending_approval',
+      adminApprovalTimestamp: order?.adminApprovalTimestamp || null,
+      vendorNotified: order?.vendorNotified || false,
       // Enhanced Payment Flow Status Tracking
       flowStage: order?.paymentFlowStage || 'pending_approval',
       vendorProcessed: order?.vendorProcessed || false,
@@ -689,11 +708,15 @@ async updateVerificationStatus(orderId, status, notes = '') {
     verifiedAt: new Date().toISOString(),
     verifiedBy: 'admin',
     paymentStatus: status === 'verified' ? 'completed' : 'verification_failed',
-    // Enhanced admin payment approval tracking with new status system
+    // Enhanced admin payment approval tracking with new four-state system
     adminPaymentApproval: status === 'verified' ? 'approved' : 'rejected',
-    // Backend schema alignment - payment_verified boolean
+    // Backend schema alignment - payment_verified boolean for Phase 1
     payment_verified: status === 'verified',
     adminPaymentApprovalAt: new Date().toISOString(),
+    // New payment approval status for vendor portal workflow
+    paymentApprovalStatus: status === 'verified' ? 'approved' : 'declined',
+    adminApprovalTimestamp: new Date().toISOString(),
+    vendorNotified: true,
     updatedAt: new Date().toISOString()
   };
 
@@ -713,7 +736,7 @@ async updateVerificationStatus(orderId, status, notes = '') {
       }
     }, 100);
 
-    // Enhanced real-time broadcast for payment approval with new status system
+    // Enhanced real-time broadcast for payment approval with new status indicators
     if (typeof window !== 'undefined' && window.webSocketService) {
       try {
         window.webSocketService.send({
@@ -723,10 +746,13 @@ async updateVerificationStatus(orderId, status, notes = '') {
             adminPaymentApproval: 'approved',
             verificationStatus: 'verified',
             payment_verified: true,
+            paymentApprovalStatus: 'approved',
             statusSymbol: '✅',
+            statusVariant: 'success',
             canProcessPayment: true,
             notificationText: 'Payment approved - Ready to process',
-            timestamp: updatedOrder.adminPaymentApprovalAt
+            timestamp: updatedOrder.adminPaymentApprovalAt,
+            vendorNotified: true
           }
         });
       } catch (wsError) {
@@ -738,7 +764,7 @@ async updateVerificationStatus(orderId, status, notes = '') {
     updatedOrder.paymentRejectedAt = new Date().toISOString();
     updatedOrder.approvalStatus = 'rejected'; // Update approval status
 
-    // Enhanced real-time broadcast for payment rejection
+    // Enhanced real-time broadcast for payment rejection with new status indicators
     if (typeof window !== 'undefined' && window.webSocketService) {
       try {
         window.webSocketService.send({
@@ -748,10 +774,13 @@ async updateVerificationStatus(orderId, status, notes = '') {
             adminPaymentApproval: 'rejected',
             verificationStatus: 'rejected',
             payment_verified: false,
+            paymentApprovalStatus: 'declined',
             statusSymbol: '❌',
+            statusVariant: 'danger',
             rejectionReason: notes,
             requiresAction: true,
-            timestamp: updatedOrder.adminPaymentApprovalAt
+            timestamp: updatedOrder.adminPaymentApprovalAt,
+            vendorNotified: true
           }
         });
       } catch (wsError) {
@@ -1143,7 +1172,7 @@ async getPendingAvailabilityRequests() {
 }
 
   // Enhanced Fulfillment Workflow Methods with Payment Flow Integration
-  // Enhanced Fulfillment Workflow Methods with New Payment Approval System
+// Enhanced Fulfillment Workflow Methods with New Payment Approval System
   async updateFulfillmentStage(orderId, stage, additionalData = {}) {
   await this.delay();
   
@@ -1171,10 +1200,10 @@ async getPendingAvailabilityRequests() {
     order.order_status_timestamps = {};
   }
   
-  // Enhanced Payment Flow Integration with New Status System
+  // Enhanced Payment Flow Integration with New Four-State Approval System
   if (stage === 'payment_processed') {
-    // Enhanced payment approval check with new status system
-    if (!order.payment_verified && order.adminPaymentApproval !== 'approved') {
+    // Enhanced payment approval check with new status system - requires admin approval
+    if (!order.payment_verified && order.adminPaymentApproval !== 'approved' && order.paymentApprovalStatus !== 'approved') {
       throw new Error('Payment must be approved by admin before processing. Current status: ' + (order.adminPaymentApproval || 'pending'));
     }
     order.vendorProcessed = true;
@@ -1182,7 +1211,7 @@ async getPendingAvailabilityRequests() {
     order.paymentTimestamp = new Date().toISOString();
     order.paymentProcessedBy = additionalData.vendorId || 'vendor';
     
-    // Real-time notification for payment processing
+    // Real-time notification for payment processing with enhanced status tracking
     if (typeof window !== 'undefined' && window.webSocketService) {
       try {
         window.webSocketService.send({
@@ -1191,9 +1220,12 @@ async getPendingAvailabilityRequests() {
             orderId: orderId,
             vendorId: additionalData.vendorId,
             adminPaymentApproval: 'approved',
+            paymentApprovalStatus: 'approved',
             statusSymbol: '✅',
+            statusVariant: 'success',
             timestamp: order.paymentTimestamp,
-            status: 'processed'
+            status: 'processed',
+            notificationText: 'Payment processed by vendor - Admin notified'
           }
         });
       } catch (wsError) {
@@ -1211,6 +1243,8 @@ async getPendingAvailabilityRequests() {
     // Ensure payment approval is set when admin pays
     order.adminPaymentApproval = 'approved';
     order.payment_verified = true;
+    order.paymentApprovalStatus = 'approved';
+    order.adminApprovalTimestamp = new Date().toISOString();
   }
   
   // Auto-assign delivery personnel when moving to packed stage
@@ -1258,7 +1292,6 @@ this.orders[orderIndex] = order;
   return { ...order };
 }
 
-// Check if payment amounts match between vendor and admin
 // Check if payment amounts match between vendor and admin
 checkAmountMatch(order, adminPaymentAmount) {
   if (!adminPaymentAmount || !order.total) return false;
