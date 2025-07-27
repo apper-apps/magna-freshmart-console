@@ -10,9 +10,9 @@ import Loading from "@/components/ui/Loading";
 import Error from "@/components/ui/Error";
 import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
-import Input from "@/components/atoms/Input";
-import Button from "@/components/atoms/Button";
-import { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
+import Input, { Input } from "@/components/atoms/Input";
+import Button, { Button } from "@/components/atoms/Button";
+import formatCurrency, { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [vendor, setVendor] = useState(null);
@@ -2463,11 +2463,12 @@ variant: 'warning'
                   </div>
                 ))}
               </div>
+</div>
             </div>
           </div>
-        ))}
+        );
+      })}
       </div>
-
       {filteredOrders.length === 0 && (
         <div className="text-center py-12">
           <ApperIcon name="ClipboardList" size={48} className="mx-auto text-gray-400 mb-4" />
