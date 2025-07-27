@@ -2,20 +2,22 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
-import { formatCurrency } from "@/utils/currency";
-import { clipboardService } from "@/services/ClipboardService";
+import clipboardService from "@/services/ClipboardService";
 import { orderService } from "@/services/api/orderService";
 import ApperIcon from "@/components/ApperIcon";
-import { Badge } from "@/components/atoms/Badge";
-import { Button } from "@/components/atoms/Button";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
+import Loading from "@/components/ui/Loading";
 import Error from "@/components/ui/Error";
 import Empty from "@/components/ui/Empty";
-import Loading from "@/components/ui/Loading";
+import Badge from "@/components/atoms/Badge";
+import Button from "@/components/atoms/Button";
+import { formatCurrency } from "@/utils/currency";
+
 const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [collapsedOrders, setCollapsedOrders] = useState(new Set());
 
   useEffect(() => {
     loadOrders();
@@ -85,23 +87,51 @@ const Orders = () => {
       </div>
     );
   }
+const toggleOrderCollapse = (orderId) => {
+    setCollapsedOrders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+      }
+      return newSet;
+    });
+  };
 
+  const getOrderPriority = (order) => {
+    const now = new Date();
+    const orderDate = new Date(order.createdAt);
+    const hoursSinceOrder = (now - orderDate) / (1000 * 60 * 60);
+    
+    if (order.status === 'pending' && hoursSinceOrder > 24) return 'high';
+    if (order.status === 'confirmed' && hoursSinceOrder > 48) return 'high';
+    if (order.total > 5000) return 'medium';
+    return 'low';
+  };
+
+  const getPriorityColors = (priority) => {
+    switch (priority) {
+      case 'high':
+        return 'border-l-4 border-red-500 bg-red-50';
+      case 'medium':
+        return 'border-l-4 border-orange-500 bg-orange-50';
+      default:
+        return 'border-l-4 border-green-500 bg-green-50';
+    }
+  };
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-<div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
-        <Link 
-          to="/category/All"
-          className="flex items-center space-x-2 text-primary hover:text-primary-dark transition-colors"
-        >
-          <ApperIcon name="Plus" size={20} />
-          <span>Shop More</span>
-        </Link>
+<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
+          <p className="text-gray-600 mt-1">Track and manage your orders</p>
+        </div>
       </div>
       {/* Mobile-first responsive order cards */}
       <div className="space-y-4 sm:space-y-6">
         {orders.map((order) => (
-          <div key={order.id} className="card p-4 sm:p-6 hover:shadow-premium transition-shadow duration-300 mobile-order-card">
+<div key={order.id} className={`card p-4 sm:p-6 hover:shadow-premium transition-all duration-300 mobile-order-card ${getPriorityColors(getOrderPriority(order))}`}>
             {/* Mobile-optimized header */}
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-4">
               <div className="flex items-start space-x-3 sm:space-x-4 mb-3 sm:mb-0">
@@ -380,24 +410,46 @@ const Orders = () => {
                   </div>
                 </div>
               )}
-              
-              {/* Order Items Preview */}
+{/* Order Items Preview */}
               <div className="mt-4 pt-4 border-t border-gray-200">
-                <h4 className="text-sm font-medium text-gray-900 mb-3">Items ({order?.items?.length || 0})</h4>
-                <div className="space-y-2">
-                  {order?.items?.slice(0, 3)?.map((item, index) => (
-                    <div key={index} className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-600">{item.quantity}x</span>
-                      <span className="text-sm font-medium text-gray-900 truncate">
-                        {item.name}
-                      </span>
-                    </div>
-                  ))}
-                  {order?.items?.length > 3 && (
-                    <div className="text-sm text-gray-600">
-                      +{order.items.length - 3} more items
-                    </div>
-                  )}
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-medium text-gray-900">
+                    Items ({order?.items?.length || 0})
+                  </h4>
+                  <button
+                    onClick={() => toggleOrderCollapse(order.id)}
+                    className="flex items-center space-x-1 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                  >
+                    <span>{collapsedOrders.has(order.id) ? 'Show' : 'Hide'}</span>
+                    <ApperIcon 
+                      name={collapsedOrders.has(order.id) ? 'ChevronDown' : 'ChevronUp'} 
+                      size={16} 
+                      className="transition-transform duration-200"
+                    />
+                  </button>
+                </div>
+                
+                <div className={`order-items-section ${collapsedOrders.has(order.id) ? 'collapsed' : 'expanded'}`}>
+                  <div className="space-y-2">
+                    {(collapsedOrders.has(order.id) ? order?.items?.slice(0, 2) : order?.items)?.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between py-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-gray-600">{item.quantity}x</span>
+                          <span className="text-sm font-medium text-gray-900 truncate">
+                            {item.name}
+                          </span>
+                        </div>
+                        <span className="text-sm font-medium text-gray-900">
+                          Rs. {((item.quantity || 0) * (item.price || 0)).toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                    {collapsedOrders.has(order.id) && order?.items?.length > 2 && (
+                      <div className="text-sm text-gray-500 italic">
+                        +{order.items.length - 2} more items...
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               {/* Mobile-responsive order actions with swipe actions */}
@@ -512,6 +564,26 @@ const Orders = () => {
             </div>
           </div>
         ))}
+</div>
+
+      {/* Floating Action Buttons */}
+      <div className="fixed bottom-6 right-6 flex flex-col space-y-3 z-50">
+        <Link 
+          to="/category/All"
+          className="fab-primary flex items-center justify-center w-14 h-14 bg-gradient-to-r from-primary to-accent text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110"
+          title="Shop More"
+        >
+          <ApperIcon name="Plus" size={24} />
+        </Link>
+        
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fab-secondary flex items-center justify-center w-12 h-12 bg-white text-gray-600 rounded-full shadow-md hover:shadow-lg transition-all duration-300 hover:scale-110 border border-gray-200"
+          title="Scroll to Top"
+        >
+          <ApperIcon name="ArrowUp" size={20} />
+        </button>
+      </div>
       </div>
     </div>
   );
