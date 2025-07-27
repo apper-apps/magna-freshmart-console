@@ -9,8 +9,8 @@ import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
 import Loading from "@/components/ui/Loading";
 import Error from "@/components/ui/Error";
 import Empty from "@/components/ui/Empty";
-import { Badge } from "@/components/atoms/Badge";
-import { Button } from "@/components/atoms/Button";
+import Badge from "@/components/atoms/Badge";
+import Button from "@/components/atoms/Button";
 import { formatCurrency } from "@/utils/currency";
 const Orders = () => {
 const [orders, setOrders] = useState([]);
@@ -736,7 +736,6 @@ return (
         >
           <ApperIcon name="ArrowUp" size={20} />
 </button>
-      </div>
 </div>
     </div>
   );

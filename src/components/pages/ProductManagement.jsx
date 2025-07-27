@@ -1698,7 +1698,7 @@ handleVisibilityToggle={handleVisibilityToggle}
 };
 
 // Enhanced Bulk Actions Modal with Category Discounts and Validation
-const EnhancedBulkActionsModal = ({ products, categories, units, onUpdate, onClose }) => {
+const EnhancedBulkActionsModal = ({ products, categories, units, onUpdate, onClose, searchTerm = '', selectedCategory = 'All' }) => {
   const [activeTab, setActiveTab] = useState('pricing');
   const [updateData, setUpdateData] = useState({
 strategy: 'percentage',
