@@ -10,9 +10,9 @@ import Loading from "@/components/ui/Loading";
 import Error from "@/components/ui/Error";
 import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
-import Input from "@/components/atoms/Input";
-import Button from "@/components/atoms/Button";
-import { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
+import Input, { Input } from "@/components/atoms/Input";
+import Button, { Button } from "@/components/atoms/Button";
+import formatCurrency, { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [vendor, setVendor] = useState(null);
@@ -1232,10 +1232,10 @@ toast.info(`${statusIcon} New order #${data.orderId} - Payment: ${paymentStatus}
       rejectionUnsubscribe = webSocketService.subscribe('admin_payment_rejected', handleOrderUpdate);
     }
     
-    return () => {
+return () => {
       if (unsubscribe) unsubscribe();
       if (paymentUnsubscribe) paymentUnsubscribe();
-      if (rejectionUnsubscribe) rejectionUnsubscribed();
+      if (rejectionUnsubscribe) rejectionUnsubscribe();
     };
   }, [vendor]);
 
@@ -2347,10 +2347,10 @@ useEffect(() => {
                           symbol: '⚠️',
                           variant: 'warning'
                         };
-                      case 'pending_approval':
+case 'pending_approval':
                       case 'pending':
                       default:
-return {
+                        return {
                           label: 'Pending Approval',
                           icon: 'Clock',
                           color: 'text-blue-600',
@@ -2359,7 +2359,7 @@ return {
                           variant: 'info'
                         };
                     }
-                  })();
+                  };
                   const statusDisplay = getPaymentStatusDisplay(paymentStatus);
                   
                   return (
