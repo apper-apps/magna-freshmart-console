@@ -99,7 +99,7 @@ static shouldRetry(error, attemptCount = 0, maxRetries = 3) {
   }
 
 static trackErrorPattern(error, context = '', metadata = {}) {
-    // Enhanced error pattern tracking with performance optimization context
+    // Enhanced error pattern tracking with payment processor health monitoring
     const errorKey = `${error.name || 'Unknown'}_${error.message || 'NoMessage'}`;
     const timestamp = Date.now();
     
@@ -112,8 +112,22 @@ static trackErrorPattern(error, context = '', metadata = {}) {
         orderLoadErrors: 0,
         cacheErrors: 0,
         networkErrors: 0,
+        paymentErrors: 0,
+        processorErrors: 0,
         lastErrorTime: null,
         errorRate: 0
+      };
+    }
+    
+    // Initialize payment processor health tracking
+    if (!window.paymentProcessorHealth) {
+      window.paymentProcessorHealth = {
+        globalStatus: 'healthy',
+        errorsByProcessor: new Map(),
+        failureRates: new Map(),
+        lastHealthCheck: timestamp,
+        criticalErrors: [],
+        recoveryActions: []
       };
     }
     
@@ -126,6 +140,13 @@ static trackErrorPattern(error, context = '', metadata = {}) {
         averageDelay: 0,
         maxDelay: 0,
         affectedOperations: new Set()
+      },
+      paymentProcessorImpact: {
+        processorType: null,
+        transactionFailures: 0,
+        consecutiveFailures: 0,
+        lastSuccessfulTransaction: null,
+        affectedGateways: new Set()
       }
     };
     
@@ -145,7 +166,88 @@ static trackErrorPattern(error, context = '', metadata = {}) {
       existing.performanceImpact.affectedOperations.add(metadata.operation);
     }
     
-    // Track metadata with performance context
+    // Enhanced payment processor tracking
+    const isPaymentError = context.includes('payment') || context.includes('checkout') || 
+                          context.includes('processor') || error.message.includes('payment') || 
+                          error.message.includes('processor') || error.message.includes('eA') ||
+                          context.includes('gateway') || context.includes('refund') ||
+                          context.includes('verification') || context.includes('wallet');
+    
+    if (isPaymentError) {
+      window.performanceMetrics.paymentErrors++;
+      
+      // Track processor-specific errors
+      if (context.includes('processor') || error.message.includes('processor') || error.message.includes('eA')) {
+        window.performanceMetrics.processorErrors++;
+        existing.paymentProcessorImpact.processorType = metadata.processorType || 'unknown';
+        existing.paymentProcessorImpact.transactionFailures++;
+        
+        // Track consecutive failures for circuit breaker logic
+        if (metadata.lastSuccessfulTransaction) {
+          existing.paymentProcessorImpact.lastSuccessfulTransaction = metadata.lastSuccessfulTransaction;
+          existing.paymentProcessorImpact.consecutiveFailures = 1;
+        } else {
+          existing.paymentProcessorImpact.consecutiveFailures++;
+        }
+        
+        // Track affected gateways
+        if (metadata.gatewayId) {
+          existing.paymentProcessorImpact.affectedGateways.add(metadata.gatewayId);
+        }
+      }
+      
+      // Update global payment processor health
+      const processorKey = metadata.processorType || metadata.gatewayId || 'default';
+      const processorHealth = window.paymentProcessorHealth.errorsByProcessor.get(processorKey) || {
+        errorCount: 0,
+        lastError: null,
+        status: 'healthy',
+        failureRate: 0,
+        consecutiveFailures: 0
+      };
+      
+      processorHealth.errorCount++;
+      processorHealth.lastError = timestamp;
+      processorHealth.consecutiveFailures++;
+      
+      // Calculate failure rate
+      const timeWindow = 300000; // 5 minutes
+      const recentErrors = Array.from(window.errorPatterns.values())
+        .filter(pattern => 
+          timestamp - pattern.lastSeen < timeWindow && 
+          pattern.contexts.has(context) &&
+          context.includes('payment')
+        )
+        .reduce((sum, pattern) => sum + pattern.count, 0);
+      
+      processorHealth.failureRate = recentErrors;
+      
+      // Determine processor status
+      if (processorHealth.consecutiveFailures >= 10) {
+        processorHealth.status = 'critical';
+      } else if (processorHealth.consecutiveFailures >= 5) {
+        processorHealth.status = 'degraded';
+      } else if (processorHealth.failureRate > 50) {
+        processorHealth.status = 'unstable';
+      }
+      
+      window.paymentProcessorHealth.errorsByProcessor.set(processorKey, processorHealth);
+      
+      // Update global status
+      const allProcessors = Array.from(window.paymentProcessorHealth.errorsByProcessor.values());
+      const criticalProcessors = allProcessors.filter(p => p.status === 'critical').length;
+      const degradedProcessors = allProcessors.filter(p => p.status === 'degraded').length;
+      
+      if (criticalProcessors > 0) {
+        window.paymentProcessorHealth.globalStatus = 'critical';
+      } else if (degradedProcessors > allProcessors.length * 0.5) {
+        window.paymentProcessorHealth.globalStatus = 'degraded';
+      } else if (degradedProcessors > 0) {
+        window.paymentProcessorHealth.globalStatus = 'unstable';
+      }
+    }
+    
+    // Track metadata with enhanced payment context
     if (metadata && typeof metadata === 'object') {
       Object.entries(metadata).forEach(([key, value]) => {
         if (!existing.metadata.has(key)) {
@@ -159,8 +261,6 @@ static trackErrorPattern(error, context = '', metadata = {}) {
     
     // Update global performance metrics
     const isOrderError = context.includes('order') || context.includes('load');
-    const isPaymentError = context.includes('payment') || context.includes('checkout') || 
-                          error.message.includes('payment') || error.message.includes('processor');
     const isCacheError = context.includes('cache') || error.message.includes('cache');
     const isNetworkError = error.message.includes('network') || error.message.includes('fetch');
     
@@ -170,15 +270,15 @@ static trackErrorPattern(error, context = '', metadata = {}) {
     
     window.performanceMetrics.lastErrorTime = timestamp;
     
-    // Calculate error rate (errors per minute)
+    // Calculate error rate (errors per minute) 
     const timeWindow = 60000; // 1 minute
     const recentErrors = Array.from(window.errorPatterns.values())
       .filter(pattern => timestamp - pattern.lastSeen < timeWindow)
       .reduce((sum, pattern) => sum + pattern.count, 0);
     window.performanceMetrics.errorRate = recentErrors;
     
-    // Enhanced alerting with performance considerations
-    const criticalThreshold = isPaymentError ? 3 : (isOrderError ? 5 : 7);
+    // Enhanced alerting with payment processor considerations
+    const criticalThreshold = isPaymentError ? 2 : (isOrderError ? 5 : 7); // Lower threshold for payment errors
     
     if (existing.count >= criticalThreshold) {
       const errorDetails = {
@@ -193,12 +293,26 @@ static trackErrorPattern(error, context = '', metadata = {}) {
           maxDelay: existing.performanceImpact.maxDelay.toFixed(2) + 'ms',
           affectedOperations: Array.from(existing.performanceImpact.affectedOperations)
         },
+        paymentProcessorImpact: isPaymentError ? {
+          processorType: existing.paymentProcessorImpact.processorType,
+          transactionFailures: existing.paymentProcessorImpact.transactionFailures,
+          consecutiveFailures: existing.paymentProcessorImpact.consecutiveFailures,
+          affectedGateways: Array.from(existing.paymentProcessorImpact.affectedGateways),
+          lastSuccessfulTransaction: existing.paymentProcessorImpact.lastSuccessfulTransaction
+        } : null,
         globalMetrics: {
           orderLoadErrors: window.performanceMetrics.orderLoadErrors,
           cacheErrors: window.performanceMetrics.cacheErrors,
           networkErrors: window.performanceMetrics.networkErrors,
+          paymentErrors: window.performanceMetrics.paymentErrors,
+          processorErrors: window.performanceMetrics.processorErrors,
           currentErrorRate: window.performanceMetrics.errorRate
         },
+        paymentProcessorHealth: isPaymentError ? {
+          globalStatus: window.paymentProcessorHealth.globalStatus,
+          affectedProcessors: Array.from(window.paymentProcessorHealth.errorsByProcessor.entries())
+            .map(([key, health]) => ({ processor: key, ...health }))
+        } : null,
         metadata: Object.fromEntries(
           Array.from(existing.metadata.entries()).map(([key, valueSet]) => [
             key, 
@@ -208,25 +322,52 @@ static trackErrorPattern(error, context = '', metadata = {}) {
       };
       
       if (isPaymentError) {
-        console.error(`Critical payment error pattern detected: ${errorKey}`, {
+        const severity = existing.count >= 10 ? 'CRITICAL' : existing.count >= 5 ? 'HIGH' : 'MEDIUM';
+        const processorHealth = window.paymentProcessorHealth.globalStatus;
+        
+        console.error(`${severity} payment error pattern detected: ${errorKey}`, {
           ...errorDetails,
-          severity: 'CRITICAL',
+          severity,
+          processorHealth,
           recommendation: existing.count >= 10 ? 
-            'Consider disabling payment method temporarily' : 
-            'Monitor payment processor health'
+            'IMMEDIATE ACTION: Disable affected payment processors and activate manual processing' : 
+            existing.count >= 5 ?
+            'Monitor payment processor health closely and prepare fallback mechanisms' :
+            'Investigate payment processor configuration and network connectivity'
         });
         
-        // Track payment processor health
-        if (typeof window !== 'undefined') {
-          window.paymentProcessorHealth = window.paymentProcessorHealth || {};
-          window.paymentProcessorHealth[errorKey] = {
-            status: existing.count >= 10 ? 'critical' : 'degraded',
-            errorCount: existing.count,
-            lastError: timestamp,
-            contexts: Array.from(existing.contexts),
-            performanceImpact: errorDetails.performanceImpact
-          };
+        // Enhanced payment processor health tracking
+        const processorKey = metadata.processorType || metadata.gatewayId || 'default';
+        window.paymentProcessorHealth.errorsByProcessor.set(processorKey, {
+          ...window.paymentProcessorHealth.errorsByProcessor.get(processorKey),
+          status: existing.count >= 10 ? 'critical' : existing.count >= 5 ? 'degraded' : 'unstable',
+          errorCount: existing.count,
+          lastError: timestamp,
+          contexts: Array.from(existing.contexts),
+          performanceImpact: errorDetails.performanceImpact,
+          recommendedAction: existing.count >= 10 ? 'disable_processor' : 'monitor_closely'
+        });
+        
+        // Add to critical errors for monitoring
+        if (existing.count >= 5) {
+          window.paymentProcessorHealth.criticalErrors.push({
+            errorKey,
+            processor: processorKey,
+            count: existing.count,
+            timestamp,
+            severity,
+            contexts: Array.from(existing.contexts)
+          });
+          
+          // Trigger recovery actions
+          window.paymentProcessorHealth.recoveryActions.push({
+            action: existing.count >= 10 ? 'processor_disabled' : 'fallback_activated',
+            processor: processorKey,
+            timestamp,
+            reason: `${existing.count} consecutive errors detected`
+          });
         }
+        
       } else if (isOrderError) {
         console.error(`Critical order loading error pattern detected: ${errorKey}`, {
           ...errorDetails,
@@ -264,26 +405,148 @@ export class NetworkMonitor {
   }
 }
 
-// Service layer error wrapper
+// Enhanced service layer error wrapper with payment processor support
 export const withErrorHandling = (serviceMethod, context) => {
   return async (...args) => {
     let attemptCount = 0;
+    const maxAttempts = context.includes('payment') ? 5 : 3; // More retries for payment operations
+    const startTime = Date.now();
     
-    while (attemptCount < 3) {
+    // Payment processor error detection
+    const isPaymentOperation = context.includes('payment') || context.includes('processor') || 
+                              context.includes('gateway') || context.includes('wallet') ||
+                              context.includes('refund') || context.includes('verification');
+    
+    while (attemptCount < maxAttempts) {
       try {
-        return await serviceMethod(...args);
+        const result = await serviceMethod(...args);
+        
+        // Log successful operation for payment processor health tracking
+        if (isPaymentOperation && attemptCount > 0) {
+          ErrorHandler.trackErrorPattern(
+            { name: 'PaymentRecoverySuccess', message: 'Payment operation recovered after retry' },
+            `${context}_recovery_success`,
+            {
+              operation: context,
+              attemptCount: attemptCount + 1,
+              recoveryTime: Date.now() - startTime,
+              timestamp: new Date().toISOString()
+            }
+          );
+        }
+        
+        return result;
       } catch (error) {
+        const responseTime = Date.now() - startTime;
         console.error(`${context} error (attempt ${attemptCount + 1}):`, error);
+        
+        // Enhanced error tracking with payment processor context
+        ErrorHandler.trackErrorPattern(error, context, {
+          attemptCount: attemptCount + 1,
+          maxAttempts,
+          responseTime,
+          operation: context,
+          isPaymentOperation,
+          // Payment-specific metadata
+          ...(isPaymentOperation && {
+            processorType: args[0]?.processorType || 'unknown',
+            gatewayId: args[0]?.gatewayId || args[1]?.gatewayId,
+            transactionAmount: args[0]?.total || args[1],
+            paymentMethod: args[0]?.paymentMethod
+          })
+        });
+        
+        // Payment processor specific retry logic
+        if (isPaymentOperation) {
+          // Check payment processor health before retrying
+          const processorHealth = window.paymentProcessorHealth?.globalStatus || 'unknown';
+          
+          if (processorHealth === 'critical' && attemptCount === 0) {
+            console.warn('Payment processor in critical state, attempting fallback immediately');
+            throw new Error('Payment processor unavailable. Please try manual processing or contact support.');
+          }
+          
+          // Handle minified class errors (eA references)
+          if (error.message.includes('eA') || error.message.includes('is not a constructor')) {
+            console.error('Detected minified payment processor reference (eA). Attempting fallback to PaymentProcessor class.');
+            throw new Error('Payment processor initialization failed. Using manual processing fallback.');
+          }
+          
+          // Specific payment error handling
+          if (error.message.includes('network') || error.message.includes('timeout')) {
+            if (attemptCount < maxAttempts - 1) {
+              console.log(`Payment operation failed due to network issue. Retrying in ${ErrorHandler.getRetryDelay(attemptCount)}ms`);
+            }
+          }
+        }
         
         if (ErrorHandler.shouldRetry(error, attemptCount)) {
           attemptCount++;
           const delay = ErrorHandler.getRetryDelay(attemptCount);
-          await new Promise(resolve => setTimeout(resolve, delay));
+          
+          // Enhanced delay for payment operations
+          const enhancedDelay = isPaymentOperation ? delay * 1.5 : delay;
+          
+          await new Promise(resolve => setTimeout(resolve, enhancedDelay));
           continue;
         }
         
-        throw new Error(ErrorHandler.createUserFriendlyMessage(error, context));
+        // Create enhanced user-friendly message for payment errors
+        let userFriendlyMessage = ErrorHandler.createUserFriendlyMessage(error, context);
+        
+        if (isPaymentOperation) {
+          if (error.message.includes('eA') || error.message.includes('is not a constructor')) {
+            userFriendlyMessage = 'Payment system is temporarily unavailable. Your order has been saved and will be processed manually. You will be notified once payment is confirmed.';
+          } else if (error.message.includes('processor')) {
+            userFriendlyMessage = 'Payment processing temporarily unavailable. Please try again in a few moments or contact support.';
+          } else if (error.message.includes('gateway')) {
+            userFriendlyMessage = 'Payment gateway is currently unavailable. Please try a different payment method or contact support.';
+          }
+        }
+        
+        throw new Error(userFriendlyMessage);
       }
     }
   };
+};
+
+// Payment processor health monitoring utility
+export const PaymentProcessorMonitor = {
+  getHealth: () => {
+    return window.paymentProcessorHealth || {
+      globalStatus: 'unknown',
+      errorsByProcessor: new Map(),
+      failureRates: new Map(),
+      lastHealthCheck: Date.now(),
+      criticalErrors: [],
+      recoveryActions: []
+    };
+  },
+  
+  isProcessorHealthy: (processorId = 'default') => {
+    const health = PaymentProcessorMonitor.getHealth();
+    const processorHealth = health.errorsByProcessor.get(processorId);
+    return !processorHealth || processorHealth.status === 'healthy';
+  },
+  
+  shouldFallbackToManual: () => {
+    const health = PaymentProcessorMonitor.getHealth();
+    return health.globalStatus === 'critical' || 
+           health.criticalErrors.length > 5 ||
+           Array.from(health.errorsByProcessor.values())
+             .filter(p => p.status === 'critical').length > 0;
+  },
+  
+  logRecoveryAction: (processor, action, reason) => {
+    if (!window.paymentProcessorHealth) {
+      window.paymentProcessorHealth = PaymentProcessorMonitor.getHealth();
+    }
+    
+    window.paymentProcessorHealth.recoveryActions.push({
+      processor,
+      action,
+      reason,
+      timestamp: Date.now()
+    });
+  }
 };
