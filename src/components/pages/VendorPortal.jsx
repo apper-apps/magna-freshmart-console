@@ -10,8 +10,8 @@ import Loading from "@/components/ui/Loading";
 import Error from "@/components/ui/Error";
 import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
-import { Input } from "@/components/atoms/Input";
-import { Button } from "@/components/atoms/Button";
+import Input from "@/components/atoms/Input";
+import Button from "@/components/atoms/Button";
 import { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -1215,9 +1215,8 @@ toast.info(`${statusIcon} New order #${data.orderId} - Payment: ${paymentStatus}
         );
       }
     };
-
-    // Subscribe to real-time order updates with enhanced event handling
-let unsubscribe;
+// Subscribe to real-time order updates with enhanced event handling
+    let unsubscribe;
     let paymentUnsubscribe;
     let rejectionUnsubscribe;
     
