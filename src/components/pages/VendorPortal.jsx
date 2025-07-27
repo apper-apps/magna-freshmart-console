@@ -10,9 +10,9 @@ import Loading from "@/components/ui/Loading";
 import Error from "@/components/ui/Error";
 import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
-import Input from "@/components/atoms/Input";
-import Button from "@/components/atoms/Button";
-import formatCurrency, { calculateMargin, calculateTotals } from "@/utils/currency";
+import Input, { Input } from "@/components/atoms/Input";
+import Button, { Button } from "@/components/atoms/Button";
+import formatCurrency, { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [vendor, setVendor] = useState(null);
@@ -2347,13 +2347,13 @@ useEffect(() => {
                       case 'pending_approval':
                       case 'pending':
                       default:
-                        return {
+return {
                           label: 'Pending Approval',
                           icon: 'Clock',
                           color: 'text-blue-600',
                           bgColor: 'bg-blue-100',
                           symbol: '◻️',
-variant: 'info'
+                          variant: 'info'
                         };
                     }
                   })();
