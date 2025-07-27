@@ -10,9 +10,9 @@ import Loading from "@/components/ui/Loading";
 import Error from "@/components/ui/Error";
 import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
-import Input from "@/components/atoms/Input";
-import Button from "@/components/atoms/Button";
-import { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
+import Input, { Input } from "@/components/atoms/Input";
+import Button, { Button } from "@/components/atoms/Button";
+import formatCurrency, { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [vendor, setVendor] = useState(null);
@@ -1245,7 +1245,7 @@ toast.info(`${statusIcon} New order #${data.orderId} - Payment: ${paymentStatus}
       const pendingOrders = await orderService.getPendingAvailabilityRequests();
       const allOrders = await orderService.getAll();
       
-      // Phase 1: Include orders with immediate vendor visibility and enhanced payment status tracking
+// Phase 1: Include orders with immediate vendor visibility and enhanced payment status tracking
       const immediateOrders = allOrders.filter(order => 
         order.vendor_visibility === 'immediate' && 
         (order.status === 'awaiting_payment_verification' || 
@@ -1258,7 +1258,6 @@ toast.info(`${statusIcon} New order #${data.orderId} - Payment: ${paymentStatus}
          order.adminPaymentApproval === 'pending' ||
          order.adminPaymentApproval === 'approved')
       );
-      
       // Combine and deduplicate orders with priority sorting
       const combinedOrders = [...pendingOrders, ...immediateOrders];
       const uniqueOrders = combinedOrders.filter((order, index, self) => 
