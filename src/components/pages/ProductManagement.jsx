@@ -2246,13 +2246,15 @@ const handleSubmit = (e) => {
                     <div className="space-y-2 max-h-40 overflow-y-auto">
 {(() => {
                         const unitCounts = {};
-                        const currentFilteredProducts = filteredProducts || products.filter(product => {
+                        // Define filteredProducts based on search and category filters
+                        const filteredProducts = products.filter(product => {
                           const matchesSearch = searchTerm === '' || 
                             product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             product.category?.toLowerCase().includes(searchTerm.toLowerCase());
                           const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
                           return matchesSearch && matchesCategory;
                         });
+                        const currentFilteredProducts = filteredProducts;
                         
                         currentFilteredProducts.forEach(product => {
                           const unit = product.unit || 'Not Set';
