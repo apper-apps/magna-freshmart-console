@@ -70,20 +70,11 @@ class PaymentErrorBoundary extends React.Component {
               {isPaymentError ? 'Payment System Error' : 'Something went wrong'}
             </h2>
             
-            <p className="text-gray-600 mb-6">
+<p className="text-gray-600 mb-6">
               {isPaymentError 
-                ? 'We encountered an issue with the payment processor. Please try again or use manual processing.'
-                : 'An unexpected error occurred. Our team has been notified.'}
+                ? 'We encountered an issue processing your payment. Please try again or use manual processing.'
+                : 'An unexpected error occurred. Please try refreshing the page.'}
             </p>
-            
-            {__DEV__ && this.state.error && (
-              <div className="bg-gray-100 rounded p-3 mb-4 text-left">
-                <p className="text-sm font-mono text-gray-800 break-all">
-                  {this.state.error.message}
-                </p>
-              </div>
-            )}
-            
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Button
                 onClick={this.handleRetry}
