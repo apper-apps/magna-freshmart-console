@@ -10,9 +10,9 @@ import Loading from "@/components/ui/Loading";
 import Error from "@/components/ui/Error";
 import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
-import { Input } from "@/components/atoms/Input";
-import { Button } from "@/components/atoms/Button";
-import { formatCurrency, calculateMargin, calculateTotals } from "@/utils/currency";
+import Input from "@/components/atoms/Input";
+import Button from "@/components/atoms/Button";
+import { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [vendor, setVendor] = useState(null);
@@ -2394,16 +2394,10 @@ useEffect(() => {
                     }
                   };
 
-                  const statusDisplay = getPaymentStatusDisplay(paymentStatus);
+const statusDisplay = getPaymentStatusDisplay(paymentStatus);
                   
                   return (
-                  };
-
-                  const paymentStatus = getPaymentStatus(order);
-                  const statusDisplay = getPaymentStatusDisplay(paymentStatus);
-
-                  return (
-<div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-2">
                       <span className="text-xs text-gray-500">Payment Status:</span>
                       <div className={`flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-medium ${statusDisplay.bgColor} ${statusDisplay.color} border priority-badge ${statusDisplay.variant === 'success' ? 'high' : ''}`}>
                         <span className="text-sm">{statusDisplay.symbol}</span>
@@ -2411,10 +2405,6 @@ useEffect(() => {
                         <span>{statusDisplay.label}</span>
                       </div>
                     </div>
-                  );
-                })()}
-              </div>
-            </div>
                   );
                 })()}
                 <div className="text-sm text-gray-600">
