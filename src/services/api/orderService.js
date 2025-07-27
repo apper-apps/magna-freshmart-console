@@ -132,13 +132,15 @@ const newOrder = {
       total: orderData.total || orderData.totalAmount || 0,
       totalAmount: orderData.totalAmount || orderData.total || 0,
       // Enhanced approval workflow integration
-      approvalStatus: orderData.approvalStatus || 'pending',
+approvalStatus: orderData.approvalStatus || 'pending',
       approvalRequestId: orderData.approvalRequestId || null,
       priceApprovalRequired: orderData.priceApprovalRequired || false,
       // Enhanced payment verification tracking
       verificationStatus: orderData.verificationStatus || null,
       paymentVerificationRequired: orderData.paymentProof ? true : false,
       adminPaymentApproval: orderData.adminPaymentApproval || 'pending',
+      // Backend schema alignment - payment_verified boolean field
+      payment_verified: orderData.payment_verified || false,
       // Vendor availability tracking (JSONB structure)
       vendor_availability: vendorAvailability,
       // Real-time vendor visibility for Phase 1 implementation
@@ -156,6 +158,7 @@ if (orderData.paymentMethod === 'wallet') {
         newOrder.paymentResult = walletTransaction;
         newOrder.paymentStatus = 'completed';
         newOrder.adminPaymentApproval = 'approved';
+        newOrder.payment_verified = true;
       } catch (walletError) {
         // Enhanced wallet error handling
         const error = new Error('Wallet payment failed: ' + walletError.message);
@@ -525,9 +528,11 @@ async updateVerificationStatus(orderId, status, notes = '') {
       verificationNotes: notes,
       verifiedAt: new Date().toISOString(),
       verifiedBy: 'admin',
-      paymentStatus: status === 'verified' ? 'completed' : 'verification_failed',
+paymentStatus: status === 'verified' ? 'completed' : 'verification_failed',
       // Enhanced admin payment approval tracking
       adminPaymentApproval: status === 'verified' ? 'approved' : 'rejected',
+      // Backend schema alignment - payment_verified boolean
+      payment_verified: status === 'verified',
       adminPaymentApprovalAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };

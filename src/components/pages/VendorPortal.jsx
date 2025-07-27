@@ -1367,14 +1367,23 @@ const VendorAvailabilityTab = ({ vendor }) => {
     }
   };
 
-  // Phase 1: Enhanced status display for immediate visibility orders
+// Phase 1: Enhanced status display for immediate visibility orders
   const getOrderStatusBadge = (order) => {
     if (order.vendor_visibility === 'immediate') {
-      if (order.status === 'awaiting_payment_verification') {
+      // Check payment_verified field from backend schema
+      if (!order.payment_verified && order.status === 'awaiting_payment_verification') {
         return (
-          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full flex items-center">
+          <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full flex items-center approval-badge pending">
             <ApperIcon name="Clock" size={12} className="mr-1" />
-            Awaiting Payment Verification
+            Payment Verification Pending
+          </span>
+        );
+      }
+      if (order.payment_verified) {
+        return (
+          <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full flex items-center approval-badge">
+            <ApperIcon name="CheckCircle" size={12} className="mr-1" />
+            Payment Verified
           </span>
         );
       }
@@ -1386,7 +1395,6 @@ const VendorAvailabilityTab = ({ vendor }) => {
     order.id.toString().includes(searchTerm) ||
     order.deliveryAddress?.name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
   if (loading) return <Loading type="component" />;
   if (error) return <Error message={error} />;
 
@@ -2255,8 +2263,9 @@ useEffect(() => {
               <div className="flex items-center space-x-4">
                 {/* Payment Status Display */}
                 {(() => {
-                  const getPaymentStatus = (order) => {
-                    if (order.verificationStatus === 'verified' || order.paymentStatus === 'completed') {
+const getPaymentStatus = (order) => {
+                    // Use payment_verified field from backend schema for primary status
+                    if (order.payment_verified || (order.verificationStatus === 'verified' || order.paymentStatus === 'completed')) {
                       return 'approved';
                     }
                     if (order.verificationStatus === 'rejected' || order.paymentStatus === 'verification_failed') {
@@ -2272,7 +2281,7 @@ useEffect(() => {
                     switch (status) {
                       case 'approved':
                         return {
-                          label: 'Approved',
+                          label: 'Payment Verified',
                           icon: 'CheckCircle',
                           color: 'text-green-600',
                           bgColor: 'bg-green-100',
