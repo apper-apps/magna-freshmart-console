@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { orderService } from "@/services/api/orderService";
-import { webSocketService } from "@/services/api/websocketService";
+import webSocketService from "@/services/api/websocketService";
 import { productService } from "@/services/api/productService";
 import { vendorService } from "@/services/api/vendorService";
 import { getFieldConfig, isMeasurementRequired, productUnitService } from "@/services/api/productUnitService";
@@ -10,9 +10,9 @@ import Loading from "@/components/ui/Loading";
 import Error from "@/components/ui/Error";
 import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
-import { Input } from "@/components/atoms/Input";
-import { Button } from "@/components/atoms/Button";
-import { formatCurrency, calculateMargin, calculateTotals } from "@/utils/currency";
+import Input, { Input } from "@/components/atoms/Input";
+import Button, { Button } from "@/components/atoms/Button";
+import formatCurrency, { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [vendor, setVendor] = useState(null);
@@ -1213,21 +1213,19 @@ toast.info(`${statusIcon} New order #${data.orderId} - Payment: ${paymentStatus}
             autoClose: 4000
           }
         );
+}
+      
+      // Subscribe to real-time order updates with enhanced event handling
+      let unsubscribe;
+      let paymentUnsubscribe;
+      let rejectionUnsubscribe;
+      
+      if (typeof window !== 'undefined' && webSocketService) {
+        unsubscribe = webSocketService.subscribe('order_created_immediate', handleOrderUpdate);
+        // Also subscribe to payment approval events
+        paymentUnsubscribe = webSocketService.subscribe('admin_payment_approved', handleOrderUpdate);
+        rejectionUnsubscribe = webSocketService.subscribe('admin_payment_rejected', handleOrderUpdate);
       }
-// Subscribe to real-time order updates with enhanced event handling
-    let unsubscribe;
-    let paymentUnsubscribe;
-    let rejectionUnsubscribe;
-    
-    if (typeof window !== 'undefined' && webSocketService) {
-      unsubscribe = webSocketService.subscribe('order_created_immediate', handleOrderUpdate);
-      // Also subscribe to payment approval events
-      paymentUnsubscribe = webSocketService.subscribe('admin_payment_approved', handleOrderUpdate);
-paymentUnsubscribe = webSocketService.subscribe('admin_payment_approved', handleOrderUpdate);
-      rejectionUnsubscribe = webSocketService.subscribe('admin_payment_rejected', handleOrderUpdate);
-    }
-    }
-
     return () => {
       if (unsubscribe) unsubscribe();
       if (paymentUnsubscribe) paymentUnsubscribe();
