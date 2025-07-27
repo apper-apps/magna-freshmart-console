@@ -228,6 +228,26 @@ async getAllVendors() {
     }));
   }
 
+  async getVendorProductCount(vendorId) {
+    await this.delay(100);
+    
+    try {
+      // In a real app, this would query the database
+      // For now, we'll use localStorage to get the count
+      const stored = localStorage.getItem('vendorProductAssignments');
+      const assignments = stored ? JSON.parse(stored) : [];
+      
+      const count = assignments.filter(
+        assignment => assignment.vendorId === parseInt(vendorId) && assignment.status === 'active'
+      ).length;
+      
+      return count;
+    } catch (error) {
+      console.error('Error getting vendor product count:', error);
+      return 0;
+    }
+  }
+
   async getAll() {
     await this.delay(200);
     return [...this.vendors];

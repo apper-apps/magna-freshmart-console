@@ -2,7 +2,33 @@ import productsData from "@/services/mockData/products.json";
 
 class ProductService {
   constructor() {
-    this.products = [...productsData];
+this.products = [...productsData];
+    this.vendorAssignments = this.loadVendorAssignments();
+  }
+
+  loadVendorAssignments() {
+    try {
+      const stored = localStorage.getItem('vendorProductAssignments');
+      return stored ? JSON.parse(stored) : [
+        { Id: 1, vendorId: 1, productId: 1, assignedDate: '2024-01-15', canEditPrice: true, canEditCost: false, minMargin: 5, maxDiscount: 15, status: 'active' },
+        { Id: 2, vendorId: 1, productId: 3, assignedDate: '2024-01-15', canEditPrice: true, canEditCost: false, minMargin: 8, maxDiscount: 20, status: 'active' },
+        { Id: 3, vendorId: 1, productId: 6, assignedDate: '2024-01-20', canEditPrice: true, canEditCost: true, minMargin: 10, maxDiscount: 25, status: 'active' },
+        { Id: 4, vendorId: 2, productId: 2, assignedDate: '2024-01-10', canEditPrice: true, canEditCost: false, minMargin: 5, maxDiscount: 10, status: 'active' },
+        { Id: 5, vendorId: 2, productId: 5, assignedDate: '2024-01-12', canEditPrice: true, canEditCost: true, minMargin: 7, maxDiscount: 15, status: 'active' },
+        { Id: 6, vendorId: 2, productId: 12, assignedDate: '2024-01-18', canEditPrice: true, canEditCost: false, minMargin: 12, maxDiscount: 18, status: 'active' }
+      ];
+    } catch (error) {
+      console.error('Error loading vendor assignments:', error);
+      return [];
+    }
+  }
+
+  saveVendorAssignments() {
+    try {
+      localStorage.setItem('vendorProductAssignments', JSON.stringify(this.vendorAssignments));
+    } catch (error) {
+      console.error('Error saving vendor assignments:', error);
+    }
   }
 
 async getAll(userRole = 'customer') {
@@ -1730,10 +1756,10 @@ url: `https://via.placeholder.com/600x600/2196F3/ffffff?text=AI+Generated+${enco
   }
 
   // Vendor-specific methods for vendor portal functionality
-  async getVendorProducts(vendorId) {
+async getVendorProducts(vendorId) {
     await this.delay(300);
     
-    // Get vendor assignments (this would typically come from a vendor service)
+    // Get vendor assignments from persistent storage
     const vendorAssignments = await this.getVendorProductAssignments(vendorId);
     
     if (!vendorAssignments || vendorAssignments.length === 0) {
@@ -1766,17 +1792,22 @@ url: `https://via.placeholder.com/600x600/2196F3/ffffff?text=AI+Generated+${enco
   async getVendorProductAssignments(vendorId) {
     await this.delay(200);
     
-    // Mock vendor product assignments
-    const assignments = [
-      { vendorId: 1, productId: 1, assignedDate: '2024-01-15', canEditPrice: true, canEditCost: false, minMargin: 5, maxDiscount: 15 },
-      { vendorId: 1, productId: 3, assignedDate: '2024-01-15', canEditPrice: true, canEditCost: false, minMargin: 8, maxDiscount: 20 },
-      { vendorId: 1, productId: 6, assignedDate: '2024-01-20', canEditPrice: true, canEditCost: true, minMargin: 10, maxDiscount: 25 },
-      { vendorId: 2, productId: 2, assignedDate: '2024-01-10', canEditPrice: true, canEditCost: false, minMargin: 5, maxDiscount: 10 },
-      { vendorId: 2, productId: 5, assignedDate: '2024-01-12', canEditPrice: true, canEditCost: true, minMargin: 7, maxDiscount: 15 },
-      { vendorId: 2, productId: 12, assignedDate: '2024-01-18', canEditPrice: true, canEditCost: false, minMargin: 12, maxDiscount: 18 }
-    ];
+    // Get assignments from persistent storage
+    const assignments = this.vendorAssignments.filter(
+      assignment => assignment.vendorId === parseInt(vendorId) && assignment.status === 'active'
+    );
     
-    return assignments.filter(assignment => assignment.vendorId === parseInt(vendorId));
+    return assignments;
+  }
+
+  async getVendorProductCount(vendorId) {
+    await this.delay(100);
+    
+    const assignments = this.vendorAssignments.filter(
+      assignment => assignment.vendorId === parseInt(vendorId) && assignment.status === 'active'
+    );
+    
+    return assignments.length;
   }
 async updateVendorPrice(vendorId, productId, priceData) {
     await this.delay(400);
@@ -2340,7 +2371,7 @@ async getVendorOrdersStats(vendorId) {
     }
   }
 
-  // Admin vendor assignment functionality
+// Admin vendor assignment functionality
   async assignProductsToVendor(vendorId, productIds) {
     await this.delay(400);
     
@@ -2357,7 +2388,12 @@ async getVendorOrdersStats(vendorId) {
       throw new Error(`Products not found: ${invalidProducts.join(', ')}`);
     }
     
-    // Create assignment records (in real app, this would be stored in database)
+    // Remove existing assignments for these products from this vendor
+    this.vendorAssignments = this.vendorAssignments.filter(
+      assignment => !(assignment.vendorId === parseInt(vendorId) && productIds.includes(assignment.productId))
+    );
+    
+    // Create new assignment records
     const assignments = productIds.map(productId => ({
       Id: this.getNextAssignmentId(),
       vendorId: parseInt(vendorId),
@@ -2370,6 +2406,12 @@ async getVendorOrdersStats(vendorId) {
       maxDiscount: 20,
       status: 'active'
     }));
+    
+    // Add new assignments to storage
+    this.vendorAssignments.push(...assignments);
+    
+    // Save to localStorage for persistence
+    this.saveVendorAssignments();
     
     // Update products with vendor assignment info
     productIds.forEach(productId => {
@@ -2390,6 +2432,12 @@ async getVendorOrdersStats(vendorId) {
       vendorId: parseInt(vendorId),
       assignedAt: new Date().toISOString()
     };
+  }
+
+  getNextAssignmentId() {
+    const maxId = this.vendorAssignments.reduce((max, assignment) => 
+      assignment.Id > max ? assignment.Id : max, 0);
+    return maxId + 1;
   }
 
   getNextAssignmentId() {

@@ -28,11 +28,11 @@ const VendorManagement = () => {
     address: '',
     isActive: true
   });
-  const [formLoading, setFormLoading] = useState(false);
+const [formLoading, setFormLoading] = useState(false);
   const [availableProducts, setAvailableProducts] = useState([]);
   const [productAssignments, setProductAssignments] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
-
+  const [assignedProductCounts, setAssignedProductCounts] = useState({});
   // Payment queue states
   const [paymentQueue, setPaymentQueue] = useState([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -60,12 +60,25 @@ useEffect(() => {
     }
   };
 
-  const loadVendors = async () => {
+const loadVendors = async () => {
     try {
       setLoading(true);
       setError(null);
       const data = await vendorService.getAll();
       setVendors(data);
+      
+      // Load assigned product counts for each vendor
+      const counts = {};
+      for (const vendor of data) {
+        try {
+          const count = await productService.getVendorProductCount(vendor.Id);
+          counts[vendor.Id] = count;
+        } catch (err) {
+          console.error(`Failed to load product count for vendor ${vendor.Id}:`, err);
+          counts[vendor.Id] = 0;
+        }
+      }
+      setAssignedProductCounts(counts);
     } catch (err) {
       setError(err.message);
       toast.error('Failed to load vendors');
@@ -387,7 +400,7 @@ const handleSubmit = async (e) => {
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50">
+<thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Vendor
@@ -402,6 +415,9 @@ const handleSubmit = async (e) => {
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Assigned Products
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Join Date
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -410,7 +426,7 @@ const handleSubmit = async (e) => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredVendors.map((vendor) => (
+{filteredVendors.map((vendor) => (
                 <tr key={vendor.Id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
@@ -431,6 +447,13 @@ const handleSubmit = async (e) => {
                     >
                       {vendor.isActive ? 'Active' : 'Inactive'}
                     </Badge>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <Badge variant="outline" className="text-xs">
+                        {assignedProductCounts[vendor.Id] || 0} Products
+                      </Badge>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {new Date(vendor.joinDate).toLocaleDateString()}
@@ -998,18 +1021,43 @@ const handleSubmit = async (e) => {
                       </div>
                     </div>
 
-                    {/* Product Assignment */}
+{/* Product Assignment */}
                     <div className="space-y-4">
-                      <h4 className="text-md font-medium text-gray-900 border-b pb-2">
-                        Product Assignment
-                      </h4>
-                      
+                      <div className="flex items-center justify-between border-b pb-2">
+                        <h4 className="text-md font-medium text-gray-900">
+                          Product Assignment
+                        </h4>
+                        <div className="flex items-center space-x-3">
+                          {editingVendor && (
+                            <Badge variant="outline" className="text-xs">
+                              {assignedProductCounts[editingVendor.Id] || 0} Products Assigned
+                            </Badge>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open('/admin-dashboard?tab=products', '_blank')}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <ApperIcon name="Plus" size={14} className="mr-1" />
+                            Add Product
+                          </Button>
+                        </div>
+                      </div>
+
                       <ProductAssignment
                         vendor={editingVendor || { name: formData.name, Id: 'new' }}
                         availableProducts={availableProducts}
-                        onAssign={(productIds) => {
+                        onAssign={async (productIds) => {
                           setSelectedProducts(productIds);
-                          toast.success(`${productIds.length} products will be assigned`);
+                          if (editingVendor && editingVendor.Id) {
+                            // Update the assigned product count immediately
+                            setAssignedProductCounts(prev => ({
+                              ...prev,
+                              [editingVendor.Id]: productIds.length
+                            }));
+                          }
+                          toast.success(`${productIds.length} products assigned successfully`);
                         }}
                         loading={false}
                         error={null}
