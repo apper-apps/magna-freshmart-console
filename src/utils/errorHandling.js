@@ -53,9 +53,8 @@ static shouldRetry(error, attemptCount = 0, maxRetries = 3) {
     const type = this.classifyError(error);
     const retryableTypes = ['network', 'timeout', 'server'];
     
-    // Enhanced retry logic with specific error patterns
+    // Enhanced retry logic with performance optimization context
     if (retryableTypes.includes(type)) {
-      // Additional checks for specific error messages
       const message = error.message?.toLowerCase() || '';
       
       // Don't retry certain permanent errors
@@ -63,14 +62,24 @@ static shouldRetry(error, attemptCount = 0, maxRetries = 3) {
         return false;
       }
       
-      // Retry network and timeout errors more aggressively
-      if (type === 'network' || type === 'timeout') {
-        return attemptCount < maxRetries;
+      // Don't retry validation errors from order processing
+      if (message.includes('invalid order') || message.includes('payment result missing')) {
+        return false;
       }
       
-      // Be more conservative with server errors
+      // Retry network and timeout errors more aggressively for lazy loading
+      if (type === 'network' || type === 'timeout') {
+        // Increase retry attempts for order loading operations
+        const isOrderLoading = message.includes('order') || message.includes('load');
+        const maxOrderRetries = isOrderLoading ? maxRetries + 2 : maxRetries;
+        return attemptCount < maxOrderRetries;
+      }
+      
+      // Be more conservative with server errors but allow retries for pagination
       if (type === 'server') {
-        return attemptCount < Math.min(maxRetries, 2);
+        const isPagination = message.includes('page') || message.includes('paginated');
+        const maxServerRetries = isPagination ? Math.min(maxRetries, 3) : Math.min(maxRetries, 2);
+        return attemptCount < maxServerRetries;
       }
       
       return true;
@@ -90,7 +99,7 @@ static shouldRetry(error, attemptCount = 0, maxRetries = 3) {
   }
 
 static trackErrorPattern(error, context = '', metadata = {}) {
-    // Enhanced error pattern tracking with payment-specific diagnostics
+    // Enhanced error pattern tracking with performance optimization context
     const errorKey = `${error.name || 'Unknown'}_${error.message || 'NoMessage'}`;
     const timestamp = Date.now();
     
@@ -98,18 +107,45 @@ static trackErrorPattern(error, context = '', metadata = {}) {
       window.errorPatterns = new Map();
     }
     
+    if (!window.performanceMetrics) {
+      window.performanceMetrics = {
+        orderLoadErrors: 0,
+        cacheErrors: 0,
+        networkErrors: 0,
+        lastErrorTime: null,
+        errorRate: 0
+      };
+    }
+    
     const existing = window.errorPatterns.get(errorKey) || { 
       count: 0, 
       contexts: new Set(), 
       firstSeen: timestamp,
-      metadata: new Map()
+      metadata: new Map(),
+      performanceImpact: {
+        averageDelay: 0,
+        maxDelay: 0,
+        affectedOperations: new Set()
+      }
     };
     
     existing.count++;
     existing.contexts.add(context);
     existing.lastSeen = timestamp;
     
-    // Track metadata for payment errors
+    // Track performance impact
+    if (metadata.responseTime) {
+      const responseTime = parseFloat(metadata.responseTime);
+      existing.performanceImpact.averageDelay = 
+        (existing.performanceImpact.averageDelay * (existing.count - 1) + responseTime) / existing.count;
+      existing.performanceImpact.maxDelay = Math.max(existing.performanceImpact.maxDelay, responseTime);
+    }
+    
+    if (metadata.operation) {
+      existing.performanceImpact.affectedOperations.add(metadata.operation);
+    }
+    
+    // Track metadata with performance context
     if (metadata && typeof metadata === 'object') {
       Object.entries(metadata).forEach(([key, value]) => {
         if (!existing.metadata.has(key)) {
@@ -121,11 +157,28 @@ static trackErrorPattern(error, context = '', metadata = {}) {
     
     window.errorPatterns.set(errorKey, existing);
     
-    // Enhanced alerting for payment processor errors
+    // Update global performance metrics
+    const isOrderError = context.includes('order') || context.includes('load');
     const isPaymentError = context.includes('payment') || context.includes('checkout') || 
                           error.message.includes('payment') || error.message.includes('processor');
+    const isCacheError = context.includes('cache') || error.message.includes('cache');
+    const isNetworkError = error.message.includes('network') || error.message.includes('fetch');
     
-    const criticalThreshold = isPaymentError ? 3 : 5; // Lower threshold for payment errors
+    if (isOrderError) window.performanceMetrics.orderLoadErrors++;
+    if (isCacheError) window.performanceMetrics.cacheErrors++;
+    if (isNetworkError) window.performanceMetrics.networkErrors++;
+    
+    window.performanceMetrics.lastErrorTime = timestamp;
+    
+    // Calculate error rate (errors per minute)
+    const timeWindow = 60000; // 1 minute
+    const recentErrors = Array.from(window.errorPatterns.values())
+      .filter(pattern => timestamp - pattern.lastSeen < timeWindow)
+      .reduce((sum, pattern) => sum + pattern.count, 0);
+    window.performanceMetrics.errorRate = recentErrors;
+    
+    // Enhanced alerting with performance considerations
+    const criticalThreshold = isPaymentError ? 3 : (isOrderError ? 5 : 7);
     
     if (existing.count >= criticalThreshold) {
       const errorDetails = {
@@ -133,6 +186,19 @@ static trackErrorPattern(error, context = '', metadata = {}) {
         timespan: timestamp - existing.firstSeen,
         frequency: existing.count / ((timestamp - existing.firstSeen) / 60000), // errors per minute
         isPaymentError,
+        isOrderError,
+        isCacheError,
+        performanceImpact: {
+          averageDelay: existing.performanceImpact.averageDelay.toFixed(2) + 'ms',
+          maxDelay: existing.performanceImpact.maxDelay.toFixed(2) + 'ms',
+          affectedOperations: Array.from(existing.performanceImpact.affectedOperations)
+        },
+        globalMetrics: {
+          orderLoadErrors: window.performanceMetrics.orderLoadErrors,
+          cacheErrors: window.performanceMetrics.cacheErrors,
+          networkErrors: window.performanceMetrics.networkErrors,
+          currentErrorRate: window.performanceMetrics.errorRate
+        },
         metadata: Object.fromEntries(
           Array.from(existing.metadata.entries()).map(([key, valueSet]) => [
             key, 
@@ -157,9 +223,18 @@ static trackErrorPattern(error, context = '', metadata = {}) {
             status: existing.count >= 10 ? 'critical' : 'degraded',
             errorCount: existing.count,
             lastError: timestamp,
-            contexts: Array.from(existing.contexts)
+            contexts: Array.from(existing.contexts),
+            performanceImpact: errorDetails.performanceImpact
           };
         }
+      } else if (isOrderError) {
+        console.error(`Critical order loading error pattern detected: ${errorKey}`, {
+          ...errorDetails,
+          severity: existing.count >= 10 ? 'CRITICAL' : 'HIGH',
+          recommendation: existing.count >= 10 ? 
+            'Consider implementing circuit breaker for order service' : 
+            'Increase cache TTL and implement better error recovery'
+        });
       } else {
         console.error(`Critical error pattern detected: ${errorKey} occurred ${existing.count} times`, errorDetails);
       }

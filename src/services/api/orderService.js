@@ -1,21 +1,102 @@
 import ordersData from "../mockData/orders.json";
 import React from "react";
-import webSocketService from "@/services/api/websocketService";
+import webSocketService, { webSocketService } from "@/services/api/websocketService";
 import { paymentService } from "@/services/api/paymentService";
 import { productService } from "@/services/api/productService";
 import Error from "@/components/ui/Error";
 class OrderService {
   constructor() {
     this.orders = [...ordersData];
+    
+    // Performance optimization: Response caching
+    this.cache = new Map();
+    this.cacheExpiry = new Map();
+    this.cacheTTL = 5 * 60 * 1000; // 5 minutes default TTL
+    
+    // Performance monitoring
+    this.performanceMetrics = {
+      requests: 0,
+      cacheHits: 0,
+      cacheMisses: 0,
+      averageResponseTime: 0,
+      errorCount: 0
+    };
+    
+    // Cleanup expired cache entries periodically
+    setInterval(() => this.cleanupExpiredCache(), 60000); // Every minute
   }
 
+// Enhanced getAll with caching
   async getAll() {
+    const cacheKey = 'all_orders';
+    const cached = this.getFromCache(cacheKey);
+    
+    if (cached) {
+      this.performanceMetrics.cacheHits++;
+      return cached;
+    }
+    
+    const startTime = performance.now();
     await this.delay();
-    return [...this.orders];
+    
+    const result = [...this.orders];
+    this.setCache(cacheKey, result, this.cacheTTL);
+    
+    this.updatePerformanceMetrics(startTime);
+    this.performanceMetrics.cacheMisses++;
+    
+    return result;
   }
 
-async getById(id) {
+  // New paginated method for lazy loading
+  async getAllPaginated(page = 1, limit = 10) {
+    const cacheKey = `orders_page_${page}_limit_${limit}`;
+    const cached = this.getFromCache(cacheKey);
+    
+    if (cached) {
+      this.performanceMetrics.cacheHits++;
+      return cached;
+    }
+    
+    const startTime = performance.now();
+    await this.delay();
+    
+    const sortedOrders = [...this.orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const orders = sortedOrders.slice(startIndex, endIndex);
+    
+    const result = {
+      orders,
+      page,
+      limit,
+      total: this.orders.length,
+      hasMore: endIndex < this.orders.length,
+      totalPages: Math.ceil(this.orders.length / limit)
+    };
+    
+    // Cache paginated results with shorter TTL for real-time data
+    this.setCache(cacheKey, result, this.cacheTTL / 2);
+    
+    this.updatePerformanceMetrics(startTime);
+    this.performanceMetrics.cacheMisses++;
+    
+    return result;
+  }
+
+// Enhanced getById with caching and performance monitoring
+  async getById(id) {
+    const startTime = performance.now();
+    
     try {
+      const cacheKey = `order_${id}`;
+      const cached = this.getFromCache(cacheKey);
+      
+      if (cached) {
+        this.performanceMetrics.cacheHits++;
+        return cached;
+      }
+      
       await this.delay();
       
       console.log('OrderService.getById: Called with ID:', id, 'Type:', typeof id);
@@ -24,6 +105,7 @@ async getById(id) {
       if (id === null || id === undefined) {
         const error = new Error('Order ID is required - cannot be null or undefined');
         console.error('OrderService.getById: Missing ID parameter');
+        this.performanceMetrics.errorCount++;
         throw error;
       }
       
@@ -32,6 +114,7 @@ async getById(id) {
       if (isNaN(numericId) || numericId <= 0) {
         const error = new Error(`Invalid order ID format - must be a positive integer. Received: "${id}" (${typeof id})`);
         console.error('OrderService.getById: Invalid ID format:', { id, numericId, type: typeof id });
+        this.performanceMetrics.errorCount++;
         throw error;
       }
       
@@ -46,6 +129,7 @@ async getById(id) {
           availableIds: this.orders.map(o => o.id),
           totalOrders: this.orders.length
         });
+        this.performanceMetrics.errorCount++;
         throw error;
       }
       
@@ -63,7 +147,7 @@ async getById(id) {
       }
       
       // Validate essential order properties
-if (!Object.prototype.hasOwnProperty.call(order, 'status')) {
+      if (!Object.prototype.hasOwnProperty.call(order, 'status')) {
         console.warn(`OrderService.getById: Order ${numericId} missing status, setting default`);
         order.status = 'pending';
       }
@@ -81,9 +165,18 @@ if (!Object.prototype.hasOwnProperty.call(order, 'status')) {
       }
       
       console.log('OrderService.getById: Returning validated order data for ID:', numericId);
-      return { ...order };
+      
+      const result = { ...order };
+      
+      // Cache the validated order with appropriate TTL
+      this.setCache(cacheKey, result, this.cacheTTL);
+      this.updatePerformanceMetrics(startTime);
+      this.performanceMetrics.cacheMisses++;
+      
+      return result;
       
     } catch (error) {
+      this.updatePerformanceMetrics(startTime);
       console.error('OrderService.getById: Comprehensive error handling:', error);
       
       // Classify error type for better handling
@@ -99,160 +192,192 @@ if (!Object.prototype.hasOwnProperty.call(order, 'status')) {
     }
   }
 
-async create(orderData) {
-    await this.delay();
+// Enhanced create with caching invalidation and performance tracking
+// Enhanced create with caching invalidation and performance tracking
+  async create(orderData) {
+    const startTime = performance.now();
     
-    // Enhanced payment data validation
-    if (orderData.paymentMethod && orderData.paymentMethod !== 'cash') {
-      if (!orderData.paymentResult && orderData.paymentMethod !== 'wallet') {
-        const error = new Error('Payment result is required for non-cash payments');
-        error.code = 'PAYMENT_RESULT_MISSING';
-        throw error;
-      }
+    try {
+      await this.delay();
       
-      // Validate payment result structure for digital wallets
-      if (['jazzcash', 'easypaisa'].includes(orderData.paymentMethod) && orderData.paymentResult) {
-        if (!orderData.paymentResult.transactionId) {
-          const error = new Error('Transaction ID is missing from payment result');
-          error.code = 'TRANSACTION_ID_MISSING';
+      // Enhanced payment data validation
+      if (orderData.paymentMethod && orderData.paymentMethod !== 'cash') {
+        if (!orderData.paymentResult && orderData.paymentMethod !== 'wallet') {
+          const error = new Error('Payment result is required for non-cash payments');
+          error.code = 'PAYMENT_RESULT_MISSING';
+          this.performanceMetrics.errorCount++;
+          throw error;
+        }
+        
+        // Validate payment result structure for digital wallets
+        if (['jazzcash', 'easypaisa'].includes(orderData.paymentMethod) && orderData.paymentResult) {
+          if (!orderData.paymentResult.transactionId) {
+            const error = new Error('Transaction ID is missing from payment result');
+            error.code = 'TRANSACTION_ID_MISSING';
+            this.performanceMetrics.errorCount++;
+            throw error;
+          }
+        }
+      }
+
+      // Initialize vendor availability tracking
+      const vendorAvailability = orderData.vendor_availability || {};
+      
+      const newOrder = {
+        id: this.getNextId(),
+        ...orderData,
+        // Preserve user-provided transaction ID over payment result transaction ID
+        transactionId: orderData.transactionId || orderData.paymentResult?.transactionId || null,
+        paymentStatus: orderData.paymentStatus || (orderData.paymentMethod === 'cash' ? 'pending' : 'completed'),
+        // Ensure both total and totalAmount fields are set for compatibility
+        total: orderData.total || orderData.totalAmount || 0,
+        totalAmount: orderData.totalAmount || orderData.total || 0,
+        // Enhanced approval workflow integration
+        approvalStatus: orderData.approvalStatus || 'pending',
+        approvalRequestId: orderData.approvalRequestId || null,
+        priceApprovalRequired: orderData.priceApprovalRequired || false,
+        // Enhanced payment verification tracking
+        verificationStatus: orderData.verificationStatus || null,
+        paymentVerificationRequired: orderData.paymentProof ? true : false,
+        adminPaymentApproval: orderData.adminPaymentApproval || 'pending',
+        // Backend schema alignment - payment_verified boolean field
+        payment_verified: orderData.payment_verified || false,
+        // Vendor availability tracking (JSONB structure)
+        vendor_availability: vendorAvailability,
+        // Real-time vendor visibility for Phase 1 implementation
+        vendor_visibility: orderData.vendor_visibility || 'immediate',
+        // Initial status for vendor portal display
+        status: orderData.status || 'awaiting_payment_verification',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        
+        // Performance tracking metadata
+        processingTime: 0 // Will be updated at the end
+      };
+// Handle wallet payments
+      if (orderData.paymentMethod === 'wallet') {
+        try {
+          const walletTransaction = await paymentService.processWalletPayment(orderData.total, newOrder.id);
+          newOrder.paymentResult = walletTransaction;
+          newOrder.paymentStatus = 'completed';
+          newOrder.adminPaymentApproval = 'approved';
+          newOrder.payment_verified = true;
+        } catch (walletError) {
+          // Enhanced wallet error handling
+          const error = new Error('Wallet payment failed: ' + walletError.message);
+          error.code = walletError.code || 'WALLET_PAYMENT_FAILED';
+          error.originalError = walletError;
           throw error;
         }
       }
-    }
-
-    // Initialize vendor availability tracking
-    const vendorAvailability = orderData.vendor_availability || {};
-    
-const newOrder = {
-      id: this.getNextId(),
-      ...orderData,
-      // Preserve user-provided transaction ID over payment result transaction ID
-      transactionId: orderData.transactionId || orderData.paymentResult?.transactionId || null,
-      paymentStatus: orderData.paymentStatus || (orderData.paymentMethod === 'cash' ? 'pending' : 'completed'),
-      // Ensure both total and totalAmount fields are set for compatibility
-      total: orderData.total || orderData.totalAmount || 0,
-      totalAmount: orderData.totalAmount || orderData.total || 0,
-      // Enhanced approval workflow integration
-approvalStatus: orderData.approvalStatus || 'pending',
-      approvalRequestId: orderData.approvalRequestId || null,
-      priceApprovalRequired: orderData.priceApprovalRequired || false,
-      // Enhanced payment verification tracking
-      verificationStatus: orderData.verificationStatus || null,
-      paymentVerificationRequired: orderData.paymentProof ? true : false,
-      adminPaymentApproval: orderData.adminPaymentApproval || 'pending',
-      // Backend schema alignment - payment_verified boolean field
-      payment_verified: orderData.payment_verified || false,
-      // Vendor availability tracking (JSONB structure)
-      vendor_availability: vendorAvailability,
-      // Real-time vendor visibility for Phase 1 implementation
-      vendor_visibility: orderData.vendor_visibility || 'immediate',
-      // Initial status for vendor portal display
-      status: orderData.status || 'awaiting_payment_verification',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    
-    // Handle wallet payments
-if (orderData.paymentMethod === 'wallet') {
-      try {
-        const walletTransaction = await paymentService.processWalletPayment(orderData.total, newOrder.id);
-        newOrder.paymentResult = walletTransaction;
-        newOrder.paymentStatus = 'completed';
-        newOrder.adminPaymentApproval = 'approved';
-        newOrder.payment_verified = true;
-      } catch (walletError) {
-        // Enhanced wallet error handling
-        const error = new Error('Wallet payment failed: ' + walletError.message);
-        error.code = walletError.code || 'WALLET_PAYMENT_FAILED';
-        error.originalError = walletError;
-        throw error;
+      
+      // Handle bank transfer verification
+      if (orderData.paymentMethod === 'bank' && orderData.paymentResult?.requiresVerification) {
+        newOrder.paymentStatus = 'pending_verification';
+        newOrder.status = 'payment_pending';
+        newOrder.adminPaymentApproval = 'pending';
       }
-    }
-// Handle bank transfer verification
-    if (orderData.paymentMethod === 'bank' && orderData.paymentResult?.requiresVerification) {
-      newOrder.paymentStatus = 'pending_verification';
-      newOrder.status = 'payment_pending';
-      newOrder.adminPaymentApproval = 'pending';
-    }
-    
-// Handle payment proof submissions with enhanced validation
-    if (orderData.paymentProof && (orderData.paymentMethod === 'bank' || orderData.paymentMethod === 'jazzcash' || orderData.paymentMethod === 'easypaisa')) {
-      newOrder.verificationStatus = 'pending';
-      newOrder.paymentProofSubmittedAt = new Date().toISOString();
-      newOrder.adminPaymentApproval = 'pending';
       
-      // Enhanced payment proof data validation and storage
-      const proofData = orderData.paymentProof;
-      
-      // Validate base64 data URL format
-      if (proofData.dataUrl && typeof proofData.dataUrl === 'string') {
-        if (!proofData.dataUrl.startsWith('data:image/') || !proofData.dataUrl.includes('base64,')) {
-          console.warn('Invalid payment proof data URL format, storing as-is');
+      // Handle payment proof submissions with enhanced validation
+      if (orderData.paymentProof && (orderData.paymentMethod === 'bank' || orderData.paymentMethod === 'jazzcash' || orderData.paymentMethod === 'easypaisa')) {
+        newOrder.verificationStatus = 'pending';
+        newOrder.paymentProofSubmittedAt = new Date().toISOString();
+        newOrder.adminPaymentApproval = 'pending';
+        
+        // Enhanced payment proof data validation and storage
+        const proofData = orderData.paymentProof;
+        
+        // Validate base64 data URL format
+        if (proofData.dataUrl && typeof proofData.dataUrl === 'string') {
+          if (!proofData.dataUrl.startsWith('data:image/') || !proofData.dataUrl.includes('base64,')) {
+            console.warn('Invalid payment proof data URL format, storing as-is');
+          }
+        }
+        
+        // Store the complete payment proof data with validation
+        newOrder.paymentProof = {
+          fileName: proofData.fileName || 'payment_proof.jpg',
+          fileSize: proofData.fileSize || 0,
+          uploadedAt: proofData.uploadedAt || new Date().toISOString(),
+          dataUrl: proofData.dataUrl || null,
+          storedAt: new Date().toISOString()
+        };
+        
+        // Validate proof data before adding backup reference
+        if (proofData && Object.prototype.hasOwnProperty.call(proofData, 'fileName')) {
+          newOrder.paymentProof.backupRef = `/uploads/${proofData.fileName}`;
+        } else {
+          newOrder.paymentProof.backupRef = null;
         }
       }
       
-      // Store the complete payment proof data with validation
-      newOrder.paymentProof = {
-        fileName: proofData.fileName || 'payment_proof.jpg',
-        fileSize: proofData.fileSize || 0,
-        uploadedAt: proofData.uploadedAt || new Date().toISOString(),
-        dataUrl: proofData.dataUrl || null,
-        storedAt: new Date().toISOString(),
-};
+      this.orders.push(newOrder);
       
-      // Validate proof data before adding backup reference
-      if (proofData && Object.prototype.hasOwnProperty.call(proofData, 'fileName')) {
-        newOrder.paymentProof.backupRef = `/uploads/${proofData.fileName}`;
-      } else {
-        newOrder.paymentProof.backupRef = null;
+      // Real-time order sync - broadcast to vendors immediately
+      if (typeof window !== 'undefined' && window.webSocketService) {
+        try {
+          window.webSocketService.send({
+            type: 'order_created_immediate',
+            data: {
+              orderId: newOrder.id,
+              status: newOrder.status,
+              vendor_visibility: newOrder.vendor_visibility,
+              paymentStatus: newOrder.paymentStatus,
+              adminPaymentApproval: newOrder.adminPaymentApproval,
+              timestamp: newOrder.createdAt,
+              items: newOrder.items,
+              totalAmount: newOrder.totalAmount,
+              customerInfo: {
+                name: newOrder.deliveryAddress?.name,
+                phone: newOrder.deliveryAddress?.phone
+              }
+            },
+            timestamp: new Date().toISOString()
+          });
+        } catch (wsError) {
+          console.warn('WebSocket order broadcast failed:', wsError);
+        }
       }
+      
+      this.updatePerformanceMetrics(startTime);
+      
+      return { ...newOrder };
+      
+    } catch (error) {
+      this.updatePerformanceMetrics(startTime);
+      this.performanceMetrics.errorCount++;
+      console.error('OrderService.create: Error creating order:', error);
+      throw error;
     }
+// Enhanced update with cache invalidation
+  async update(id, orderData) {
+    const startTime = performance.now();
     
-    this.orders.push(newOrder);
-    
-    // Real-time order sync - broadcast to vendors immediately
-    if (typeof window !== 'undefined' && window.webSocketService) {
-      try {
-        window.webSocketService.send({
-          type: 'order_created_immediate',
-          data: {
-            orderId: newOrder.id,
-            status: newOrder.status,
-            vendor_visibility: newOrder.vendor_visibility,
-            paymentStatus: newOrder.paymentStatus,
-            adminPaymentApproval: newOrder.adminPaymentApproval,
-            timestamp: newOrder.createdAt,
-            items: newOrder.items,
-            totalAmount: newOrder.totalAmount,
-            customerInfo: {
-              name: newOrder.deliveryAddress?.name,
-              phone: newOrder.deliveryAddress?.phone
-            }
-          },
-          timestamp: new Date().toISOString()
-        });
-      } catch (wsError) {
-        console.warn('WebSocket order broadcast failed:', wsError);
+    try {
+      await this.delay();
+      
+      const orderIndex = this.orders.findIndex(o => o.id === parseInt(id));
+      if (orderIndex === -1) {
+        this.performanceMetrics.errorCount++;
+        throw new Error('Order not found');
       }
+      
+      this.orders[orderIndex] = {
+        ...this.orders[orderIndex],
+        ...orderData,
+        updatedAt: new Date().toISOString()
+      };
+      
+      // Invalidate related cache entries
+      this.invalidateOrderCache(parseInt(id));
+      
+      this.updatePerformanceMetrics(startTime);
+      return { ...this.orders[orderIndex] };
+      
+    } catch (error) {
+      this.updatePerformanceMetrics(startTime);
+      throw error;
     }
-    
-    return { ...newOrder };
-  }
-async update(id, orderData) {
-    await this.delay();
-    
-    const orderIndex = this.orders.findIndex(o => o.id === parseInt(id));
-    if (orderIndex === -1) {
-      throw new Error('Order not found');
-    }
-    
-    this.orders[orderIndex] = {
-      ...this.orders[orderIndex],
-      ...orderData,
-      updatedAt: new Date().toISOString()
-    };
-    
-    return { ...this.orders[orderIndex] };
   }
 
   // Update order status - CRITICAL METHOD IMPLEMENTATION
@@ -939,8 +1064,83 @@ async getPendingAvailabilityRequests() {
     return grades[gradeIndex];
   }
 
+// Performance optimization helper methods
+  getFromCache(key) {
+    if (!this.cache.has(key)) return null;
+    
+    const expiry = this.cacheExpiry.get(key);
+    if (expiry && Date.now() > expiry) {
+      this.cache.delete(key);
+      this.cacheExpiry.delete(key);
+      return null;
+    }
+    
+    return this.cache.get(key);
+  }
+
+  setCache(key, value, ttl = this.cacheTTL) {
+    this.cache.set(key, value);
+    this.cacheExpiry.set(key, Date.now() + ttl);
+  }
+
+  invalidateOrderCache(orderId) {
+    // Remove specific order cache
+    this.cache.delete(`order_${orderId}`);
+    this.cacheExpiry.delete(`order_${orderId}`);
+    
+    // Remove paginated cache entries
+    const keys = Array.from(this.cache.keys());
+    keys.forEach(key => {
+      if (key.startsWith('orders_page_') || key === 'all_orders') {
+        this.cache.delete(key);
+        this.cacheExpiry.delete(key);
+      }
+    });
+  }
+
+  cleanupExpiredCache() {
+    const now = Date.now();
+    for (const [key, expiry] of this.cacheExpiry.entries()) {
+      if (expiry && now > expiry) {
+        this.cache.delete(key);
+        this.cacheExpiry.delete(key);
+      }
+    }
+  }
+
+  updatePerformanceMetrics(startTime) {
+    this.performanceMetrics.requests++;
+    const responseTime = performance.now() - startTime;
+    
+    // Calculate running average
+    const total = this.performanceMetrics.averageResponseTime * (this.performanceMetrics.requests - 1);
+    this.performanceMetrics.averageResponseTime = (total + responseTime) / this.performanceMetrics.requests;
+  }
+
+  getCacheStats() {
+    const hitRate = this.performanceMetrics.requests > 0 
+      ? ((this.performanceMetrics.cacheHits / this.performanceMetrics.requests) * 100).toFixed(1)
+      : '0.0';
+    
+    return {
+      entries: this.cache.size,
+      hitRate: `${hitRate}%`,
+      hits: this.performanceMetrics.cacheHits,
+      misses: this.performanceMetrics.cacheMisses,
+      averageResponseTime: `${this.performanceMetrics.averageResponseTime.toFixed(2)}ms`,
+      errorCount: this.performanceMetrics.errorCount
+    };
+  }
+
+  // Enhanced delay with performance variability simulation
   delay() {
-    return new Promise(resolve => setTimeout(resolve, 400));
+    // Simulate network variability: base 400ms ± 200ms
+    const baseDelay = 400;
+    const variance = Math.random() * 400 - 200; // -200 to +200ms
+    const finalDelay = Math.max(100, baseDelay + variance); // Minimum 100ms
+    
+    return new Promise(resolve => setTimeout(resolve, finalDelay));
+  }
   }
 // Enhanced Fulfillment Workflow Methods with Payment Flow Integration
 // Enhanced Fulfillment Workflow Methods with New Payment Approval System

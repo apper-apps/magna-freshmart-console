@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
@@ -12,31 +12,126 @@ import Empty from "@/components/ui/Empty";
 import Badge from "@/components/atoms/Badge";
 import Button from "@/components/atoms/Button";
 import { formatCurrency } from "@/utils/currency";
-
 const Orders = () => {
-  const [orders, setOrders] = useState([]);
+const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [collapsedOrders, setCollapsedOrders] = useState(new Set());
+  
+  // Lazy loading state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMoreOrders, setHasMoreOrders] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [totalOrders, setTotalOrders] = useState(0);
+  
+  // Performance optimization state
+  const [retryCount, setRetryCount] = useState(0);
+  const ordersPerPage = 10;
 
-  useEffect(() => {
-    loadOrders();
+useEffect(() => {
+    loadInitialOrders();
   }, []);
+  
+  // Intersection Observer for lazy loading
+  useEffect(() => {
+    if (!hasMoreOrders || loadingMore) return;
+    
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMoreOrders();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    
+    const sentinel = document.getElementById('orders-sentinel');
+    if (sentinel) observer.observe(sentinel);
+    
+    return () => observer.disconnect();
+  }, [hasMoreOrders, loadingMore]);
 
-  const loadOrders = async () => {
+// Enhanced loading with caching and retry logic
+  const loadInitialOrders = useCallback(async () => {
+    const startTime = performance.now();
+    
     try {
       setLoading(true);
       setError(null);
-      const data = await orderService.getAll();
-      // Sort by most recent first
-      const sortedOrders = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setRetryCount(0);
+      
+      const data = await orderService.getAllPaginated(1, ordersPerPage);
+      const sortedOrders = data.orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
       setOrders(sortedOrders);
+      setTotalOrders(data.total);
+      setHasMoreOrders(data.hasMore);
+      setCurrentPage(1);
+      
+      // Performance tracking
+      const loadTime = performance.now() - startTime;
+      console.log(`Initial orders loaded in ${loadTime.toFixed(2)}ms`);
+      
     } catch (err) {
-      setError(err.message);
+      console.error('Failed to load orders:', err);
+      await handleOrderLoadError(err);
     } finally {
       setLoading(false);
     }
-};
+  }, [ordersPerPage]);
+
+  // Load more orders for lazy loading
+  const loadMoreOrders = useCallback(async () => {
+    if (loadingMore || !hasMoreOrders) return;
+    
+    const startTime = performance.now();
+    
+    try {
+      setLoadingMore(true);
+      const nextPage = currentPage + 1;
+      
+      const data = await orderService.getAllPaginated(nextPage, ordersPerPage);
+      const sortedNewOrders = data.orders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      setOrders(prev => [...prev, ...sortedNewOrders]);
+      setCurrentPage(nextPage);
+      setHasMoreOrders(data.hasMore);
+      
+      // Performance tracking
+      const loadTime = performance.now() - startTime;
+      console.log(`Page ${nextPage} loaded in ${loadTime.toFixed(2)}ms`);
+      
+    } catch (err) {
+      console.error('Failed to load more orders:', err);
+      await handleOrderLoadError(err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [currentPage, ordersPerPage, loadingMore, hasMoreOrders]);
+
+  // Enhanced error handling with retry logic
+  const handleOrderLoadError = async (err) => {
+    const maxRetries = 3;
+    
+    if (retryCount < maxRetries) {
+      const delay = Math.pow(2, retryCount) * 1000; // Exponential backoff
+      console.log(`Retrying in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
+      
+      setTimeout(() => {
+        setRetryCount(prev => prev + 1);
+        if (orders.length === 0) {
+          loadInitialOrders();
+        } else {
+          loadMoreOrders();
+        }
+      }, delay);
+    } else {
+      setError(err.message || 'Failed to load orders after multiple attempts');
+    }
+  };
+
+  // Fallback for legacy loadOrders method
+  const loadOrders = loadInitialOrders;
 
   const copyTxnId = async (transactionId) => {
     if (!transactionId) {
@@ -61,25 +156,43 @@ const Orders = () => {
     }
   };
 
-  if (loading) {
+// Performance metrics display (development only)
+  const performanceStats = useMemo(() => {
+    if (process.env.NODE_ENV !== 'development') return null;
+    
+    return (
+      <div className="mb-4 p-2 bg-gray-100 rounded text-xs text-gray-600">
+        Orders: {orders.length}/{totalOrders} | Page: {currentPage} | 
+        Cache: {orderService.getCacheStats?.() || 'N/A'}
+      </div>
+    );
+  }, [orders.length, totalOrders, currentPage]);
+
+  if (loading && orders.length === 0) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {performanceStats}
         <Loading type="orders" />
       </div>
     );
   }
 
-  if (error) {
+  if (error && orders.length === 0) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Error message={error} onRetry={loadOrders} />
+        {performanceStats}
+        <Error 
+          message={`${error} ${retryCount > 0 ? `(Retry ${retryCount})` : ''}`}
+          onRetry={loadOrders} 
+        />
       </div>
     );
   }
 
-  if (orders.length === 0) {
+  if (orders.length === 0 && !loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {performanceStats}
         <Empty 
           type="orders" 
           onAction={() => window.location.href = '/category/All'}
@@ -120,12 +233,15 @@ const toggleOrderCollapse = (orderId) => {
         return 'border-l-4 border-green-500 bg-green-50';
     }
   };
-  return (
-<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20">
+return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20">
+      {performanceStats}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
-          <p className="text-gray-600 mt-1">Track and manage your orders</p>
+          <p className="text-gray-600 mt-1">
+            Track and manage your orders ({orders.length}{totalOrders > orders.length ? ` of ${totalOrders}` : ''})
+          </p>
         </div>
       </div>
       {/* Mobile-first responsive order cards */}
@@ -563,8 +679,45 @@ const toggleOrderCollapse = (orderId) => {
               )}
             </div>
           </div>
-        ))}
-</div>
+))}
+      </div>
+
+      {/* Lazy Loading Sentinel */}
+      {hasMoreOrders && (
+        <div id="orders-sentinel" className="flex justify-center py-8">
+          {loadingMore ? (
+            <div className="flex items-center space-x-2 text-gray-500">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              <span>Loading more orders...</span>
+            </div>
+          ) : (
+            <button
+              onClick={loadMoreOrders}
+              className="px-6 py-3 bg-gradient-to-r from-primary to-accent text-white rounded-lg hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+            >
+              Load More Orders
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Load Complete Message */}
+      {!hasMoreOrders && orders.length > 0 && (
+        <div className="text-center py-8 text-gray-500">
+          <ApperIcon name="CheckCircle" size={20} className="mx-auto mb-2" />
+          <p>All orders loaded ({orders.length} total)</p>
+        </div>
+      )}
+
+      {/* Network Status Indicator */}
+      {error && orders.length > 0 && (
+        <div className="fixed bottom-20 left-4 right-4 bg-red-100 border border-red-300 text-red-700 px-4 py-2 rounded-lg shadow-lg z-40">
+          <div className="flex items-center space-x-2">
+            <ApperIcon name="AlertTriangle" size={16} />
+            <span className="text-sm">Network issue detected. Retrying...</span>
+          </div>
+        </div>
+      )}
 
       {/* Floating Action Buttons */}
       <div className="fixed bottom-6 right-6 flex flex-col space-y-3 z-50">
