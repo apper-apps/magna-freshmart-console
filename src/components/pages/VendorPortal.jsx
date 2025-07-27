@@ -1213,13 +1213,7 @@ toast.info(`${statusIcon} New order #${data.orderId} - Payment: ${paymentStatus}
             autoClose: 4000
           }
         );
-};
-      // Subscribe to real-time order updates with enhanced event handling
-      let unsubscribe;
-      let paymentUnsubscribe;
-      let rejectionUnsubscribe;
-};
-    
+}
     // Subscribe to real-time order updates with enhanced event handling
     let unsubscribe;
     let paymentUnsubscribe;
@@ -2345,9 +2339,8 @@ useEffect(() => {
                           color: 'text-orange-600',
                           bgColor: 'bg-orange-100',
                           symbol: '⚠️',
-                          variant: 'warning'
+variant: 'warning'
                         };
-case 'pending_approval':
                       case 'pending':
                       default:
                         return {
