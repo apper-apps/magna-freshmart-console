@@ -82,7 +82,7 @@ switch (type) {
         {getErrorDescription()}
       </p>
       
-      {/* Additional error guidance for specific types */}
+{/* Additional error guidance for specific types */}
       {type === 'network' && !navigator.onLine && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-center">
           <p className="text-sm text-yellow-800">
@@ -91,10 +91,34 @@ switch (type) {
         </div>
       )}
       
+      {type === 'processor' && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-center">
+          <p className="text-sm text-red-800">
+            Payment processor issues are usually temporary. Try selecting a different payment method or contact our support team for assistance.
+          </p>
+        </div>
+      )}
+      
+      {type === 'wallet' && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4 text-center">
+          <p className="text-sm text-orange-800">
+            Check your wallet balance and try again. If the issue persists, try using a different payment method.
+          </p>
+        </div>
+      )}
+      
       {type === 'server' && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-center">
           <p className="text-sm text-blue-800">
             This is likely a temporary issue. You can also try refreshing the page.
+          </p>
+        </div>
+      )}
+      
+      {type === 'unavailable' && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4 text-center">
+          <p className="text-sm text-gray-800">
+            Service is temporarily unavailable. Please try again later or choose an alternative option.
           </p>
         </div>
       )}

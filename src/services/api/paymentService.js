@@ -1593,53 +1593,130 @@ async processScheduledPayment(scheduledPayment) {
 
       return { success: true, payment };
 
-    } catch (error) {
-      // Get recurring payment reference for error handling
-      const recurring = this.recurringPayments.find(r => r.Id === scheduledPayment.recurringPaymentId);
-      
-      if (recurring) {
-        // Handle payment failure
-        recurring.totalPayments++;
-        recurring.failedPayments++;
-        recurring.lastPaymentDate = new Date().toISOString();
-        recurring.lastPaymentStatus = 'failed';
-        
-        // Mark scheduled payment as failed
-        scheduledPayment.status = 'failed';
-        scheduledPayment.failedAt = new Date().toISOString();
-        scheduledPayment.failureReason = error.message;
-        scheduledPayment.retryCount = (scheduledPayment.retryCount || 0) + 1;
+} catch (error) {
+      // Enhanced error logging with transaction details
+      console.error('Scheduled payment processing error:', {
+        scheduledPaymentId: scheduledPayment?.Id,
+        recurringPaymentId: scheduledPayment?.recurringPaymentId,
+        amount: scheduledPayment?.amount,
+        errorMessage: error.message,
+        errorStack: error.stack,
+        timestamp: new Date().toISOString()
+      });
 
-        // Handle retry logic
-        if (recurring.autoRetry && scheduledPayment.retryCount < recurring.maxRetries) {
-          // Schedule retry
-          const retryDate = new Date();
-          retryDate.setHours(retryDate.getHours() + recurring.retryInterval);
+      // Get recurring payment reference for error handling with null check
+      const recurring = this.recurringPayments?.find(r => r.Id === scheduledPayment?.recurringPaymentId);
+      
+      if (recurring && scheduledPayment) {
+        try {
+          // Handle payment failure with processor validation
+          recurring.totalPayments = (recurring.totalPayments || 0) + 1;
+          recurring.failedPayments = (recurring.failedPayments || 0) + 1;
+          recurring.lastPaymentDate = new Date().toISOString();
+          recurring.lastPaymentStatus = 'failed';
           
-          const retryPayment = {
-            Id: this.scheduledPaymentIdCounter++,
-            recurringPaymentId: recurring.Id,
-            scheduledDate: retryDate.toISOString(),
-            amount: recurring.amount,
-            status: 'pending',
-            isRetry: true,
-            originalScheduledPaymentId: scheduledPayment.Id,
-            retryCount: scheduledPayment.retryCount,
-            createdAt: new Date().toISOString()
-          };
-          
-          this.scheduledPayments.push(retryPayment);
-        } else {
-          // Max retries reached or auto-retry disabled
-          if (scheduledPayment.retryCount >= recurring.maxRetries) {
-            recurring.status = 'failed';
-            recurring.failedAt = new Date().toISOString();
-            recurring.failureReason = `Max retries (${recurring.maxRetries}) exceeded`;
+          // Mark scheduled payment as failed
+          scheduledPayment.status = 'failed';
+          scheduledPayment.failedAt = new Date().toISOString();
+          scheduledPayment.failureReason = error.message;
+          scheduledPayment.retryCount = (scheduledPayment.retryCount || 0) + 1;
+
+          // Enhanced error classification for better handling
+          let errorType = 'general';
+          if (error.message.includes('processor') || error.message.includes('PaymentProcessor')) {
+            errorType = 'processor_error';
+          } else if (error.message.includes('network') || error.message.includes('timeout')) {
+            errorType = 'network_error';
+          } else if (error.message.includes('validation') || error.message.includes('invalid')) {
+            errorType = 'validation_error';
           }
+
+          scheduledPayment.errorType = errorType;
+
+          // Handle retry logic with fallback mechanisms
+          if (recurring.autoRetry && scheduledPayment.retryCount < (recurring.maxRetries || 3)) {
+            // Schedule retry with exponential backoff
+            const retryDate = new Date();
+            const backoffMultiplier = Math.pow(2, scheduledPayment.retryCount - 1);
+            const retryInterval = (recurring.retryInterval || 1) * backoffMultiplier;
+            retryDate.setHours(retryDate.getHours() + retryInterval);
+            
+            const retryPayment = {
+              Id: this.scheduledPaymentIdCounter++,
+              recurringPaymentId: recurring.Id,
+              scheduledDate: retryDate.toISOString(),
+              amount: recurring.amount,
+              status: 'pending',
+              isRetry: true,
+              originalScheduledPaymentId: scheduledPayment.Id,
+              retryCount: scheduledPayment.retryCount,
+              errorType: errorType,
+              createdAt: new Date().toISOString()
+            };
+            
+            this.scheduledPayments.push(retryPayment);
+            
+            // Log retry scheduling
+            console.log('Scheduled payment retry:', {
+              retryPaymentId: retryPayment.Id,
+              originalPaymentId: scheduledPayment.Id,
+              retryCount: scheduledPayment.retryCount,
+              nextRetryDate: retryDate.toISOString(),
+              errorType: errorType
+            });
+          } else {
+            // Max retries reached or auto-retry disabled - implement fallback to manual processing
+            if (scheduledPayment.retryCount >= (recurring.maxRetries || 3)) {
+              recurring.status = 'failed';
+              recurring.failedAt = new Date().toISOString();
+              recurring.failureReason = `Max retries (${recurring.maxRetries || 3}) exceeded`;
+              
+              // Enable manual processing fallback
+              recurring.requiresManualProcessing = true;
+              recurring.manualProcessingReason = 'Automatic processing failed after maximum retries';
+              
+              console.warn('Recurring payment requires manual processing:', {
+                recurringId: recurring.Id,
+                failedPaymentId: scheduledPayment.Id,
+                totalRetries: scheduledPayment.retryCount,
+                errorType: errorType
+              });
+            } else {
+              recurring.requiresManualProcessing = true;
+              recurring.manualProcessingReason = 'Auto-retry disabled, manual intervention required';
+            }
+          }
+        } catch (handlingError) {
+          // Log error handling failure
+          console.error('Error handling payment failure:', {
+            originalError: error.message,
+            handlingError: handlingError.message,
+            scheduledPaymentId: scheduledPayment?.Id,
+            recurringPaymentId: recurring?.Id
+          });
+          
+          // Fallback to basic error response
+          return { 
+            success: false, 
+            error: 'Payment processing failed and error handling encountered issues',
+            requiresManualProcessing: true
+          };
         }
+      } else {
+        // Handle case where recurring payment or scheduled payment is not found
+        console.error('Payment processing error - missing payment references:', {
+          hasRecurring: !!recurring,
+          hasScheduledPayment: !!scheduledPayment,
+          error: error.message
+        });
       }
 
-      return { success: false, error: error.message };
+      return { 
+        success: false, 
+        error: error.message,
+        errorType: scheduledPayment?.errorType || 'unknown',
+        requiresManualProcessing: recurring?.requiresManualProcessing || false
+      };
     }
   }
 

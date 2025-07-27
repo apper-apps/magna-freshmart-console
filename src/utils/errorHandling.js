@@ -89,8 +89,8 @@ static shouldRetry(error, attemptCount = 0, maxRetries = 3) {
     return Math.min(totalDelay, 30000);
   }
 
-  static trackErrorPattern(error, context = '') {
-    // Enhanced error pattern tracking for better diagnostics
+static trackErrorPattern(error, context = '', metadata = {}) {
+    // Enhanced error pattern tracking with payment-specific diagnostics
     const errorKey = `${error.name || 'Unknown'}_${error.message || 'NoMessage'}`;
     const timestamp = Date.now();
     
@@ -98,19 +98,71 @@ static shouldRetry(error, attemptCount = 0, maxRetries = 3) {
       window.errorPatterns = new Map();
     }
     
-    const existing = window.errorPatterns.get(errorKey) || { count: 0, contexts: new Set(), firstSeen: timestamp };
+    const existing = window.errorPatterns.get(errorKey) || { 
+      count: 0, 
+      contexts: new Set(), 
+      firstSeen: timestamp,
+      metadata: new Map()
+    };
+    
     existing.count++;
     existing.contexts.add(context);
     existing.lastSeen = timestamp;
     
+    // Track metadata for payment errors
+    if (metadata && typeof metadata === 'object') {
+      Object.entries(metadata).forEach(([key, value]) => {
+        if (!existing.metadata.has(key)) {
+          existing.metadata.set(key, new Set());
+        }
+        existing.metadata.get(key).add(value);
+      });
+    }
+    
     window.errorPatterns.set(errorKey, existing);
     
-    // Alert if error pattern is becoming frequent
-    if (existing.count >= 5) {
-      console.error(`Critical error pattern detected: ${errorKey} occurred ${existing.count} times`, {
+    // Enhanced alerting for payment processor errors
+    const isPaymentError = context.includes('payment') || context.includes('checkout') || 
+                          error.message.includes('payment') || error.message.includes('processor');
+    
+    const criticalThreshold = isPaymentError ? 3 : 5; // Lower threshold for payment errors
+    
+    if (existing.count >= criticalThreshold) {
+      const errorDetails = {
         contexts: Array.from(existing.contexts),
-        timespan: timestamp - existing.firstSeen
-      });
+        timespan: timestamp - existing.firstSeen,
+        frequency: existing.count / ((timestamp - existing.firstSeen) / 60000), // errors per minute
+        isPaymentError,
+        metadata: Object.fromEntries(
+          Array.from(existing.metadata.entries()).map(([key, valueSet]) => [
+            key, 
+            Array.from(valueSet)
+          ])
+        )
+      };
+      
+      if (isPaymentError) {
+        console.error(`Critical payment error pattern detected: ${errorKey}`, {
+          ...errorDetails,
+          severity: 'CRITICAL',
+          recommendation: existing.count >= 10 ? 
+            'Consider disabling payment method temporarily' : 
+            'Monitor payment processor health'
+        });
+        
+        // Track payment processor health
+        if (typeof window !== 'undefined') {
+          window.paymentProcessorHealth = window.paymentProcessorHealth || {};
+          window.paymentProcessorHealth[errorKey] = {
+            status: existing.count >= 10 ? 'critical' : 'degraded',
+            errorCount: existing.count,
+            lastError: timestamp,
+            contexts: Array.from(existing.contexts)
+          };
+        }
+      } else {
+        console.error(`Critical error pattern detected: ${errorKey} occurred ${existing.count} times`, errorDetails);
+      }
     }
     
     return existing;

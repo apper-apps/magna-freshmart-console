@@ -367,71 +367,117 @@ const order = await orderService.create(orderData);
       toast.error('Please fix the form errors');
       return;
     }
-
-    try {
+try {
       setLoading(true);
       let paymentResult = null;
 
-      // Process payment based on admin-managed gateway configuration
-      const selectedGateway = availablePaymentMethods.find(method => method?.id === paymentMethod);
+      // Enhanced payment gateway validation with null checks
+      const selectedGateway = availablePaymentMethods?.find(method => method?.id === paymentMethod);
       
-      if (!selectedGateway || !selectedGateway.enabled) {
-        throw new Error(`Payment method ${paymentMethod} is not available`);
+      if (!selectedGateway) {
+        throw new Error(`Payment method ${paymentMethod} is not configured. Please contact support.`);
+      }
+      
+      if (!selectedGateway.enabled) {
+        throw new Error(`Payment method ${paymentMethod} is currently unavailable. Please choose an alternative payment method.`);
       }
 
-      if (paymentMethod === 'card') {
-        paymentResult = await paymentService.processCardPayment(
-          { 
-            cardNumber: '4111111111111111', 
-            cvv: '123', 
-            expiryDate: '12/25',
-            cardholderName: formData.name 
-          },
-          total,
-          Date.now()
-        );
-      } else if (paymentMethod === 'jazzcash' || paymentMethod === 'easypaisa') {
-        paymentResult = await paymentService.processDigitalWalletPayment(
-          paymentMethod,
-          total,
-          Date.now(),
-          formData.phone
-        );
-      } else if (paymentMethod === 'wallet') {
-        paymentResult = await paymentService.processWalletPayment(total, Date.now());
-        
-        // Record wallet transaction for order payment
-        if (paymentResult?.status === 'completed') {
-          await paymentService.recordWalletTransaction({
-            type: 'order_payment',
-            amount: -total, // Negative because it's a payment (deduction)
-            description: `Order payment for ${cart?.length || 0} items`,
-            reference: paymentResult.transactionId,
-            orderId: Date.now(),
-            transactionId: paymentResult.transactionId,
-            status: 'completed',
-            metadata: {
-              itemCount: cart?.length || 0,
-              originalAmount: originalSubtotal,
-              dealSavings: dealSavings,
-              deliveryCharge: deliveryCharge
+      // Payment processor error prevention with enhanced validation
+      try {
+        if (paymentMethod === 'card') {
+          // Validate card payment prerequisites
+          if (!paymentService.processCardPayment) {
+            throw new Error('Card payment processor is not available. Please try a different payment method.');
+          }
+          
+          paymentResult = await paymentService.processCardPayment(
+            { 
+              cardNumber: '4111111111111111', 
+              cvv: '123', 
+              expiryDate: '12/25',
+              cardholderName: formData.name 
+            },
+            total,
+            Date.now()
+          );
+        } else if (paymentMethod === 'jazzcash' || paymentMethod === 'easypaisa') {
+          // Validate digital wallet processor
+          if (!paymentService.processDigitalWalletPayment) {
+            throw new Error(`${paymentMethod} payment processor is not available. Please try a different payment method.`);
+          }
+          
+          paymentResult = await paymentService.processDigitalWalletPayment(
+            paymentMethod,
+            total,
+            Date.now(),
+            formData.phone
+          );
+        } else if (paymentMethod === 'wallet') {
+          // Validate wallet processor
+          if (!paymentService.processWalletPayment) {
+            throw new Error('Wallet payment processor is not available. Please try a different payment method.');
+          }
+          
+          paymentResult = await paymentService.processWalletPayment(total, Date.now());
+          
+          // Record wallet transaction for order payment
+          if (paymentResult?.status === 'completed') {
+            await paymentService.recordWalletTransaction({
+              type: 'order_payment',
+              amount: -total, // Negative because it's a payment (deduction)
+              description: `Order payment for ${cart?.length || 0} items`,
+              reference: paymentResult.transactionId,
+              orderId: Date.now(),
+              transactionId: paymentResult.transactionId,
+              status: 'completed',
+              metadata: {
+                itemCount: cart?.length || 0,
+                originalAmount: originalSubtotal,
+                dealSavings: dealSavings,
+                deliveryCharge: deliveryCharge
+              }
+            });
+          }
+        } else if (paymentMethod === 'bank') {
+          // Validate bank transfer processor
+          if (!paymentService.processBankTransfer) {
+            throw new Error('Bank transfer processor is not available. Please try a different payment method.');
+          }
+          
+          paymentResult = await paymentService.processBankTransfer(
+            total,
+            Date.now(),
+            { accountNumber: '1234567890', bankName: 'Test Bank' }
+          );
+          
+          // Handle verification if required
+          if (paymentResult?.requiresVerification) {
+            const verificationResult = await handlePaymentVerification(paymentResult.transactionId);
+            if (!verificationResult?.verified) {
+              throw new Error('Payment verification failed. Please try again or contact support.');
             }
-          });
-        }
-      } else if (paymentMethod === 'bank') {
-        paymentResult = await paymentService.processBankTransfer(
-          total,
-          Date.now(),
-          { accountNumber: '1234567890', bankName: 'Test Bank' }
-        );
-        
-        // Handle verification if required
-        if (paymentResult.requiresVerification) {
-          const verificationResult = await handlePaymentVerification(paymentResult.transactionId);
-          if (!verificationResult.verified) {
-            throw new Error('Payment verification failed');
           }
         }
+      } catch (processorError) {
+        // Payment processor specific error handling
+        console.error('Payment processor error:', {
+          paymentMethod,
+          error: processorError.message,
+          stack: processorError.stack,
+          timestamp: new Date().toISOString()
+        });
+
+        // Fallback to manual processing for critical errors
+        if (processorError.message.includes('processor') || processorError.message.includes('not available')) {
+          throw new Error(`Payment processing is temporarily unavailable for ${paymentMethod}. Please try a different payment method or contact support.`);
+        }
+        
+        throw processorError;
+      }
+
+      // Validate payment result
+      if (!paymentResult) {
+        throw new Error('Payment processing returned no result. Please try again.');
       }
 
       // Override system-generated transaction ID with user-provided one for non-cash payments
@@ -442,30 +488,42 @@ const order = await orderService.create(orderData);
       // Complete the order
       await completeOrder(paymentResult);
       
-} catch (error) {
+    } catch (error) {
       console.error('Order submission error:', error);
       
-      // Track error for monitoring
+      // Enhanced error tracking with payment-specific context
       if (typeof window !== 'undefined' && window.performanceMonitor) {
-        window.performanceMonitor.trackError(error, 'checkout-submission');
+        window.performanceMonitor.trackError(error, 'checkout-submission', {
+          paymentMethod,
+          orderTotal: total,
+          itemCount: cart?.length || 0
+        });
       }
       
-      // Enhanced error handling with specific messaging and recovery
+      // Enhanced error handling with comprehensive classification and recovery
       let errorMessage = 'Order failed: ' + error.message;
       let showRetry = false;
       let retryDelay = 2000;
       let errorType = 'general';
+      let showFallbackOptions = false;
       
-      // Comprehensive error classification
+      // Comprehensive error classification with payment processor focus
       if (error.code === 'WALLET_PAYMENT_FAILED') {
         errorMessage = error.userGuidance || error.message;
         showRetry = error.retryable !== false;
         retryDelay = 3000;
         errorType = 'wallet';
-      } else if (error.message.includes('payment')) {
+        showFallbackOptions = true;
+      } else if (error.message.includes('processor') || error.message.includes('PaymentProcessor')) {
+        errorMessage = `Payment processor error: ${error.message}`;
+        showRetry = false; // Don't retry processor errors
+        errorType = 'processor';
+        showFallbackOptions = true;
+      } else if (error.message.includes('payment') && !error.message.includes('processor')) {
         showRetry = !isRetry;
-        errorMessage = `Payment processing failed. ${error.message}`;
+        errorMessage = `Payment processing failed: ${error.message}`;
         errorType = 'payment';
+        showFallbackOptions = true;
       } else if (error.message.includes('network') || error.message.includes('connectivity') || error.message.includes('fetch')) {
         showRetry = true;
         errorMessage = 'Network error occurred. Please check your internet connection and try again.';
@@ -482,17 +540,31 @@ const order = await orderService.create(orderData);
         errorMessage = 'Server error occurred. Please try again in a few moments.';
         errorType = 'server';
         retryDelay = 5000;
+      } else if (error.message.includes('not available') || error.message.includes('unavailable')) {
+        errorMessage = error.message;
+        errorType = 'unavailable';
+        showFallbackOptions = true;
       }
       
+      // Enhanced toast notification with payment-specific actions
       toast.error(errorMessage, {
-        duration: errorType === 'network' ? 6000 : 4000,
+        duration: errorType === 'network' ? 6000 : errorType === 'processor' ? 8000 : 4000,
         action: showRetry && !isRetry ? {
           label: 'Retry',
           onClick: () => handleSubmit(e, true)
+        } : showFallbackOptions ? {
+          label: 'Try Another Method',
+          onClick: () => {
+            // Scroll to payment method selection
+            const paymentSection = document.querySelector('[data-payment-methods]');
+            if (paymentSection) {
+              paymentSection.scrollIntoView({ behavior: 'smooth' });
+            }
+          }
         } : undefined
       });
       
-      // Offer retry for applicable errors with enhanced messaging
+      // Enhanced retry logic with payment-specific messaging
       if (showRetry && !isRetry) {
         setTimeout(() => {
           let retryMessage;
@@ -500,6 +572,12 @@ const order = await orderService.create(orderData);
           switch (errorType) {
             case 'wallet':
               retryMessage = `${error.walletType || 'Wallet'} payment failed. Would you like to try again or choose a different payment method?`;
+              break;
+            case 'processor':
+              retryMessage = `Payment processor error occurred. This usually resolves quickly. Would you like to try a different payment method?`;
+              break;
+            case 'payment':
+              retryMessage = 'Payment processing failed. Would you like to retry or try a different payment method?';
               break;
             case 'network':
               retryMessage = 'Network issue detected. Would you like to retry the order?';
@@ -518,7 +596,39 @@ const order = await orderService.create(orderData);
             handleSubmit(e, true);
           }
         }, retryDelay);
+      } else if (showFallbackOptions && !isRetry) {
+        // Show fallback options for non-retryable errors
+        setTimeout(() => {
+          let fallbackMessage;
+          
+          switch (errorType) {
+            case 'processor':
+              fallbackMessage = 'Payment processor is currently unavailable. Would you like to try a different payment method?';
+              break;
+            case 'unavailable':
+              fallbackMessage = 'This payment method is currently unavailable. Would you like to choose a different payment method?';
+              break;
+            default:
+              fallbackMessage = 'Payment failed. Would you like to try a different payment method?';
+          }
+          
+          if (window.confirm(fallbackMessage)) {
+            // Reset payment method selection
+            setPaymentMethod('');
+            // Scroll to payment method selection
+            const paymentSection = document.querySelector('[data-payment-methods]');
+            if (paymentSection) {
+              paymentSection.scrollIntoView({ behavior: 'smooth' });
+            }
+          }
+        }, retryDelay);
       }
+      
+      // Enhanced error pattern tracking
+      if (typeof window !== 'undefined' && window.ErrorHandler) {
+        window.ErrorHandler.trackErrorPattern(error, `checkout-${paymentMethod}-${errorType}`);
+      }
+      
     } finally {
       setLoading(false);
     }
