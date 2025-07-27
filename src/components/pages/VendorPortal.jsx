@@ -10,9 +10,9 @@ import Loading from "@/components/ui/Loading";
 import Error from "@/components/ui/Error";
 import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
-import { Input } from "@/components/atoms/Input";
-import { Button } from "@/components/atoms/Button";
-import { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
+import Input, { Input } from "@/components/atoms/Input";
+import Button, { Button } from "@/components/atoms/Button";
+import formatCurrency, { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [vendor, setVendor] = useState(null);
@@ -2354,15 +2354,15 @@ useEffect(() => {
                           color: 'text-blue-600',
                           bgColor: 'bg-blue-100',
                           symbol: '◻️',
-                          variant: 'info'
+variant: 'info'
                         };
                     }
-}
                   };
 
                   const statusDisplay = getPaymentStatusDisplay(paymentStatus);
                   
                   return (
+                    <div>
                       <span className="text-xs text-gray-500">Payment Status:</span>
                       <div className={`flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-medium ${statusDisplay.bgColor} ${statusDisplay.color} border priority-badge ${statusDisplay.variant === 'success' ? 'high' : ''}`}>
                         <span className="text-sm">{statusDisplay.symbol}</span>
