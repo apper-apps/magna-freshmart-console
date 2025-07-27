@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { orderService } from "@/services/api/orderService";
-import { webSocketService } from "@/services/api/websocketService";
+import webSocketService from "@/services/api/websocketService";
 import { productService } from "@/services/api/productService";
 import { vendorService } from "@/services/api/vendorService";
 import { getFieldConfig, isMeasurementRequired, productUnitService } from "@/services/api/productUnitService";
@@ -10,9 +10,9 @@ import Loading from "@/components/ui/Loading";
 import Error from "@/components/ui/Error";
 import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
-import { Input } from "@/components/atoms/Input";
-import { Button } from "@/components/atoms/Button";
-import { formatCurrency, calculateMargin, calculateTotals } from "@/utils/currency";
+import Input, { Input } from "@/components/atoms/Input";
+import Button, { Button } from "@/components/atoms/Button";
+import formatCurrency, { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [vendor, setVendor] = useState(null);
