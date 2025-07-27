@@ -12,7 +12,7 @@ import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
 import Input from "@/components/atoms/Input";
 import Button from "@/components/atoms/Button";
-import formatCurrency, { calculateMargin, calculateTotals } from "@/utils/currency";
+import { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [vendor, setVendor] = useState(null);
@@ -1211,9 +1211,10 @@ toast.info(`${statusIcon} New order #${data.orderId} - Payment: ${paymentStatus}
           {
             icon: data.data?.statusSymbol,
             autoClose: 4000
-          }
-        );
 }
+        );
+      }
+    };
     // Subscribe to real-time order updates with enhanced event handling
     let unsubscribe;
     let paymentUnsubscribe;
