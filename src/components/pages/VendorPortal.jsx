@@ -12,7 +12,7 @@ import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
 import Input from "@/components/atoms/Input";
 import Button from "@/components/atoms/Button";
-import formatCurrency, { calculateMargin, calculateTotals } from "@/utils/currency";
+import { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [vendor, setVendor] = useState(null);
