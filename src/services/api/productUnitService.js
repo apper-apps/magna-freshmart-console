@@ -289,6 +289,9 @@ const isMeasurementRequired = (product) => {
   return fieldConfig.requiredForQuality;
 };
 
+// Export individual functions for direct import
+export { getUnitLabel, getFieldConfig, getFieldType, validateMeasurement, isMeasurementRequired };
+
 // Export service functions
 export const productUnitService = {
   getUnitLabel,
@@ -302,5 +305,3 @@ export const productUnitService = {
   isPackaged: (product) => getFieldType(product) === 'packaged', 
   isWeighted: (product) => getFieldType(product) === 'weighted'
 };
-
-export default productUnitService;
