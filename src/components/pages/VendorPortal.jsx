@@ -10,9 +10,9 @@ import Loading from "@/components/ui/Loading";
 import Error from "@/components/ui/Error";
 import Orders from "@/components/pages/Orders";
 import Category from "@/components/pages/Category";
-import { Input } from "@/components/atoms/Input";
-import { Button } from "@/components/atoms/Button";
-import { formatCurrency, calculateMargin, calculateTotals } from "@/utils/currency";
+import Input from "@/components/atoms/Input";
+import Button from "@/components/atoms/Button";
+import { calculateMargin, calculateTotals, formatCurrency } from "@/utils/currency";
 const VendorPortal = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [vendor, setVendor] = useState(null);
@@ -2276,7 +2276,7 @@ useEffect(() => {
   return (
     <div className="space-y-6">
 {/* Enhanced Payment Status Helper Functions */}
-{/* Enhanced Search and Filter with Payment Status Options */}
+      {/* Enhanced Search and Filter with Payment Status Options */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <div className="flex-1">
           <Input
