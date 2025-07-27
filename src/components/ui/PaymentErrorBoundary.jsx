@@ -57,30 +57,33 @@ class PaymentErrorBoundary extends React.Component {
               >
                 Try Again
               </button>
-              <button
+<button
                 onClick={() => window.location.reload()}
                 className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-4 py-2 rounded-md text-sm font-medium transition-colors duration-200"
               >
                 Refresh Page
               </button>
-</div>
+            </div>
           </div>
-          {(typeof process !== 'undefined' && process.env.NODE_ENV === 'development') && this.state.error && (
-            <details className="mt-4 cursor-pointer">
-              <summary className="text-xs text-red-600 font-medium">
-                Technical Details (Development Only)
-              </summary>
-              <pre className="mt-2 text-xs text-red-600 bg-red-100 p-2 rounded overflow-auto">
-                {this.state.error.toString()}
-                {this.state.errorInfo.componentStack}
-              </pre>
-            </details>
-          )}
         </div>
       );
     }
 
     return this.props.children;
+  }
+
+  // Enhanced error logging with environment detection
+  logError(error, errorInfo) {
+    // Use Vite's import.meta.env instead of process.env
+    const isDevelopment = import.meta.env?.DEV || import.meta.env?.MODE === 'development';
+    
+    if (isDevelopment) {
+      console.group('🚨 Payment Error Boundary');
+      console.error('Error:', error);
+      console.error('Error Info:', errorInfo);
+      console.error('Component Stack:', errorInfo.componentStack);
+      console.groupEnd();
+    }
   }
 }
 
