@@ -1,6 +1,6 @@
 import ordersData from "../mockData/orders.json";
 import React from "react";
-import webSocketService, { webSocketService } from "@/services/api/websocketService";
+import webSocketService from "@/services/api/websocketService";
 import { paymentService } from "@/services/api/paymentService";
 import { productService } from "@/services/api/productService";
 import Error from "@/components/ui/Error";
