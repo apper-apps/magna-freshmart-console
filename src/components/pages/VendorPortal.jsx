@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { orderService } from "@/services/api/orderService";
-import { webSocketService } from "@/services/api/websocketService";
+import webSocketService from "@/services/api/websocketService";
 import { productService } from "@/services/api/productService";
 import { vendorService } from "@/services/api/vendorService";
 import { getFieldConfig, isMeasurementRequired, productUnitService } from "@/services/api/productUnitService";
