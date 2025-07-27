@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
-import { clipboardService } from "@/services/ClipboardService";
+import clipboardService from "@/services/ClipboardService";
 import { orderService } from "@/services/api/orderService";
 import ApperIcon from "@/components/ApperIcon";
 import OrderStatusBadge from "@/components/molecules/OrderStatusBadge";
@@ -158,14 +158,17 @@ useEffect(() => {
 
 // Performance metrics display (development only)
   const performanceStats = useMemo(() => {
-    if (process.env.NODE_ENV !== 'development') return null;
-    
-    return (
-      <div className="mb-4 p-2 bg-gray-100 rounded text-xs text-gray-600">
-        Orders: {orders.length}/{totalOrders} | Page: {currentPage} | 
-        Cache: {orderService.getCacheStats?.() || 'N/A'}
-      </div>
-    );
+    // Check environment for debugging
+    if (import.meta.env.DEV) {
+      console.log('Orders data:', orders);
+      return (
+        <div className="mb-4 p-2 bg-gray-100 rounded text-xs text-gray-600">
+          Orders: {orders.length}/{totalOrders} | Page: {currentPage} | 
+          Cache: {orderService.getCacheStats?.() || 'N/A'}
+        </div>
+      );
+    }
+    return null;
   }, [orders.length, totalOrders, currentPage]);
 
   if (loading && orders.length === 0) {
