@@ -1,19 +1,18 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, Suspense } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { Heart, Minus, Plus, ShoppingCart, Star } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { toast } from "react-hot-toast";
-import { addToCart } from "@/store/cartSlice";
-import { formatCurrency } from "@/utils/currency";
 import { productService } from "@/services/api/productService";
 import ApperIcon from "@/components/ApperIcon";
-import Cart from "@/components/pages/Cart";
-import { Badge } from "@/components/atoms/Badge";
-import { Button } from "@/components/atoms/Button";
-import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
-
+import Error from "@/components/ui/Error";
+import Cart from "@/components/pages/Cart";
+import Badge from "@/components/atoms/Badge";
+import Button from "@/components/atoms/Button";
+import { addToCart } from "@/store/cartSlice";
+import { formatCurrency } from "@/utils/currency";
 const ProductDetail = () => {
   const { productId } = useParams();
 const navigate = useNavigate();
@@ -226,17 +225,23 @@ const calculateImageDimensions = () => {
               }}
             >
 {/* Enhanced Progressive Image Loading with Comprehensive Error Handling */}
-<EnhancedImageLoader 
-                product={product}
-                dimensions={calculateImageDimensions()}
-                className="w-full h-full object-cover transition-all duration-500 hover:scale-105 image-loaded"
-                style={{ 
-                  backgroundColor: '#f3f4f6',
-                  aspectRatio: '1:1',
-                  width: `${calculateImageDimensions().width}px`,
-                  height: `${calculateImageDimensions().height}px`
-                }}
-              />
+<Suspense fallback={
+                <div className="w-full h-full bg-gray-200 animate-pulse flex items-center justify-center">
+                  <ApperIcon name="Loader" size={24} className="text-gray-400 animate-spin" />
+                </div>
+              }>
+                <EnhancedImageLoader 
+                  product={product}
+                  dimensions={calculateImageDimensions()}
+                  className="w-full h-full object-cover transition-all duration-500 hover:scale-105 image-loaded"
+                  style={{ 
+                    backgroundColor: '#f3f4f6',
+                    aspectRatio: '1:1',
+                    width: `${calculateImageDimensions().width}px`,
+                    height: `${calculateImageDimensions().height}px`
+                  }}
+                />
+              </Suspense>
               {/* Natural Ratio Indicator */}
               <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-md">
                 <div className="flex items-center space-x-1">
@@ -585,7 +590,6 @@ const calculateImageDimensions = () => {
     </div>
   );
 };
-
 // Calculate effective price based on pricing hierarchy
 const calculateEffectivePrice = (product, quantity = 1) => {
   if (!product) return 0;
@@ -1233,7 +1237,7 @@ const EnhancedImageLoader = ({ product, dimensions, className, style }) => {
     }
   };
 
-const constructImageUrl = (baseUrl, width, height, quality = 80) => {
+  const constructImageUrl = (baseUrl, width, height, quality = 80) => {
     try {
       if (!baseUrl || !validateImageUrl(baseUrl)) {
         throw new Error('Invalid base URL');
@@ -1263,8 +1267,8 @@ const constructImageUrl = (baseUrl, width, height, quality = 80) => {
   };
 
   const generateFallbackUrl = (productName, width, height) => {
-    const encodedName = encodeURIComponent(productName.substring(0, 20));
-    return `https://via.placeholder.com/${width}x${height}/f3f4f6/64748b?text=${encodedName}`;
+    // Use default product image instead of placeholder
+    return '/default-product.webp';
   };
 
   const handleImageError = useCallback(async (error, retryCount = 0) => {
@@ -1290,10 +1294,10 @@ const constructImageUrl = (baseUrl, width, height, quality = 80) => {
             error: false
           }));
         } else {
-          // Use fallback if URL construction fails
+          // Use default fallback if URL construction fails
           setImageState(prev => ({
             ...prev,
-            src: generateFallbackUrl(product.name, dimensions.width, dimensions.height),
+            src: '/default-product.webp',
             loading: false,
             error: true,
             retryCount: maxRetries
@@ -1301,10 +1305,10 @@ const constructImageUrl = (baseUrl, width, height, quality = 80) => {
         }
       }, delay);
     } else {
-      // Max retries reached, use fallback
+      // Max retries reached, use default fallback
       setImageState(prev => ({
         ...prev,
-        src: generateFallbackUrl(product.name, dimensions.width, dimensions.height),
+        src: '/default-product.webp',
         loading: false,
         error: true
       }));
@@ -1328,7 +1332,7 @@ const constructImageUrl = (baseUrl, width, height, quality = 80) => {
   useEffect(() => {
     if (!product.imageUrl) {
       setImageState({
-        src: generateFallbackUrl(product.name, dimensions.width, dimensions.height),
+        src: '/default-product.webp',
         loading: false,
         error: true,
         retryCount: maxRetries
@@ -1347,9 +1351,9 @@ const constructImageUrl = (baseUrl, width, height, quality = 80) => {
         retryCount: 0
       }));
     } else {
-      // If URL construction fails, use fallback immediately
+      // If URL construction fails, use default fallback immediately
       setImageState({
-        src: generateFallbackUrl(product.name, dimensions.width, dimensions.height),
+        src: '/default-product.webp',
         loading: false,
         error: true,
         retryCount: maxRetries
@@ -1366,37 +1370,48 @@ const constructImageUrl = (baseUrl, width, height, quality = 80) => {
   }
 
   return (
-    <picture className="block w-full h-full">
-      {!imageState.error && (
-        <source
-          srcSet={`${imageState.src} 1x, ${constructImageUrl(product.imageUrl, dimensions.width * 2, dimensions.height * 2) || imageState.src} 2x`}
-          type="image/webp"
-          onError={(e) => {
-            console.warn('WebP source failed, falling back to regular image');
-          }}
+    <Suspense fallback={
+      <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center">
+        <ApperIcon name="Loader" size={24} className="text-gray-400 animate-spin" />
+      </div>
+    }>
+      <picture className="block w-full h-full">
+        {!imageState.error && (
+          <source
+            srcSet={`${imageState.src} 1x, ${constructImageUrl(product.imageUrl, dimensions.width * 2, dimensions.height * 2) || imageState.src} 2x`}
+            type="image/webp"
+            onError={(e) => {
+              console.warn('WebP source failed, falling back to regular image');
+            }}
+          />
+        )}
+        <img
+          src={imageState.src}
+          alt={product.name}
+          className={className}
+          style={style}
+          loading="lazy"
+          onLoad={handleImageLoad}
+          onError={handleImageErrorEvent}
         />
-      )}
-      <img
-        src={imageState.src}
-        alt={product.name}
-        className={className}
-        style={style}
-        loading="lazy"
-        onLoad={handleImageLoad}
-        onError={handleImageErrorEvent}
-      />
-      {imageState.loading && (
-        <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center">
-          <ApperIcon name="Loader" size={24} className="text-gray-400 animate-spin" />
-        </div>
-      )}
-      {imageState.error && imageState.retryCount > 0 && imageState.retryCount < maxRetries && (
-        <div className="absolute top-2 right-2 bg-orange-500 text-white text-xs px-2 py-1 rounded">
-          Retrying... ({imageState.retryCount}/{maxRetries})
-        </div>
-      )}
-    </picture>
-);
+        {imageState.loading && (
+          <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center">
+            <ApperIcon name="Loader" size={24} className="text-gray-400 animate-spin" />
+          </div>
+        )}
+        {imageState.error && imageState.retryCount > 0 && imageState.retryCount < maxRetries && (
+          <div className="absolute top-2 right-2 bg-orange-500 text-white text-xs px-2 py-1 rounded">
+            Retrying... ({imageState.retryCount}/{maxRetries})
+          </div>
+        )}
+        {imageState.error && imageState.src === '/default-product.webp' && (
+          <div className="absolute bottom-2 left-2 bg-blue-500 text-white text-xs px-2 py-1 rounded">
+            Default Image
+          </div>
+        )}
+      </picture>
+    </Suspense>
+  );
 };
 
 export default ProductDetail;

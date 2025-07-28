@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState, Suspense } from "react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { toast } from "react-toastify";
@@ -12,6 +12,73 @@ import Empty from "@/components/ui/Empty";
 import Badge from "@/components/atoms/Badge";
 import Button from "@/components/atoms/Button";
 import formatCurrency from "@/utils/currency";
+import { ErrorHandler, withErrorHandling } from "@/utils/errorHandling";
+
+// Error Boundary Component for Orders Tab
+class OrdersErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    this.setState({
+      error: error,
+      errorInfo: errorInfo
+    });
+
+    // Track error for monitoring
+    ErrorHandler.trackErrorPattern(error, 'orders_tab_crash', {
+      operation: 'orders_rendering',
+      componentStack: errorInfo.componentStack,
+      timestamp: new Date().toISOString()
+    });
+
+    console.error('Orders tab crashed:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <ApperIcon name="AlertTriangle" size={24} className="text-red-600" />
+              <h2 className="text-lg font-semibold text-red-800">Orders Tab Error</h2>
+            </div>
+            <p className="text-red-700 mb-4">
+              An error occurred while loading your orders. Your data is safe and the navigation remains functional.
+            </p>
+            <div className="flex space-x-3">
+              <Button
+                onClick={() => {
+                  this.setState({ hasError: false, error: null, errorInfo: null });
+                  window.location.reload();
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                <ApperIcon name="RefreshCw" size={16} className="mr-2" />
+                Reload Orders
+              </Button>
+              <Link to="/category/All">
+                <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-50">
+                  <ApperIcon name="ShoppingCart" size={16} className="mr-2" />
+                  Continue Shopping
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -369,29 +436,65 @@ const loadMoreOrders = useCallback(async () => {
     );
   }
 
-  if (error && orders.length === 0) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {performanceStats}
-        <Error 
-          message={`${error} ${retryCount > 0 ? `(Retry ${retryCount})` : ''}`}
-          onRetry={loadOrders} 
-        />
+if (error && orders.length === 0) {
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {performanceStats}
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+        <div className="flex items-center space-x-3 mb-4">
+          <ApperIcon name="AlertTriangle" size={24} className="text-red-600" />
+          <h2 className="text-lg font-semibold text-red-800">
+            Orders Loading Failed
+            {retryCount > 0 && (
+              <Badge variant="warning" className="ml-2">
+                Retry {retryCount}/3
+              </Badge>
+            )}
+          </h2>
+        </div>
+        <p className="text-red-700 mb-4">
+          {error}
+          {retryCount < 3 && " Retrying automatically..."}
+        </p>
+        
+        {retryCount >= 3 ? (
+          <div className="flex space-x-3">
+            <Button
+              onClick={loadOrders}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              <ApperIcon name="RefreshCw" size={16} className="mr-2" />
+              Try Again
+            </Button>
+            <Link to="/category/All">
+              <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-50">
+                <ApperIcon name="ShoppingCart" size={16} className="mr-2" />
+                Continue Shopping
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="flex items-center space-x-2 text-red-600">
+            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-600"></div>
+            <span>Auto-retry in progress...</span>
+          </div>
+        )}
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  if (orders.length === 0 && !loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {performanceStats}
-        <Empty 
-          type="orders" 
-          onAction={() => window.location.href = '/category/All'}
-        />
-      </div>
-    );
-  }
+if (orders.length === 0 && !loading) {
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {performanceStats}
+      <Empty 
+        type="orders" 
+        onAction={() => window.location.href = '/category/All'}
+      />
+    </div>
+  );
+}
 const toggleOrderCollapse = (orderId) => {
     setCollapsedOrders(prev => {
       const newSet = new Set(prev);
@@ -465,97 +568,130 @@ const toggleOrderCollapse = (orderId) => {
     );
   };
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20">
-      {performanceStats}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
-          <p className="text-gray-600 mt-1">
-            Track and manage your orders ({orders.length}{totalOrders > orders.length ? ` of ${totalOrders}` : ''})
-          </p>
-        </div>
-      </div>
-
-      {/* Enhanced Mobile-first responsive order cards with cross-platform features */}
-      <div className="space-y-4 sm:space-y-6">
-        {/* Multi-select controls */}
-        <MultiSelectControls 
-          selectedOrders={selectedOrders}
-          setSelectedOrders={setSelectedOrders}
-          orders={orders}
-          onBulkAction={handleBulkAction}
-        />
-        
-        {orders.length > 20 ? (
-          <VirtualizedOrderList 
-            orders={orders}
-            selectedOrders={selectedOrders}
-            setSelectedOrders={setSelectedOrders}
-            renderOrderCard={renderOrderCard}
-          />
-        ) : (
-          orders.map((order) => renderOrderCard(order))
-        )}
-      </div>
-
-      {/* Lazy Loading Sentinel */}
-      {hasMoreOrders && (
-        <div id="orders-sentinel" className="flex justify-center py-8">
-          {loadingMore ? (
-            <div className="flex items-center space-x-2 text-gray-500">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-              <span>Loading more orders...</span>
-            </div>
-          ) : (
-            <button
-              onClick={loadMoreOrders}
-              className="px-6 py-3 bg-gradient-to-r from-primary to-accent text-white rounded-lg hover:shadow-lg transition-all duration-200 transform hover:scale-105"
-            >
-              Load More Orders
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Load Complete Message */}
-      {!hasMoreOrders && orders.length > 0 && (
-        <div className="text-center py-8 text-gray-500">
-          <ApperIcon name="CheckCircle" size={20} className="mx-auto mb-2" />
-          <p>All orders loaded ({orders.length} total)</p>
-        </div>
-      )}
-
-      {/* Network Status Indicator */}
-      {error && orders.length > 0 && (
-        <div className="fixed bottom-20 left-4 right-4 bg-red-100 border border-red-300 text-red-700 px-4 py-2 rounded-lg shadow-lg z-40">
-          <div className="flex items-center space-x-2">
-            <ApperIcon name="AlertTriangle" size={16} />
-            <span className="text-sm">Network issue detected. Retrying...</span>
+return (
+  <OrdersErrorBoundary>
+    <Suspense fallback={<Loading />}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20">
+        {performanceStats}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">My Orders</h1>
+            <p className="text-gray-600 mt-1">
+              Track and manage your orders ({orders.length}{totalOrders > orders.length ? ` of ${totalOrders}` : ''})
+            </p>
           </div>
         </div>
-      )}
 
-      {/* Floating Action Buttons */}
-      <div className="fixed bottom-6 right-6 flex flex-col space-y-3 z-50">
-        <Link 
-          to="/category/All"
-          className="fab-primary flex items-center justify-center w-14 h-14 bg-gradient-to-r from-primary to-accent text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110"
-          title="Shop More"
-        >
-          <ApperIcon name="Plus" size={24} />
-        </Link>
-        
-        <button
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="fab-secondary flex items-center justify-center w-12 h-12 bg-white text-gray-600 rounded-full shadow-md hover:shadow-lg transition-all duration-300 hover:scale-110 border border-gray-200"
-          title="Scroll to Top"
-        >
-          <ApperIcon name="ArrowUp" size={20} />
-</button>
-</div>
-    </div>
-  );
+        {/* Enhanced Mobile-first responsive order cards with cross-platform features */}
+        <div className="space-y-4 sm:space-y-6">
+          {/* Multi-select controls */}
+          <MultiSelectControls 
+            selectedOrders={selectedOrders}
+            setSelectedOrders={setSelectedOrders}
+            orders={orders}
+            onBulkAction={handleBulkAction}
+          />
+          
+          {orders.length > 20 ? (
+            <VirtualizedOrderList 
+              orders={orders}
+              selectedOrders={selectedOrders}
+              setSelectedOrders={setSelectedOrders}
+              renderOrderCard={renderOrderCard}
+            />
+          ) : (
+            orders.map((order) => renderOrderCard(order))
+          )}
+        </div>
+
+        {/* Lazy Loading Sentinel */}
+        {hasMoreOrders && (
+          <div id="orders-sentinel" className="flex justify-center py-8">
+            {loadingMore ? (
+              <div className="flex items-center space-x-2 text-gray-500">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                <span>Loading more orders...</span>
+              </div>
+            ) : (
+              <button
+                onClick={loadMoreOrders}
+                className="px-6 py-3 bg-gradient-to-r from-primary to-accent text-white rounded-lg hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+              >
+                Load More Orders
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Load Complete Message */}
+        {!hasMoreOrders && orders.length > 0 && (
+          <div className="text-center py-8 text-gray-500">
+            <ApperIcon name="CheckCircle" size={20} className="mx-auto mb-2" />
+            <p>All orders loaded ({orders.length} total)</p>
+          </div>
+        )}
+
+        {/* Enhanced Network Status Indicator with Navigation Protection */}
+        {error && orders.length > 0 && (
+          <div className="fixed bottom-20 left-4 right-4 bg-red-100 border border-red-300 text-red-700 px-4 py-2 rounded-lg shadow-lg z-40">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <ApperIcon name="AlertTriangle" size={16} />
+                <span className="text-sm">
+                  Network issue detected. 
+                  {retryCount < 3 ? " Auto-retrying..." : " Manual retry available."}
+                </span>
+              </div>
+              <div className="flex items-center space-x-2">
+                {retryCount >= 3 && (
+                  <Button
+                    size="sm"
+                    onClick={loadOrders}
+                    className="bg-red-600 hover:bg-red-700 text-white text-xs px-2 py-1"
+                  >
+                    Retry
+                  </Button>
+                )}
+                <Badge variant={retryCount < 3 ? "warning" : "danger"} className="text-xs">
+                  {retryCount}/3
+                </Badge>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Always Accessible Floating Action Buttons */}
+        <div className="fixed bottom-6 right-6 flex flex-col space-y-3 z-50">
+          <Link 
+            to="/category/All"
+            className="fab-primary flex items-center justify-center w-14 h-14 bg-gradient-to-r from-primary to-accent text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110"
+            title="Shop More"
+          >
+            <ApperIcon name="Plus" size={24} />
+          </Link>
+          
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="fab-secondary flex items-center justify-center w-12 h-12 bg-white text-gray-600 rounded-full shadow-md hover:shadow-lg transition-all duration-300 hover:scale-110 border border-gray-200"
+            title="Scroll to Top"
+          >
+            <ApperIcon name="ArrowUp" size={20} />
+          </button>
+        </div>
+
+        {/* Connection Status Indicator */}
+        <div className="fixed top-4 right-4 z-50">
+          {!navigator.onLine && (
+            <div className="bg-red-600 text-white px-3 py-1 rounded-lg text-sm flex items-center space-x-2">
+              <ApperIcon name="WifiOff" size={14} />
+              <span>Offline</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </Suspense>
+  </OrdersErrorBoundary>
+);
 };
 
 export default Orders;

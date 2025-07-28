@@ -25,6 +25,7 @@ class OrderService {
   }
 
 // Enhanced getAll with caching
+// Enhanced getAll with caching and auto-retry
   async getAll() {
     const cacheKey = 'all_orders';
     const cached = this.getFromCache(cacheKey);
@@ -35,18 +36,37 @@ class OrderService {
     }
     
     const startTime = performance.now();
-    await this.delay();
+    let attemptCount = 0;
+    const maxRetries = 3;
     
-    const result = [...this.orders];
-    this.setCache(cacheKey, result, this.cacheTTL);
-    
-    this.updatePerformanceMetrics(startTime);
-    this.performanceMetrics.cacheMisses++;
-    
-    return result;
+    while (attemptCount < maxRetries) {
+      try {
+        await this.delay();
+        
+        const result = [...this.orders];
+        this.setCache(cacheKey, result, this.cacheTTL);
+        
+        this.updatePerformanceMetrics(startTime);
+        this.performanceMetrics.cacheMisses++;
+        
+        return result;
+      } catch (error) {
+        attemptCount++;
+        console.warn(`Orders getAll failed (attempt ${attemptCount}/${maxRetries}):`, error);
+        
+        if (attemptCount >= maxRetries) {
+          this.performanceMetrics.errorCount++;
+          throw new Error(`Failed to load orders after ${maxRetries} attempts: ${error.message}`);
+        }
+        
+        // Exponential backoff delay
+        const retryDelay = Math.pow(2, attemptCount) * 1000;
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
+    }
   }
 
-  // New paginated method for lazy loading
+// Enhanced paginated method with auto-retry for lazy loading
   async getAllPaginated(page = 1, limit = 10) {
     const cacheKey = `orders_page_${page}_limit_${limit}`;
     const cached = this.getFromCache(cacheKey);
@@ -57,29 +77,48 @@ class OrderService {
     }
     
     const startTime = performance.now();
-    await this.delay();
+    let attemptCount = 0;
+    const maxRetries = 3;
     
-    const sortedOrders = [...this.orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const orders = sortedOrders.slice(startIndex, endIndex);
-    
-    const result = {
-      orders,
-      page,
-      limit,
-      total: this.orders.length,
-      hasMore: endIndex < this.orders.length,
-      totalPages: Math.ceil(this.orders.length / limit)
-    };
-    
-    // Cache paginated results with shorter TTL for real-time data
-    this.setCache(cacheKey, result, this.cacheTTL / 2);
-    
-    this.updatePerformanceMetrics(startTime);
-    this.performanceMetrics.cacheMisses++;
-    
-    return result;
+    while (attemptCount < maxRetries) {
+      try {
+        await this.delay();
+        
+        const sortedOrders = [...this.orders].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        const startIndex = (page - 1) * limit;
+        const endIndex = startIndex + limit;
+        const orders = sortedOrders.slice(startIndex, endIndex);
+        
+        const result = {
+          orders,
+          page,
+          limit,
+          total: this.orders.length,
+          hasMore: endIndex < this.orders.length,
+          totalPages: Math.ceil(this.orders.length / limit)
+        };
+        
+        // Cache paginated results with shorter TTL for real-time data
+        this.setCache(cacheKey, result, this.cacheTTL / 2);
+        
+        this.updatePerformanceMetrics(startTime);
+        this.performanceMetrics.cacheMisses++;
+        
+        return result;
+      } catch (error) {
+        attemptCount++;
+        console.warn(`Orders getAllPaginated failed (attempt ${attemptCount}/${maxRetries}):`, error);
+        
+        if (attemptCount >= maxRetries) {
+          this.performanceMetrics.errorCount++;
+          throw new Error(`Failed to load paginated orders after ${maxRetries} attempts: ${error.message}`);
+        }
+        
+        // Exponential backoff delay
+        const retryDelay = Math.pow(2, attemptCount) * 1000;
+        await new Promise(resolve => setTimeout(resolve, retryDelay));
+      }
+    }
   }
 
 // Enhanced getById with caching and performance monitoring
