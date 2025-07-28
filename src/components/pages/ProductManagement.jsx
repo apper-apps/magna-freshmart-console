@@ -9,9 +9,9 @@ import Empty from "@/components/ui/Empty";
 import Checkout from "@/components/pages/Checkout";
 import Category from "@/components/pages/Category";
 import Cart from "@/components/pages/Cart";
-import Badge from "@/components/atoms/Badge";
-import Input from "@/components/atoms/Input";
-import Button from "@/components/atoms/Button";
+import Badge, { Badge } from "@/components/atoms/Badge";
+import Input, { Input } from "@/components/atoms/Input";
+import Button, { Button } from "@/components/atoms/Button";
 
 // Material UI Switch Component
 const Switch = ({ checked, onChange, color = "primary", disabled = false, ...props }) => {
@@ -153,9 +153,11 @@ const [formData, setFormData] = useState({
   // Handle image upload and processing
 const handleImageUpload = async (file) => {
     try {
+      // Initialize upload process with 0% progress
       setImageData(prev => ({ ...prev, isProcessing: true, uploadProgress: 0 }));
+      toast.info('Starting image upload and processing...');
       
-      // 1. Client-Side File Type Validation
+      // 1. Client-Side File Type Validation (5% progress)
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
       const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
       
@@ -167,7 +169,7 @@ const handleImageUpload = async (file) => {
         return;
       }
       
-      // 2. File Size Validation (10MB limit)
+      // 2. File Size Validation (10% progress)
       const maxFileSize = 10 * 1024 * 1024; // 10MB
       if (file.size > maxFileSize) {
         toast.error(`File size too large. Maximum allowed size is 10MB. Your file is ${(file.size / 1024 / 1024).toFixed(1)}MB.`);
@@ -175,12 +177,17 @@ const handleImageUpload = async (file) => {
         return;
       }
       
-      setImageData(prev => ({ ...prev, uploadProgress: 20 }));
+      // Update progress after validation
+      setImageData(prev => ({ ...prev, uploadProgress: 15 }));
+      toast.info('File validation completed. Processing image...');
       
-      // 3. HEIC Conversion (if needed)
+      // 3. HEIC Conversion (if needed) - 15-35% progress
       let processFile = file;
       if (file.type === 'image/heic' || file.type === 'image/heif' || fileExtension === 'heic' || fileExtension === 'heif') {
         try {
+          setImageData(prev => ({ ...prev, uploadProgress: 20 }));
+          toast.info('Converting HEIC format to JPEG...');
+          
           // Import heic2any dynamically to reduce bundle size
           const heic2any = (await import('heic2any')).default;
           const convertedBlob = await heic2any({
@@ -193,6 +200,7 @@ const handleImageUpload = async (file) => {
             type: 'image/jpeg'
           });
           
+          setImageData(prev => ({ ...prev, uploadProgress: 35 }));
           toast.success('HEIC file converted to JPEG successfully');
         } catch (conversionError) {
           console.error('HEIC conversion error:', conversionError);
@@ -200,11 +208,13 @@ const handleImageUpload = async (file) => {
           setImageData(prev => ({ ...prev, isProcessing: false, uploadProgress: 0 }));
           return;
         }
+      } else {
+        // Skip HEIC conversion, jump to next stage
+        setImageData(prev => ({ ...prev, uploadProgress: 35 }));
       }
       
-      setImageData(prev => ({ ...prev, uploadProgress: 40 }));
-      
-      // 4. Create Image Object for Processing
+      // 4. Image Loading and Analysis (35-50% progress)
+      toast.info('Analyzing image dimensions and quality...');
       const img = new Image();
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
@@ -214,7 +224,7 @@ const handleImageUpload = async (file) => {
           try {
             const { width, height } = img;
             
-            // 5. Aspect Ratio Check and Auto-Crop Setup
+            // 5. Aspect Ratio Check and Auto-Crop Setup (50-65% progress)
             const aspectRatio = width / height;
             const isSquare = Math.abs(aspectRatio - 1) < 0.05; // Allow 5% tolerance
             
@@ -222,9 +232,10 @@ const handleImageUpload = async (file) => {
               toast.info(`Image aspect ratio is ${aspectRatio.toFixed(2)}:1. Auto-cropping to 1:1 square format.`);
             }
             
-            setImageData(prev => ({ ...prev, uploadProgress: 60 }));
+            setImageData(prev => ({ ...prev, uploadProgress: 50 }));
             
-            // 6. Calculate Center Crop Dimensions
+            // 6. Calculate Center Crop Dimensions (65% progress)
+            toast.info('Calculating optimal crop dimensions...');
             const targetSize = 600;
             const cropSize = Math.min(width, height);
             const cropX = (width - cropSize) / 2;
@@ -234,7 +245,10 @@ const handleImageUpload = async (file) => {
             canvas.width = targetSize;
             canvas.height = targetSize;
             
-            // 8. Draw Center-Cropped and Resized Image
+            setImageData(prev => ({ ...prev, uploadProgress: 65 }));
+            
+            // 8. Draw Center-Cropped and Resized Image (65-80% progress)
+            toast.info('Resizing and cropping image...');
             ctx.drawImage(
               img,
               cropX, cropY, cropSize, cropSize, // Source crop area
@@ -243,7 +257,8 @@ const handleImageUpload = async (file) => {
             
             setImageData(prev => ({ ...prev, uploadProgress: 80 }));
             
-            // 9. Determine Output Format and Quality
+            // 9. Determine Output Format and Quality (80-90% progress)
+            toast.info('Optimizing image quality and compression...');
             let outputFormat = 'image/jpeg';
             let quality = 0.75; // 75% quality (70-80% range)
             
@@ -256,16 +271,22 @@ const handleImageUpload = async (file) => {
               quality = 0.7; // More aggressive compression for WebP
             }
             
-            // 10. Convert to Blob with Compression
+            setImageData(prev => ({ ...prev, uploadProgress: 85 }));
+            
+            // 10. Convert to Blob with Compression (85-95% progress)
+            toast.info('Finalizing image processing...');
             canvas.toBlob((blob) => {
               if (!blob) {
                 reject(new Error('Failed to generate compressed image'));
                 return;
               }
               
-              // 11. Create Object URL and Update State
+              setImageData(prev => ({ ...prev, uploadProgress: 95 }));
+              
+              // 11. Create Object URL and Update State (95-100% progress)
               const processedImageUrl = URL.createObjectURL(blob);
               
+              // Final state update with complete progress
               setImageData(prev => ({
                 ...prev,
                 selectedImage: processedImageUrl,
@@ -282,7 +303,10 @@ const handleImageUpload = async (file) => {
               setFormData(prev => ({ ...prev, imageUrl: processedImageUrl }));
               
               const compressionRatio = ((file.size - blob.size) / file.size * 100).toFixed(1);
-              toast.success(`Image processed successfully! Resized to 600x600px, ${compressionRatio}% size reduction.`);
+              const originalSizeMB = (file.size / 1024 / 1024).toFixed(1);
+              const finalSizeKB = (blob.size / 1024).toFixed(1);
+              
+              toast.success(`✅ Upload Complete! Image processed successfully:\n• Resized to 600×600px\n• ${compressionRatio}% size reduction\n• ${originalSizeMB}MB → ${finalSizeKB}KB`);
               
               resolve();
             }, outputFormat, quality);
@@ -292,7 +316,7 @@ const handleImageUpload = async (file) => {
           }
         };
         
-        img.onerror = () => reject(new Error('Failed to load image file'));
+        img.onerror = () => reject(new Error('Failed to load image file - file may be corrupted'));
         img.src = URL.createObjectURL(processFile);
       });
       
@@ -300,15 +324,17 @@ const handleImageUpload = async (file) => {
       console.error('Error uploading and processing image:', error);
       setImageData(prev => ({ ...prev, isProcessing: false, uploadProgress: 0 }));
       
-      // Enhanced error messages based on error type
+      // Enhanced error messages based on error type with specific guidance
       if (error.message.includes('HEIC')) {
-        toast.error('HEIC conversion failed. Please try converting to JPG first or use a different image.');
-      } else if (error.message.includes('load')) {
-        toast.error('Failed to load image file. Please ensure the file is not corrupted.');
-      } else if (error.message.includes('generate')) {
-        toast.error('Failed to process image. The file may be corrupted or unsupported.');
+        toast.error('❌ HEIC Conversion Failed\nPlease try converting to JPG first or use a different image format.');
+      } else if (error.message.includes('load') || error.message.includes('corrupted')) {
+        toast.error('❌ Image Loading Failed\nThe file appears to be corrupted. Please try with a different image.');
+      } else if (error.message.includes('generate') || error.message.includes('compressed')) {
+        toast.error('❌ Image Processing Failed\nUnable to process the image. Please try with a different file or format.');
+      } else if (error.message.includes('network') || error.message.includes('timeout')) {
+        toast.error('❌ Upload Failed\nNetwork connection issue. Please check your internet and try again.');
       } else {
-        toast.error('Failed to upload and process image. Please try again with a different file.');
+        toast.error('❌ Upload Failed\nUnexpected error during image processing. Please try again with a different file.');
       }
     }
   };
@@ -2987,26 +3013,62 @@ const handleFileSelect = (file) => {
           </div>
 
           {/* Upload Progress */}
+{/* Real-Time Upload Progress Bar */}
           {imageData.isProcessing && (
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Processing image...</span>
-                <span className="text-gray-600">{imageData.uploadProgress || 0}%</span>
+            <div className="space-y-3 bg-gradient-to-r from-blue-50 to-green-50 p-4 rounded-lg border border-blue-200">
+              <div className="flex justify-between items-center text-sm">
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
+                  <span className="text-gray-700 font-medium">Processing image...</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-primary font-bold text-base">{imageData.uploadProgress || 0}%</span>
+                  <div className="text-xs text-gray-500">
+                    {imageData.uploadProgress < 15 && "Validating file"}
+                    {imageData.uploadProgress >= 15 && imageData.uploadProgress < 35 && "Converting format"}
+                    {imageData.uploadProgress >= 35 && imageData.uploadProgress < 50 && "Analyzing image"}
+                    {imageData.uploadProgress >= 50 && imageData.uploadProgress < 65 && "Calculating dimensions"}
+                    {imageData.uploadProgress >= 65 && imageData.uploadProgress < 80 && "Resizing & cropping"}
+                    {imageData.uploadProgress >= 80 && imageData.uploadProgress < 95 && "Optimizing quality"}
+                    {imageData.uploadProgress >= 95 && "Finalizing"}
+                  </div>
+                </div>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              
+              {/* Enhanced Progress Bar with Gradient */}
+              <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                 <div
-                  className="bg-primary h-2 rounded-full transition-all duration-300"
+                  className="bg-gradient-to-r from-primary to-accent h-3 rounded-full transition-all duration-500 ease-out relative"
                   style={{ width: `${imageData.uploadProgress || 0}%` }}
-                />
+                >
+                  {/* Animated shimmer effect */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+                </div>
+              </div>
+              
+              {/* Progress Milestones */}
+              <div className="flex justify-between text-xs text-gray-500">
+                <span className={`${imageData.uploadProgress >= 15 ? 'text-green-600 font-medium' : ''}`}>Validate</span>
+                <span className={`${imageData.uploadProgress >= 35 ? 'text-green-600 font-medium' : ''}`}>Convert</span>
+                <span className={`${imageData.uploadProgress >= 50 ? 'text-green-600 font-medium' : ''}`}>Analyze</span>
+                <span className={`${imageData.uploadProgress >= 65 ? 'text-green-600 font-medium' : ''}`}>Resize</span>
+                <span className={`${imageData.uploadProgress >= 85 ? 'text-green-600 font-medium' : ''}`}>Optimize</span>
+                <span className={`${imageData.uploadProgress >= 100 ? 'text-green-600 font-medium' : ''}`}>Complete</span>
               </div>
             </div>
           )}
 
           {/* Image Preview & Cropping */}
-{imageData.selectedImage && (
-<div className="space-y-4">
+{/* Immediate Image Preview with Processing Results */}
+          {imageData.selectedImage && (
+            <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
               <div className="flex items-center justify-between">
-                <h4 className="font-medium text-gray-900">Image Preview</h4>
+                <div className="flex items-center space-x-2">
+                  <h4 className="font-medium text-gray-900">Image Preview</h4>
+                  <Badge variant="success" className="text-xs animate-pulse">
+                    ✓ Upload Complete
+                  </Badge>
+                </div>
                 <div className="flex space-x-2">
                   <Button
                     type="button"
@@ -3030,8 +3092,10 @@ const handleFileSelect = (file) => {
                         processedDimensions: null,
                         originalSize: null,
                         processedSize: null,
-                        compression: null
+                        compression: null,
+                        uploadProgress: 0
                       }));
+                      toast.info('Image removed. You can upload a new one.');
                     }}
                   >
                     Remove
@@ -3039,140 +3103,183 @@ const handleFileSelect = (file) => {
                 </div>
               </div>
               
-              <div className="relative">
+              {/* Image Display with Success Indicators */}
+              <div className="relative bg-gradient-to-br from-gray-50 to-blue-50 p-4 rounded-lg border-2 border-green-200">
                 <img
                   src={imageData.selectedImage}
                   alt="Product preview"
-                  className="w-full max-w-md mx-auto rounded-lg shadow-md"
+                  className="w-full max-w-md mx-auto rounded-lg shadow-lg border-2 border-green-300"
                   style={{ maxHeight: '300px', objectFit: 'contain' }}
                 />
                 
-                {/* Enhanced Visual Boundary Overlay */}
+                {/* Success Visual Indicators */}
                 <div className="absolute inset-0 pointer-events-none">
-                  {/* Corner Markers for Image Boundaries */}
-                  <div className="absolute top-2 left-2 w-6 h-6 border-t-4 border-l-4 border-primary rounded-tl-lg"></div>
-                  <div className="absolute top-2 right-2 w-6 h-6 border-t-4 border-r-4 border-primary rounded-tr-lg"></div>
-                  <div className="absolute bottom-2 left-2 w-6 h-6 border-b-4 border-l-4 border-primary rounded-bl-lg"></div>
-                  <div className="absolute bottom-2 right-2 w-6 h-6 border-b-4 border-r-4 border-primary rounded-br-lg"></div>
+                  {/* Corner Success Markers */}
+                  <div className="absolute top-6 left-6 w-6 h-6 border-t-4 border-l-4 border-green-500 rounded-tl-lg animate-pulse"></div>
+                  <div className="absolute top-6 right-6 w-6 h-6 border-t-4 border-r-4 border-green-500 rounded-tr-lg animate-pulse"></div>
+                  <div className="absolute bottom-6 left-6 w-6 h-6 border-b-4 border-l-4 border-green-500 rounded-bl-lg animate-pulse"></div>
+                  <div className="absolute bottom-6 right-6 w-6 h-6 border-b-4 border-r-4 border-green-500 rounded-br-lg animate-pulse"></div>
                   
-                  {/* Frame Compatibility Badge */}
-                  <div className="absolute top-2 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-primary to-accent text-white px-3 py-1 rounded-full text-xs font-medium shadow-md">
-                    <div className="flex items-center space-x-1">
-                      <ApperIcon name="CheckCircle" size={12} />
-                      <span>600x600 Perfect</span>
+                  {/* Upload Success Badge */}
+                  <div className="absolute top-2 left-1/2 transform -translate-x-1/2 bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg animate-bounce">
+                    <div className="flex items-center space-x-2">
+                      <ApperIcon name="CheckCircle2" size={16} />
+                      <span>600×600 Perfect Quality</span>
                     </div>
                   </div>
                   
                   {/* Compression Success Indicator */}
                   {imageData.compression && (
-                    <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-success text-white px-2 py-1 rounded text-xs">
-                      {imageData.compression}% Compressed
+                    <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-medium shadow-md">
+                      <div className="flex items-center space-x-1">
+                        <ApperIcon name="Zap" size={12} />
+                        <span>{imageData.compression}% Size Reduction</span>
+                      </div>
                     </div>
                   )}
                   
-                  {/* Auto-Crop Indicator */}
-                  <div className="absolute inset-4 border-2 border-dashed border-accent/50 rounded-lg">
-                    <div className="absolute -top-5 left-0 text-xs text-gray-600 bg-white px-1 rounded">
-                      Auto-Cropped 1:1
+                  {/* Processing Complete Indicator */}
+                  <div className="absolute inset-4 border-2 border-dashed border-green-400/60 rounded-lg">
+                    <div className="absolute -top-6 left-0 bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium">
+                      ✓ Auto-Cropped & Optimized
                     </div>
                   </div>
                 </div>
               </div>
               
-              {/* Enhanced Image Processing Results */}
-              <div className="bg-gradient-to-br from-gray-50 to-blue-50 p-4 rounded-lg space-y-4 border border-gray-200">
+              {/* Comprehensive Processing Results Dashboard */}
+              <div className="bg-gradient-to-br from-green-50 to-blue-50 p-6 rounded-xl space-y-6 border border-green-200 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <h5 className="font-medium text-gray-900 flex items-center space-x-2">
-                    <ApperIcon name="Settings" size={16} />
-                    <span>Processing Results & Validation</span>
+                  <h5 className="font-semibold text-gray-900 flex items-center space-x-2">
+                    <div className="p-2 bg-green-100 rounded-full">
+                      <ApperIcon name="CheckCircle2" size={20} className="text-green-600" />
+                    </div>
+                    <span>Upload & Processing Complete</span>
                   </h5>
-                  <Badge variant="success" className="text-xs">
-                    ✓ Optimized
-                  </Badge>
+                  <div className="flex space-x-2">
+                    <Badge variant="success" className="text-xs animate-pulse">
+                      ✓ Validated
+                    </Badge>
+                    <Badge variant="success" className="text-xs animate-pulse">
+                      ✓ Optimized
+                    </Badge>
+                  </div>
                 </div>
                 
-                {/* Processing Statistics */}
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center space-x-2">
-                    <ApperIcon name="Maximize2" size={14} className="text-blue-500" />
-                    <div>
-                      <span className="text-gray-600">Final Size:</span>
-                      <span className="ml-2 font-medium text-green-600">600 × 600px</span>
-                    </div>
+                {/* Processing Statistics Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-white p-3 rounded-lg border border-gray-200 text-center">
+                    <ApperIcon name="Maximize2" size={20} className="text-blue-500 mx-auto mb-1" />
+                    <div className="text-xs text-gray-600">Final Size</div>
+                    <div className="font-bold text-green-600">600×600px</div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <ApperIcon name="Square" size={14} className="text-purple-500" />
-                    <div>
-                      <span className="text-gray-600">Aspect Ratio:</span>
-                      <span className="ml-2 font-medium text-green-600">1:1 (Perfect)</span>
-                    </div>
+                  
+                  <div className="bg-white p-3 rounded-lg border border-gray-200 text-center">
+                    <ApperIcon name="Square" size={20} className="text-purple-500 mx-auto mb-1" />
+                    <div className="text-xs text-gray-600">Aspect Ratio</div>
+                    <div className="font-bold text-green-600">1:1 Perfect</div>
                   </div>
-                  {imageData.originalSize && imageData.processedSize && (
-                    <>
-                      <div className="flex items-center space-x-2">
-                        <ApperIcon name="HardDrive" size={14} className="text-orange-500" />
-                        <div>
-                          <span className="text-gray-600">File Size:</span>
-                          <span className="ml-2 font-medium">
-                            {(imageData.processedSize / 1024).toFixed(1)}KB
-                          </span>
-                        </div>
+                  
+                  {imageData.processedSize && (
+                    <div className="bg-white p-3 rounded-lg border border-gray-200 text-center">
+                      <ApperIcon name="HardDrive" size={20} className="text-orange-500 mx-auto mb-1" />
+                      <div className="text-xs text-gray-600">File Size</div>
+                      <div className="font-bold text-blue-600">
+                        {(imageData.processedSize / 1024).toFixed(1)}KB
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <ApperIcon name="TrendingDown" size={14} className="text-green-500" />
-                        <div>
-                          <span className="text-gray-600">Compression:</span>
-                          <span className="ml-2 font-medium text-green-600">
-                            {imageData.compression}% smaller
-                          </span>
-                        </div>
+                    </div>
+                  )}
+                  
+                  {imageData.compression && (
+                    <div className="bg-white p-3 rounded-lg border border-gray-200 text-center">
+                      <ApperIcon name="TrendingDown" size={20} className="text-green-500 mx-auto mb-1" />
+                      <div className="text-xs text-gray-600">Compression</div>
+                      <div className="font-bold text-green-600">
+                        {imageData.compression}% smaller
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
                 
-                {/* Quality Validation Results */}
-                <div className="bg-white p-3 rounded border space-y-2">
-                  <h6 className="text-sm font-medium text-gray-800 flex items-center space-x-1">
-                    <ApperIcon name="Shield" size={14} />
-                    <span>Quality Validation Results</span>
+                {/* Processing Summary */}
+                {imageData.originalSize && imageData.processedSize && (
+                  <div className="bg-white p-4 rounded-lg border border-gray-200">
+                    <h6 className="text-sm font-medium text-gray-800 mb-3 flex items-center space-x-2">
+                      <ApperIcon name="BarChart3" size={16} />
+                      <span>Processing Summary</span>
+                    </h6>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-gray-600">Original:</span>
+                        <span className="ml-2 font-medium">
+                          {imageData.originalDimensions ? 
+                            `${imageData.originalDimensions.width}×${imageData.originalDimensions.height}px` : 
+                            'Unknown'
+                          } • {(imageData.originalSize / 1024 / 1024).toFixed(1)}MB
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">Optimized:</span>
+                        <span className="ml-2 font-medium text-green-600">
+                          600×600px • {(imageData.processedSize / 1024).toFixed(1)}KB
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Quality Validation Checklist */}
+                <div className="bg-white p-4 rounded-lg border border-gray-200">
+                  <h6 className="text-sm font-medium text-gray-800 mb-3 flex items-center space-x-2">
+                    <ApperIcon name="Shield" size={16} />
+                    <span>Quality Validation ✓</span>
                   </h6>
                   <div className="grid grid-cols-2 gap-3 text-xs">
                     <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                      <span className="text-gray-600">Format: JPG/PNG/WEBP ✓</span>
+                      <div className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center">
+                        <ApperIcon name="Check" size={8} className="text-white" />
+                      </div>
+                      <span className="text-gray-700">Format Supported</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                      <span className="text-gray-600">Size: ≤ 10MB ✓</span>
+                      <div className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center">
+                        <ApperIcon name="Check" size={8} className="text-white" />
+                      </div>
+                      <span className="text-gray-700">Size Under 10MB</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                      <span className="text-gray-600">Dimensions: 600x600 ✓</span>
+                      <div className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center">
+                        <ApperIcon name="Check" size={8} className="text-white" />
+                      </div>
+                      <span className="text-gray-700">Square Dimensions</span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                      <span className="text-gray-600">Quality: 70-80% ✓</span>
+                      <div className="w-3 h-3 rounded-full bg-green-500 flex items-center justify-center">
+                        <ApperIcon name="Check" size={8} className="text-white" />
+                      </div>
+                      <span className="text-gray-700">Quality Optimized</span>
                     </div>
                   </div>
                 </div>
                 
                 {/* Processing Features Applied */}
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <ApperIcon name="CheckCircle" size={14} className="text-green-500" />
-                    <span className="text-sm text-gray-700">Auto center-crop applied</span>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <div className="flex items-center space-x-2 bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs">
+                    <ApperIcon name="Scissors" size={12} />
+                    <span>Auto Center-Crop</span>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <ApperIcon name="Zap" size={14} className="text-blue-500" />
-                    <span className="text-sm text-gray-700">Smart compression</span>
+                  <div className="flex items-center space-x-2 bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs">
+                    <ApperIcon name="Zap" size={12} />
+                    <span>Smart Compression</span>
+                  </div>
+                  <div className="flex items-center space-x-2 bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs">
+                    <ApperIcon name="Maximize" size={12} />
+                    <span>600×600 Resize</span>
                   </div>
                   {imageData.originalDimensions && (
-                    <div className="flex items-center space-x-2">
-                      <ApperIcon name="Maximize" size={14} className="text-purple-500" />
-                      <span className="text-sm text-gray-700">
-                        Resized from {imageData.originalDimensions.width}×{imageData.originalDimensions.height}
-                      </span>
+                    <div className="flex items-center space-x-2 bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs">
+                      <ApperIcon name="ArrowRightLeft" size={12} />
+                      <span>From {imageData.originalDimensions.width}×{imageData.originalDimensions.height}</span>
                     </div>
                   )}
                 </div>
