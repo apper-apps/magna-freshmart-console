@@ -3,6 +3,21 @@ export class ErrorHandler {
   static classifyError(error) {
     const message = error.message?.toLowerCase() || '';
     
+    // Image processing and file validation errors
+    if (message.includes('heic') || message.includes('heif')) {
+      return 'heic-conversion';
+    }
+    if (message.includes('image') && (message.includes('load') || message.includes('corrupt') || message.includes('process'))) {
+      return 'image-processing';
+    }
+    if (message.includes('file') && (message.includes('type') || message.includes('format') || message.includes('size'))) {
+      return 'file-validation';
+    }
+    if (message.includes('compression') || message.includes('compress') || message.includes('quality')) {
+      return 'compression';
+    }
+    
+    // Network and connectivity errors
     if (message.includes('network') || message.includes('fetch') || message.includes('connection')) {
       return 'network';
     }
@@ -99,7 +114,7 @@ static shouldRetry(error, attemptCount = 0, maxRetries = 3) {
   }
 
 static trackErrorPattern(error, context = '', metadata = {}) {
-    // Enhanced error pattern tracking with payment processor health monitoring
+    // Enhanced error pattern tracking with image processing and payment processor health monitoring
     const errorKey = `${error.name || 'Unknown'}_${error.message || 'NoMessage'}`;
     const timestamp = Date.now();
     
@@ -114,6 +129,9 @@ static trackErrorPattern(error, context = '', metadata = {}) {
         networkErrors: 0,
         paymentErrors: 0,
         processorErrors: 0,
+        imageProcessingErrors: 0,
+        fileValidationErrors: 0,
+        compressionErrors: 0,
         lastErrorTime: null,
         errorRate: 0
       };
@@ -147,6 +165,12 @@ static trackErrorPattern(error, context = '', metadata = {}) {
         consecutiveFailures: 0,
         lastSuccessfulTransaction: null,
         affectedGateways: new Set()
+      },
+      imageProcessingImpact: {
+        failedFormats: new Set(),
+        averageFileSize: 0,
+        compressionFailures: 0,
+        conversionFailures: 0
       }
     };
     
@@ -164,6 +188,34 @@ static trackErrorPattern(error, context = '', metadata = {}) {
     
     if (metadata.operation) {
       existing.performanceImpact.affectedOperations.add(metadata.operation);
+    }
+    
+    // Enhanced image processing error tracking
+    const isImageError = context.includes('image') || context.includes('file') || 
+                        error.message.includes('image') || error.message.includes('heic') ||
+                        error.message.includes('compression') || error.message.includes('format');
+    
+    if (isImageError) {
+      const errorType = this.classifyError(error);
+      
+      if (errorType === 'image-processing') {
+        window.performanceMetrics.imageProcessingErrors++;
+        if (metadata.fileFormat) {
+          existing.imageProcessingImpact.failedFormats.add(metadata.fileFormat);
+        }
+        if (metadata.fileSize) {
+          const currentAvg = existing.imageProcessingImpact.averageFileSize;
+          existing.imageProcessingImpact.averageFileSize = 
+            (currentAvg * (existing.count - 1) + metadata.fileSize) / existing.count;
+        }
+      } else if (errorType === 'file-validation') {
+        window.performanceMetrics.fileValidationErrors++;
+      } else if (errorType === 'compression') {
+        window.performanceMetrics.compressionErrors++;
+        existing.imageProcessingImpact.compressionFailures++;
+      } else if (errorType === 'heic-conversion') {
+        existing.imageProcessingImpact.conversionFailures++;
+      }
     }
     
     // Enhanced payment processor tracking
@@ -247,7 +299,7 @@ static trackErrorPattern(error, context = '', metadata = {}) {
       }
     }
     
-    // Track metadata with enhanced payment context
+    // Track metadata with enhanced context
     if (metadata && typeof metadata === 'object') {
       Object.entries(metadata).forEach(([key, value]) => {
         if (!existing.metadata.has(key)) {
@@ -277,8 +329,8 @@ static trackErrorPattern(error, context = '', metadata = {}) {
       .reduce((sum, pattern) => sum + pattern.count, 0);
     window.performanceMetrics.errorRate = recentErrors;
     
-    // Enhanced alerting with payment processor considerations
-    const criticalThreshold = isPaymentError ? 2 : (isOrderError ? 5 : 7); // Lower threshold for payment errors
+    // Enhanced alerting with context-specific thresholds
+    const criticalThreshold = isPaymentError ? 2 : (isImageError ? 3 : (isOrderError ? 5 : 7));
     
     if (existing.count >= criticalThreshold) {
       const errorDetails = {
@@ -288,6 +340,7 @@ static trackErrorPattern(error, context = '', metadata = {}) {
         isPaymentError,
         isOrderError,
         isCacheError,
+        isImageError,
         performanceImpact: {
           averageDelay: existing.performanceImpact.averageDelay.toFixed(2) + 'ms',
           maxDelay: existing.performanceImpact.maxDelay.toFixed(2) + 'ms',
@@ -300,12 +353,21 @@ static trackErrorPattern(error, context = '', metadata = {}) {
           affectedGateways: Array.from(existing.paymentProcessorImpact.affectedGateways),
           lastSuccessfulTransaction: existing.paymentProcessorImpact.lastSuccessfulTransaction
         } : null,
+        imageProcessingImpact: isImageError ? {
+          failedFormats: Array.from(existing.imageProcessingImpact.failedFormats),
+          averageFileSize: existing.imageProcessingImpact.averageFileSize,
+          compressionFailures: existing.imageProcessingImpact.compressionFailures,
+          conversionFailures: existing.imageProcessingImpact.conversionFailures
+        } : null,
         globalMetrics: {
           orderLoadErrors: window.performanceMetrics.orderLoadErrors,
           cacheErrors: window.performanceMetrics.cacheErrors,
           networkErrors: window.performanceMetrics.networkErrors,
           paymentErrors: window.performanceMetrics.paymentErrors,
           processorErrors: window.performanceMetrics.processorErrors,
+          imageProcessingErrors: window.performanceMetrics.imageProcessingErrors,
+          fileValidationErrors: window.performanceMetrics.fileValidationErrors,
+          compressionErrors: window.performanceMetrics.compressionErrors,
           currentErrorRate: window.performanceMetrics.errorRate
         },
         paymentProcessorHealth: isPaymentError ? {
@@ -368,6 +430,15 @@ static trackErrorPattern(error, context = '', metadata = {}) {
           });
         }
         
+      } else if (isImageError) {
+        const severity = existing.count >= 5 ? 'HIGH' : 'MEDIUM';
+        console.error(`${severity} image processing error pattern detected: ${errorKey}`, {
+          ...errorDetails,
+          severity,
+          recommendation: existing.count >= 5 ? 
+            'Investigate image processing pipeline and consider fallback options' : 
+            'Monitor image processing performance and validate input formats'
+        });
       } else if (isOrderError) {
         console.error(`Critical order loading error pattern detected: ${errorKey}`, {
           ...errorDetails,

@@ -91,7 +91,7 @@ switch (type) {
         </div>
       )}
       
-      {type === 'processor' && (
+{type === 'processor' && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-center">
           <p className="text-sm text-red-800">
             Payment processor issues are usually temporary. Try selecting a different payment method or contact our support team for assistance.
@@ -119,6 +119,38 @@ switch (type) {
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mb-4 text-center">
           <p className="text-sm text-gray-800">
             Service is temporarily unavailable. Please try again later or choose an alternative option.
+          </p>
+        </div>
+      )}
+      
+      {type === 'image-processing' && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-center">
+          <p className="text-sm text-red-800">
+            Image processing failed. Please ensure your image is valid (JPG, PNG, WEBP, HEIC), under 10MB, and not corrupted. Try converting to JPG format if the issue persists.
+          </p>
+        </div>
+      )}
+      
+      {type === 'file-validation' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4 text-center">
+          <p className="text-sm text-yellow-800">
+            File validation failed. Only JPG, PNG, WEBP, and HEIC image files under 10MB are supported. Please check your file format and size.
+          </p>
+        </div>
+      )}
+      
+      {type === 'compression' && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4 text-center">
+          <p className="text-sm text-orange-800">
+            Image compression failed. The file may be corrupted or in an unsupported format. Try using a different image or converting to JPG format first.
+          </p>
+        </div>
+      )}
+      
+      {type === 'heic-conversion' && (
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4 text-center">
+          <p className="text-sm text-purple-800">
+            HEIC file conversion failed. Please convert your HEIC image to JPG format manually, or try uploading a different image format.
           </p>
         </div>
       )}
