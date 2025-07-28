@@ -711,7 +711,4 @@ export const selectPendingSyncCount = (state) => state.cart.pendingSyncCount;
 export const selectSyncInProgress = (state) => state.cart.syncInProgress;
 export const selectOfflineChanges = (state) => state.cart.offlineChanges;
 export const selectLastSyncAttempt = (state) => state.cart.lastSyncAttempt;
-
-export default cartSlice.reducer;
-
 export default cartSlice.reducer;
