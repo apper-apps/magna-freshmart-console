@@ -1,9 +1,28 @@
 import productsData from "@/services/mockData/products.json";
-
 class ProductService {
   constructor() {
-this.products = [...productsData];
+    this.products = [...productsData];
     this.vendorAssignments = this.loadVendorAssignments();
+    this.categoryMap = this.buildCategoryMap();
+  }
+
+  // Build category mapping for related product suggestions
+  buildCategoryMap() {
+    const categories = {
+      'Vegetables': ['Root', 'Leafy', 'Fresh', 'Spice', 'Citrus'],
+      'Fruits': ['Tropical', 'Seasonal', 'Dried', 'Citrus'],
+      'Groceries': ['Grains', 'Pulses', 'Oils', 'Spices'],
+      'Dairy': ['Milk', 'Cheese', 'Yogurt', 'Butter'],
+      'Household': ['Cleaning', 'Kitchen', 'Bath', 'Storage'],
+      'Garments': ['Men', 'Women', 'Kids', 'Traditional'],
+      'Cosmetics': ['Skincare', 'Makeup', 'Haircare', 'Fragrances'],
+      'Shoes': ['Formal', 'Casual', 'Sports', 'Traditional'],
+      'Jewelry': ['Gold', 'Silver', 'Artificial', 'Precious'],
+      'Electronics': ['Mobile', 'Computer', 'Home', 'Audio'],
+      'Stationery': ['Office', 'School', 'Art', 'Books'],
+      'Building': ['Cement', 'Steel', 'Wood', 'Tools']
+    };
+    return categories;
   }
 
   loadVendorAssignments() {
@@ -105,6 +124,56 @@ async getById(id, userRole = 'customer') {
       } else {
         throw new Error('Failed to load product details. Please try again later.');
       }
+    }
+  }
+
+  // Get related products based on category and subcategory
+  async getRelatedProducts(id, limit = 5) {
+    try {
+      await this.delay();
+      
+      const product = this.products.find(p => p.id === id);
+      if (!product) {
+        return [];
+      }
+
+      // Get products from same category/subcategory
+      const sameCategory = this.products.filter(p => 
+        p.id !== id && 
+        p.isActive && 
+        p.stock > 0 && 
+        (p.category === product.category || p.subcategory === product.subcategory)
+      );
+
+      // Get one product from each different category for diversity
+      const differentCategories = [...new Set(this.products.map(p => p.category))]
+        .filter(cat => cat !== product.category)
+        .slice(0, 3)
+        .map(category => {
+          const categoryProducts = this.products.filter(p => 
+            p.category === category && p.isActive && p.stock > 0
+          );
+          return categoryProducts[Math.floor(Math.random() * categoryProducts.length)];
+        })
+        .filter(Boolean);
+
+      // Combine and shuffle results
+      const combined = [...sameCategory.slice(0, limit - differentCategories.length), ...differentCategories];
+      const shuffled = combined.sort(() => Math.random() - 0.5);
+
+      return shuffled.slice(0, limit).map(p => ({
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        category: p.category,
+        subcategory: p.subcategory,
+        imageUrl: p.imageUrl,
+        stock: p.stock
+      }));
+
+    } catch (error) {
+      console.error('Error fetching related products:', error);
+      return [];
     }
   }
 
@@ -295,7 +364,7 @@ async bulkUpdatePrices(updateData) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
   
-  // Calculate profit metrics for a product
+// Calculate profit metrics for a product
   calculateProfitMetrics(productData) {
     const price = parseFloat(productData.price) || 0;
     const purchasePrice = parseFloat(productData.purchasePrice) || 0;
@@ -319,7 +388,7 @@ async bulkUpdatePrices(updateData) {
     const minSellingPrice = purchasePrice > 0 ? purchasePrice * 1.1 : 0;
     
     // Calculate profit margin percentage
-let profitMargin = 0;
+    let profitMargin = 0;
     if (purchasePrice > 0 && finalPrice > 0) {
       profitMargin = ((finalPrice - purchasePrice) / purchasePrice) * 100;
     }
@@ -329,6 +398,31 @@ let profitMargin = 0;
       profitMargin: Math.round(profitMargin * 100) / 100,
       finalPrice: Math.round(finalPrice * 100) / 100
     };
+  }
+
+  // Get products by multiple categories for diverse marketplace
+  async getProductsByCategories(categories = [], limit = 20) {
+    try {
+      await this.delay();
+      
+      if (!categories.length) {
+        categories = Object.keys(this.categoryMap);
+      }
+
+      const productsByCategory = {};
+      
+      categories.forEach(category => {
+        const categoryProducts = this.products.filter(p => 
+          p.category === category && p.isActive && p.stock > 0
+        );
+        productsByCategory[category] = categoryProducts.slice(0, Math.ceil(limit / categories.length));
+      });
+
+      return productsByCategory;
+    } catch (error) {
+      console.error('Error fetching products by categories:', error);
+      return {};
+    }
   }
   // Enhanced profit metrics calculation with error handling
   getDisplayMetrics(product) {
@@ -836,17 +930,17 @@ async processImage(file, options = {}) {
   }
 
 // Calculate optimal dimensions for image resizing with aspect ratio enforcement
-  calculateOptimalDimensions(originalWidth, originalHeight, targetWidth, targetHeight, enforceSquare = false) {
+calculateOptimalDimensions(originalWidth, originalHeight, targetWidth, targetHeight, enforceSquare = false) {
     const aspectRatio = originalWidth / originalHeight;
     const targetAspectRatio = targetWidth / targetHeight;
     
     let width, height;
     
-    // Enforce 1:1 aspect ratio if requested
+    // Use natural aspect ratio by default
     if (enforceSquare) {
       const size = Math.min(targetWidth, targetHeight);
-      // Ensure size is within constraints (400-1200px)
-      const constrainedSize = Math.max(400, Math.min(size, 1200));
+      // Ensure size is within constraints (350-800px)
+      const constrainedSize = Math.max(350, Math.min(size, 800));
       return { 
         width: constrainedSize, 
         height: constrainedSize,
@@ -854,57 +948,72 @@ async processImage(file, options = {}) {
       };
     }
     
+    // Maintain natural aspect ratio with max constraints
     if (aspectRatio > targetAspectRatio) {
       // Image is wider than target
       width = targetWidth;
       height = targetWidth / aspectRatio;
+      // Ensure height doesn't exceed 1.2x width
+      if (height > targetWidth * 1.2) {
+        height = targetWidth * 1.2;
+        width = height * aspectRatio;
+      }
     } else {
       // Image is taller than target
-      height = targetHeight;
-width = targetHeight * aspectRatio;
+      height = Math.min(targetHeight, targetWidth * 1.2);
+      width = height * aspectRatio;
     }
-    return { width: Math.round(width), height: Math.round(height) };
+    
+    return { 
+      width: Math.round(width), 
+      height: Math.round(height),
+      aspectRatio: 'auto'
+    };
   }
   // Get dynamic image dimensions for frame compatibility
-  getDynamicImageDimensions(viewportWidth = 1200, enforceSquare = true) {
+getDynamicImageDimensions(viewportWidth = 1200, enforceSquare = false) {
     try {
-      // Base size calculation with responsive scaling
-      let baseSize = 600;
+      // Base width calculation with responsive scaling
+      let baseWidth = 600;
       
       // Responsive adjustments for different screen sizes
       if (viewportWidth < 640) {
-        baseSize = Math.max(400, Math.min(viewportWidth - 32, 500)); // Mobile: 400-500px
+        baseWidth = Math.max(350, Math.min(viewportWidth - 32, 450)); // Mobile: 350-450px
       } else if (viewportWidth < 1024) {
-        baseSize = Math.max(500, Math.min(viewportWidth * 0.4, 700)); // Tablet: 500-700px
+        baseWidth = Math.max(450, Math.min(viewportWidth * 0.4, 600)); // Tablet: 450-600px
       } else {
-        baseSize = Math.max(600, Math.min(viewportWidth * 0.3, 1200)); // Desktop: 600-1200px
+        baseWidth = Math.max(500, Math.min(viewportWidth * 0.3, 800)); // Desktop: 500-800px
       }
       
-      // Enforce size constraints (400x400px to 1200x1200px)
-      const constrainedSize = Math.max(400, Math.min(baseSize, 1200));
+      // Enforce size constraints (350x350px to 800x800px for squares)
+      const constrainedWidth = Math.max(350, Math.min(baseWidth, 800));
       
       // Return square dimensions if enforcing 1:1 aspect ratio
       if (enforceSquare) {
         return {
-          width: constrainedSize,
-          height: constrainedSize,
+          width: constrainedWidth,
+          height: constrainedWidth,
           aspectRatio: '1:1'
         };
       }
       
+      // Return natural ratio dimensions with max height constraint
+      const maxHeight = constrainedWidth * 1.2;
       return {
-        width: constrainedSize,
-        height: constrainedSize
+        width: constrainedWidth,
+        maxHeight: maxHeight,
+        aspectRatio: 'auto'
       };
     } catch (error) {
       console.error('Error calculating dynamic image dimensions:', error);
       return {
-        width: 600,
-        height: 600,
-        aspectRatio: '1:1'
+        width: 500,
+        maxHeight: 600,
+        aspectRatio: 'auto'
       };
-}
+    }
   }
+}
 
   // Enhanced image search from multiple sources with category filtering and attribution
   async searchImages(query, options = {}) {
@@ -2440,10 +2549,6 @@ async getVendorOrdersStats(vendorId) {
     return maxId + 1;
   }
 
-  getNextAssignmentId() {
-    // Simple ID generation for assignments
-    return Math.floor(Math.random() * 1000000) + Date.now();
-  }
 }
 
 export const productService = new ProductService();

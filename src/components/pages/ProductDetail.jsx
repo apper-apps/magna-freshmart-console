@@ -13,19 +13,20 @@ import { Badge } from "@/components/atoms/Badge";
 import { Button } from "@/components/atoms/Button";
 import Error from "@/components/ui/Error";
 import Loading from "@/components/ui/Loading";
+
 const ProductDetail = () => {
   const { productId } = useParams();
-  const navigate = useNavigate();
+const navigate = useNavigate();
   const { addToCart, isLoading: cartLoading } = useCart();
   const [product, setProduct] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [quantity, setQuantity] = useState(1);
-
-  useEffect(() => {
+useEffect(() => {
     loadProduct();
+    loadRelatedProducts();
   }, [productId]);
-
 const loadProduct = async () => {
     try {
       setLoading(true);
@@ -55,6 +56,15 @@ const loadProduct = async () => {
       setError({ message: err.message, type: errorType });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadRelatedProducts = async () => {
+    try {
+      const related = await productService.getRelatedProducts(parseInt(productId));
+      setRelatedProducts(related);
+    } catch (err) {
+      console.error('Error loading related products:', err);
     }
   };
 
@@ -160,33 +170,35 @@ if (error) {
 const priceChange = getPriceChange();
   const activeDeal = getActiveDeal();
 
-  // Calculate dynamic image dimensions with aspect ratio enforcement for 1:1 framing
+  // Calculate responsive image dimensions with natural aspect ratio
   const calculateImageDimensions = () => {
     // Get viewport width for responsive sizing
     const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
-// Base size calculation with responsive scaling
-    let baseSize = 600;
+    
+    // Base width calculation with responsive scaling
+    let baseWidth = 600;
     
     // Responsive adjustments for mobile-first design
     if (viewportWidth < 640) {
-      // Mobile: 400-500px with padding consideration
-      baseSize = Math.max(400, Math.min(viewportWidth - 32, 500)); 
+      // Mobile: 350-450px with padding consideration
+      baseWidth = Math.max(350, Math.min(viewportWidth - 32, 450)); 
     } else if (viewportWidth < 1024) {
-      // Tablet: 500-700px for comfortable viewing
-      baseSize = Math.max(500, Math.min(viewportWidth * 0.4, 700)); 
+      // Tablet: 450-600px for comfortable viewing
+      baseWidth = Math.max(450, Math.min(viewportWidth * 0.4, 600)); 
     } else {
-      // Desktop: 600-1200px for detailed product viewing
-      baseSize = Math.max(600, Math.min(viewportWidth * 0.3, 1200)); 
+      // Desktop: 500-800px for detailed product viewing
+      baseWidth = Math.max(500, Math.min(viewportWidth * 0.3, 800)); 
     }
     
-    // Enforce platform constraints (400x400px to 1200x1200px) for consistent framing
-    const constrainedSize = Math.max(400, Math.min(baseSize, 1200));
+    // Use natural aspect ratio with maximum constraints
+    const constrainedWidth = Math.max(350, Math.min(baseWidth, 800));
+    const maxHeight = constrainedWidth * 1.2; // Allow up to 1.2:1 ratio
     
-    // Ensure perfect 1:1 aspect ratio for consistent product display
+    // Return responsive dimensions with natural ratios
     return {
-      width: constrainedSize,
-      height: constrainedSize,
-      aspectRatio: '1 / 1'
+      width: constrainedWidth,
+      maxHeight: maxHeight,
+      aspectRatio: 'auto'
     };
   };
 
@@ -204,32 +216,33 @@ const priceChange = getPriceChange();
       </nav>
 
 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-        {/* Product Image with Enhanced 1:1 Frame Display */}
+        {/* Product Image with Natural Aspect Ratio */}
         <div className="space-y-4">
           <div className="relative">
             <div
               className="mx-auto rounded-2xl overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 relative shadow-lg"
               style={{
                 width: `${calculateImageDimensions().width}px`,
-                height: `${calculateImageDimensions().height}px`,
+                maxHeight: `${calculateImageDimensions().maxHeight}px`,
                 aspectRatio: calculateImageDimensions().aspectRatio
               }}
             >
 {/* Enhanced Progressive Image Loading with Comprehensive Error Handling */}
-              <EnhancedImageLoader 
+<EnhancedImageLoader 
                 product={product}
                 dimensions={calculateImageDimensions()}
-                className="w-full h-full object-cover transition-all duration-500 hover:scale-105 image-loaded"
+                className="w-full h-auto object-contain transition-all duration-500 hover:scale-105 image-loaded"
                 style={{ 
                   backgroundColor: '#f3f4f6',
-                  aspectRatio: '1 / 1'
+                  aspectRatio: 'auto',
+                  maxHeight: `${calculateImageDimensions().maxHeight}px`
                 }}
               />
-              {/* Frame Compatibility Indicator */}
+              {/* Natural Ratio Indicator */}
               <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-md">
                 <div className="flex items-center space-x-1">
-                  <div className="w-2 h-2 bg-success rounded-full"></div>
-                  <span className="text-xs font-medium text-gray-700">1:1 Frame</span>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <span className="text-xs font-medium text-gray-700">Natural Ratio</span>
                 </div>
               </div>
             </div>
@@ -532,7 +545,44 @@ const priceChange = getPriceChange();
             </div>
           </div>
 </div>
-      </div>
+</div>
+
+      {/* Related Products Section */}
+      {relatedProducts.length > 0 && (
+        <div className="mt-12 bg-white rounded-2xl shadow-lg p-6">
+          <h3 className="text-2xl font-bold text-gray-900 mb-6">You might also like</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            {relatedProducts.map((relatedProduct) => (
+              <div 
+                key={relatedProduct.id}
+                className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 cursor-pointer"
+                onClick={() => navigate(`/product/${relatedProduct.id}`)}
+              >
+                <div className="aspect-square overflow-hidden rounded-t-xl">
+                  <img
+                    src={relatedProduct.imageUrl}
+                    alt={relatedProduct.name}
+                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                  />
+                </div>
+                <div className="p-4 space-y-2">
+                  <h4 className="font-semibold text-sm text-gray-900 line-clamp-2">
+                    {relatedProduct.name}
+                  </h4>
+                  <div className="flex items-center justify-between">
+                    <span className="text-lg font-bold text-primary">
+                      Rs. {relatedProduct.price.toLocaleString()}
+                    </span>
+                    <Badge variant="info" size="small">
+                      {relatedProduct.category}
+                    </Badge>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

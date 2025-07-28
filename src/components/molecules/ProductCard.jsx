@@ -86,7 +86,7 @@ return (
       </div>
 
 <div className="space-y-3">
-        <h3 className="font-semibold text-lg text-gray-900 line-clamp-2">
+        <h3 className="font-semibold text-lg text-gray-900 line-clamp-2 min-h-[3.5rem] flex items-start">
           {product.name}
         </h3>
         
@@ -100,14 +100,14 @@ return (
             </span>
           </div>
           
-{product.previousPrice && product.previousPrice !== product.price && (
+          {product.previousPrice && product.previousPrice !== product.price && (
             <span className="text-sm text-gray-500 line-through">
               Rs. {product.previousPrice.toLocaleString()}
             </span>
           )}
         </div>
         
-        <div className="flex items-center justify-between pt-1">
+        <div className="flex items-center justify-between pt-1 min-h-[2.5rem]">
           <div className="flex items-center space-x-1 text-sm text-gray-600">
             <ApperIcon name="Package" size={16} />
             <span>{product.stock} in stock</span>
@@ -120,6 +120,7 @@ return (
             onClick={handleAddToCart}
             disabled={product.stock === 0 || isLoading}
             loading={isLoading}
+            className="flex-shrink-0"
           >
             Add
           </Button>

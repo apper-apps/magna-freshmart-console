@@ -31,9 +31,9 @@ const ProductGrid = ({
   }
 
 return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+<div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-6">
       {products.map((product, index) => (
-        <ProductCard 
+        <ProductCard
           key={product.id} 
           product={product}
           loading={index < 8 ? "eager" : "lazy"}
