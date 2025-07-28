@@ -1011,9 +1011,8 @@ getDynamicImageDimensions(viewportWidth = 1200, enforceSquare = false) {
         maxHeight: 600,
         aspectRatio: 'auto'
       };
-    }
-  }
 }
+  }
 
   // Enhanced image search from multiple sources with category filtering and attribution
   async searchImages(query, options = {}) {
