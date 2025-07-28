@@ -11,7 +11,7 @@ import Error from "@/components/ui/Error";
 import Empty from "@/components/ui/Empty";
 import Badge from "@/components/atoms/Badge";
 import Button from "@/components/atoms/Button";
-import { formatCurrency } from "@/utils/currency";
+import formatCurrency from "@/utils/currency";
 const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -217,116 +217,11 @@ const loadMoreOrders = useCallback(async () => {
           Cache: {orderService.getCacheStats?.() || 'N/A'}
         </div>
       );
-    }
+}
     return null;
   }, [orders.length, totalOrders, currentPage]);
 
-  if (loading && orders.length === 0) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {performanceStats}
-        <Loading type="orders" />
-      </div>
-    );
-  }
-
-  if (error && orders.length === 0) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {performanceStats}
-        <Error 
-          message={`${error} ${retryCount > 0 ? `(Retry ${retryCount})` : ''}`}
-          onRetry={loadOrders} 
-        />
-      </div>
-    );
-  }
-
-  if (orders.length === 0 && !loading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {performanceStats}
-        <Empty 
-          type="orders" 
-          onAction={() => window.location.href = '/category/All'}
-        />
-      </div>
-    );
-  }
-const toggleOrderCollapse = (orderId) => {
-    setCollapsedOrders(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(orderId)) {
-        newSet.delete(orderId);
-      } else {
-        newSet.add(orderId);
-      }
-      return newSet;
-    });
-  };
-
-  const getOrderPriority = (order) => {
-    const now = new Date();
-    const orderDate = new Date(order.createdAt);
-    const hoursSinceOrder = (now - orderDate) / (1000 * 60 * 60);
-    
-    if (order.status === 'pending' && hoursSinceOrder > 24) return 'high';
-    if (order.status === 'confirmed' && hoursSinceOrder > 48) return 'high';
-    if (order.total > 5000) return 'medium';
-    return 'low';
-  };
-
-  const getPriorityColors = (priority) => {
-    switch (priority) {
-      case 'high':
-        return 'border-l-4 border-red-500 bg-red-50';
-      case 'medium':
-        return 'border-l-4 border-orange-500 bg-orange-50';
-      default:
-        return 'border-l-4 border-green-500 bg-green-50';
-    }
-  };
-// Multi-select controls component
-  const MultiSelectControls = ({ selectedOrders, setSelectedOrders, orders, onBulkAction }) => {
-    if (selectedOrders.size === 0) return null;
-    
-    return (
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-blue-700">
-            {selectedOrders.size} order{selectedOrders.size !== 1 ? 's' : ''} selected
-          </span>
-          <div className="flex space-x-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => setSelectedOrders(new Set())}
-            >
-              Clear Selection
-            </Button>
-            <Button 
-              variant="primary" 
-              size="sm"
-              onClick={() => onBulkAction('export')}
-            >
-              Export Selected
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Virtualized order list for performance
-  const VirtualizedOrderList = ({ orders, selectedOrders, setSelectedOrders, renderOrderCard }) => {
-    return (
-      <div className="space-y-4">
-        {orders.map((order) => renderOrderCard(order))}
-      </div>
-    );
-  };
-
-  // Handle bulk actions
+  // Handle bulk actions - moved to ensure no conditional Hook calls
   const handleBulkAction = useCallback((action) => {
     switch (action) {
       case 'export':
@@ -339,7 +234,7 @@ const toggleOrderCollapse = (orderId) => {
     }
   }, [orders, selectedOrders]);
 
-  // Render individual order card
+  // Render individual order card - moved to ensure Hook order consistency
   const renderOrderCard = useCallback((order) => {
     const isCollapsed = collapsedOrders.has(order.id);
     const isSelected = selectedOrders.has(order.id);
@@ -464,6 +359,111 @@ const toggleOrderCollapse = (orderId) => {
       </div>
     );
   }, [collapsedOrders, selectedOrders, setSelectedOrders, toggleOrderCollapse, copyTxnId, getOrderPriority, getPriorityColors, formatCurrency]);
+
+  if (loading && orders.length === 0) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {performanceStats}
+        <Loading type="orders" />
+      </div>
+    );
+  }
+
+  if (error && orders.length === 0) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {performanceStats}
+        <Error 
+          message={`${error} ${retryCount > 0 ? `(Retry ${retryCount})` : ''}`}
+          onRetry={loadOrders} 
+        />
+      </div>
+    );
+  }
+
+  if (orders.length === 0 && !loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {performanceStats}
+        <Empty 
+          type="orders" 
+          onAction={() => window.location.href = '/category/All'}
+        />
+      </div>
+    );
+  }
+const toggleOrderCollapse = (orderId) => {
+    setCollapsedOrders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+      }
+      return newSet;
+    });
+  };
+
+  const getOrderPriority = (order) => {
+    const now = new Date();
+    const orderDate = new Date(order.createdAt);
+    const hoursSinceOrder = (now - orderDate) / (1000 * 60 * 60);
+    
+    if (order.status === 'pending' && hoursSinceOrder > 24) return 'high';
+    if (order.status === 'confirmed' && hoursSinceOrder > 48) return 'high';
+    if (order.total > 5000) return 'medium';
+    return 'low';
+  };
+
+  const getPriorityColors = (priority) => {
+    switch (priority) {
+      case 'high':
+        return 'border-l-4 border-red-500 bg-red-50';
+      case 'medium':
+        return 'border-l-4 border-orange-500 bg-orange-50';
+      default:
+        return 'border-l-4 border-green-500 bg-green-50';
+    }
+  };
+// Multi-select controls component
+  const MultiSelectControls = ({ selectedOrders, setSelectedOrders, orders, onBulkAction }) => {
+    if (selectedOrders.size === 0) return null;
+    
+    return (
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-blue-700">
+            {selectedOrders.size} order{selectedOrders.size !== 1 ? 's' : ''} selected
+          </span>
+          <div className="flex space-x-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setSelectedOrders(new Set())}
+            >
+              Clear Selection
+            </Button>
+            <Button 
+              variant="primary" 
+              size="sm"
+              onClick={() => onBulkAction('export')}
+            >
+              Export Selected
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Virtualized order list for performance
+  const VirtualizedOrderList = ({ orders, selectedOrders, setSelectedOrders, renderOrderCard }) => {
+    return (
+      <div className="space-y-4">
+        {orders.map((order) => renderOrderCard(order))}
+      </div>
+    );
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-20">

@@ -3,8 +3,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { Heart, ShoppingCart, Star } from "lucide-react";
 import { toast } from "react-toastify";
-import ApperIcon from "@/components/ApperIcon";
 import LazyImage from "@/components/atoms/LazyImage";
+import ApperIcon from "@/components/ApperIcon";
 import Badge from "@/components/atoms/Badge";
 import Button from "@/components/atoms/Button";
 import { addToCart, selectCartLoading, setLoading } from "@/store/cartSlice";
@@ -28,16 +28,16 @@ const ProductCard = memo(({ product, loading = false, virtualIndex = 0 }) => {
     navigate(`/product/${product.id}`);
   }, [navigate, product.id]);
 
-  // Memoized price change calculation for performance
+// Memoized price change calculation for performance
   const priceChange = React.useMemo(() => {
     if (product.previousPrice && product.previousPrice !== product.price) {
       return ((product.price - product.previousPrice) / product.previousPrice) * 100;
     }
     return null;
   }, [product.price, product.previousPrice]);
-}, [product.price, product.previousPrice]);
 
   return (
+    <div
       className="card p-4 cursor-pointer hover:shadow-premium transform hover:scale-102 transition-all duration-300"
       onClick={handleCardClick}
     >
@@ -85,11 +85,11 @@ const ProductCard = memo(({ product, loading = false, virtualIndex = 0 }) => {
           >
             {priceChange > 0 ? '+' : ''}{priceChange.toFixed(1)}%
           </Badge>
-        )}
+)}
       </div>
-</div>
 
       <div className="space-y-3">
+        <h3 className="font-semibold text-lg text-gray-900 truncate">
           {product.name}
         </h3>
         
@@ -127,9 +127,9 @@ const ProductCard = memo(({ product, loading = false, virtualIndex = 0 }) => {
           >
             Add
           </Button>
-        </div>
-      </div>
 </div>
+      </div>
+    </div>
   );
 });
 
