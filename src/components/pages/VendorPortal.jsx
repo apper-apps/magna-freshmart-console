@@ -2462,10 +2462,9 @@ variant: 'warning'
                     </div>
 </div>
                 ))}
-              </div>
+</div>
             </div>
           </div>
-        </div>
         );
       })}
       </div>
