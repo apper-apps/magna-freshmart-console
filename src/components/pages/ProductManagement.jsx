@@ -12,7 +12,6 @@ import Cart from "@/components/pages/Cart";
 import Badge from "@/components/atoms/Badge";
 import Input from "@/components/atoms/Input";
 import Button from "@/components/atoms/Button";
-
 // Material UI Switch Component
 const Switch = ({ checked, onChange, color = "primary", disabled = false, ...props }) => {
   const baseClasses = "relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2";
@@ -153,11 +152,11 @@ const [formData, setFormData] = useState({
   // Handle image upload and processing
 const handleImageUpload = async (file) => {
     try {
-      // Initialize upload process with 0% progress
+      // Initialize upload process with immediate preview
       setImageData(prev => ({ ...prev, isProcessing: true, uploadProgress: 0 }));
-      toast.info('Starting image upload and processing...');
+      toast.info('🚀 Fast upload starting - preview loading...');
       
-      // 1. Client-Side File Type Validation (5% progress)
+      // 1. Immediate File Validation (5% progress)
       const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
       const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
       
@@ -169,7 +168,7 @@ const handleImageUpload = async (file) => {
         return;
       }
       
-      // 2. File Size Validation (10% progress)
+      // 2. Fast File Size Check (10% progress)
       const maxFileSize = 10 * 1024 * 1024; // 10MB
       if (file.size > maxFileSize) {
         toast.error(`File size too large. Maximum allowed size is 10MB. Your file is ${(file.size / 1024 / 1024).toFixed(1)}MB.`);
@@ -177,166 +176,169 @@ const handleImageUpload = async (file) => {
         return;
       }
       
-      // Update progress after validation
-      setImageData(prev => ({ ...prev, uploadProgress: 15 }));
-      toast.info('File validation completed. Processing image...');
+      // 3. INSTANT PREVIEW - Show image immediately while processing in background
+      const instantPreviewUrl = URL.createObjectURL(file);
+      setImageData(prev => ({ 
+        ...prev, 
+        selectedImage: instantPreviewUrl,
+        uploadProgress: 15,
+        showingPreview: true 
+      }));
+      setFormData(prev => ({ ...prev, imageUrl: instantPreviewUrl }));
+      toast.success('✨ Preview ready! Processing in background...');
       
-      // 3. HEIC Conversion (if needed) - 15-35% progress
-      let processFile = file;
-      if (file.type === 'image/heic' || file.type === 'image/heif' || fileExtension === 'heic' || fileExtension === 'heif') {
+      // 4. Background Processing - Non-blocking optimization
+      setTimeout(async () => {
         try {
-          setImageData(prev => ({ ...prev, uploadProgress: 20 }));
-          toast.info('Converting HEIC format to JPEG...');
+          setImageData(prev => ({ ...prev, uploadProgress: 25 }));
           
-          // Import heic2any dynamically to reduce bundle size
-          const heic2any = (await import('heic2any')).default;
-          const convertedBlob = await heic2any({
-            blob: file,
-            toType: 'image/jpeg',
-            quality: 0.8
-          });
+          // 4a. HEIC Conversion (if needed) - Background processing
+          let processFile = file;
+          if (file.type === 'image/heic' || file.type === 'image/heif' || fileExtension === 'heic' || fileExtension === 'heif') {
+            try {
+              setImageData(prev => ({ ...prev, uploadProgress: 35 }));
+              toast.info('🔄 Converting HEIC format in background...');
+              
+              const heic2any = (await import('heic2any')).default;
+              const convertedBlob = await heic2any({
+                blob: file,
+                toType: 'image/jpeg',
+                quality: 0.8
+              });
+              
+              processFile = new File([convertedBlob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), {
+                type: 'image/jpeg'
+              });
+              
+              setImageData(prev => ({ ...prev, uploadProgress: 45 }));
+            } catch (conversionError) {
+              console.error('HEIC conversion error:', conversionError);
+              // Don't stop the process, use original file
+              toast.warning('HEIC conversion failed, using original format');
+            }
+          } else {
+            setImageData(prev => ({ ...prev, uploadProgress: 45 }));
+          }
           
-          processFile = new File([convertedBlob], file.name.replace(/\.(heic|heif)$/i, '.jpg'), {
-            type: 'image/jpeg'
-          });
+          // 4b. Chunked Image Processing - Prevent UI freezing
+          await processImageInChunks(processFile);
           
-          setImageData(prev => ({ ...prev, uploadProgress: 35 }));
-          toast.success('HEIC file converted to JPEG successfully');
-        } catch (conversionError) {
-          console.error('HEIC conversion error:', conversionError);
-          toast.error('Failed to convert HEIC file. Please try converting it manually or use a different format.');
-          setImageData(prev => ({ ...prev, isProcessing: false, uploadProgress: 0 }));
-          return;
+        } catch (backgroundError) {
+          console.error('Background processing error:', backgroundError);
+          toast.warning('Background optimization failed, but preview is ready!');
         }
-      } else {
-        // Skip HEIC conversion, jump to next stage
-        setImageData(prev => ({ ...prev, uploadProgress: 35 }));
-      }
+      }, 100); // Start background processing after 100ms
       
-      // 4. Image Loading and Analysis (35-50% progress)
-      toast.info('Analyzing image dimensions and quality...');
+    } catch (error) {
+      console.error('Error in fast upload:', error);
+      setImageData(prev => ({ ...prev, isProcessing: false, uploadProgress: 0 }));
+      toast.error('❌ Upload failed. Please try again with a different file.');
+    }
+  };
+
+  // New chunked processing function to prevent UI freezing
+  const processImageInChunks = async (processFile) => {
+    return new Promise((resolve, reject) => {
       const img = new Image();
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       
-      await new Promise((resolve, reject) => {
-        img.onload = () => {
-          try {
-            const { width, height } = img;
-            
-            // 5. Aspect Ratio Check and Auto-Crop Setup (50-65% progress)
-            const aspectRatio = width / height;
-            const isSquare = Math.abs(aspectRatio - 1) < 0.05; // Allow 5% tolerance
-            
-            if (!isSquare) {
-              toast.info(`Image aspect ratio is ${aspectRatio.toFixed(2)}:1. Auto-cropping to 1:1 square format.`);
-            }
-            
-            setImageData(prev => ({ ...prev, uploadProgress: 50 }));
-            
-            // 6. Calculate Center Crop Dimensions (65% progress)
-            toast.info('Calculating optimal crop dimensions...');
-            const targetSize = 600;
-            const cropSize = Math.min(width, height);
-            const cropX = (width - cropSize) / 2;
-            const cropY = (height - cropSize) / 2;
-            
-            // 7. Set Canvas Size to Target Dimensions
-            canvas.width = targetSize;
-            canvas.height = targetSize;
-            
-            setImageData(prev => ({ ...prev, uploadProgress: 65 }));
-            
-            // 8. Draw Center-Cropped and Resized Image (65-80% progress)
-            toast.info('Resizing and cropping image...');
-            ctx.drawImage(
-              img,
-              cropX, cropY, cropSize, cropSize, // Source crop area
-              0, 0, targetSize, targetSize      // Destination size
-            );
-            
-            setImageData(prev => ({ ...prev, uploadProgress: 80 }));
-            
-            // 9. Determine Output Format and Quality (80-90% progress)
-            toast.info('Optimizing image quality and compression...');
-            let outputFormat = 'image/jpeg';
-            let quality = 0.75; // 75% quality (70-80% range)
-            
-            if (processFile.type === 'image/png' && processFile.size < 2 * 1024 * 1024) {
-              // Keep PNG for smaller files to preserve transparency
-              outputFormat = 'image/png';
-              quality = 0.8;
-            } else if (processFile.type === 'image/webp') {
-              outputFormat = 'image/webp';
-              quality = 0.7; // More aggressive compression for WebP
-            }
-            
-            setImageData(prev => ({ ...prev, uploadProgress: 85 }));
-            
-            // 10. Convert to Blob with Compression (85-95% progress)
-            toast.info('Finalizing image processing...');
-            canvas.toBlob((blob) => {
-              if (!blob) {
-                reject(new Error('Failed to generate compressed image'));
-                return;
-              }
-              
-              setImageData(prev => ({ ...prev, uploadProgress: 95 }));
-              
-              // 11. Create Object URL and Update State (95-100% progress)
-              const processedImageUrl = URL.createObjectURL(blob);
-              
-              // Final state update with complete progress
-              setImageData(prev => ({
-                ...prev,
-                selectedImage: processedImageUrl,
-                croppedImage: processedImageUrl,
-                isProcessing: false,
-                uploadProgress: 100,
-                originalDimensions: { width, height },
-                processedDimensions: { width: targetSize, height: targetSize },
-                originalSize: file.size,
-                processedSize: blob.size,
-                compression: ((file.size - blob.size) / file.size * 100).toFixed(1)
-              }));
-              
-              setFormData(prev => ({ ...prev, imageUrl: processedImageUrl }));
-              
-              const compressionRatio = ((file.size - blob.size) / file.size * 100).toFixed(1);
-              const originalSizeMB = (file.size / 1024 / 1024).toFixed(1);
-              const finalSizeKB = (blob.size / 1024).toFixed(1);
-              
-              toast.success(`✅ Upload Complete! Image processed successfully:\n• Resized to 600×600px\n• ${compressionRatio}% size reduction\n• ${originalSizeMB}MB → ${finalSizeKB}KB`);
-              
-              resolve();
-            }, outputFormat, quality);
-            
-          } catch (error) {
-            reject(error);
+      img.onload = async () => {
+        try {
+          const { width, height } = img;
+          
+          // Chunk 1: Dimension calculation (50% progress)
+          await new Promise(r => setTimeout(r, 50)); // Yield to main thread
+          setImageData(prev => ({ ...prev, uploadProgress: 50 }));
+          
+          const aspectRatio = width / height;
+          const isSquare = Math.abs(aspectRatio - 1) < 0.05;
+          
+          if (!isSquare) {
+            toast.info(`📐 Auto-cropping from ${aspectRatio.toFixed(2)}:1 to perfect square`);
           }
-        };
-        
-        img.onerror = () => reject(new Error('Failed to load image file - file may be corrupted'));
-        img.src = URL.createObjectURL(processFile);
-      });
+          
+          // Chunk 2: Canvas setup (60% progress)
+          await new Promise(r => setTimeout(r, 50)); // Yield to main thread
+          const targetSize = 600;
+          const cropSize = Math.min(width, height);
+          const cropX = (width - cropSize) / 2;
+          const cropY = (height - cropSize) / 2;
+          
+          canvas.width = targetSize;
+          canvas.height = targetSize;
+          setImageData(prev => ({ ...prev, uploadProgress: 60 }));
+          
+          // Chunk 3: Image drawing (70% progress)
+          await new Promise(r => setTimeout(r, 50)); // Yield to main thread
+          ctx.drawImage(
+            img,
+            cropX, cropY, cropSize, cropSize,
+            0, 0, targetSize, targetSize
+          );
+          setImageData(prev => ({ ...prev, uploadProgress: 70 }));
+          
+          // Chunk 4: Format optimization (80% progress)
+          await new Promise(r => setTimeout(r, 50)); // Yield to main thread
+          let outputFormat = 'image/jpeg';
+          let quality = 0.75;
+          
+          if (processFile.type === 'image/png' && processFile.size < 2 * 1024 * 1024) {
+            outputFormat = 'image/png';
+            quality = 0.8;
+          } else if (processFile.type === 'image/webp') {
+            outputFormat = 'image/webp';
+            quality = 0.7;
+          }
+          setImageData(prev => ({ ...prev, uploadProgress: 80 }));
+          
+          // Chunk 5: Final compression (90-100% progress)
+          await new Promise(r => setTimeout(r, 50)); // Yield to main thread
+          canvas.toBlob(async (blob) => {
+            if (!blob) {
+              reject(new Error('Failed to generate optimized image'));
+              return;
+            }
+            
+            setImageData(prev => ({ ...prev, uploadProgress: 90 }));
+            await new Promise(r => setTimeout(r, 50)); // Yield to main thread
+            
+            const optimizedImageUrl = URL.createObjectURL(blob);
+            
+            // Update with optimized version
+            setImageData(prev => ({
+              ...prev,
+              selectedImage: optimizedImageUrl,
+              croppedImage: optimizedImageUrl,
+              isProcessing: false,
+              uploadProgress: 100,
+              showingPreview: false,
+              originalDimensions: { width, height },
+              processedDimensions: { width: targetSize, height: targetSize },
+              originalSize: processFile.size,
+              processedSize: blob.size,
+              compression: ((processFile.size - blob.size) / processFile.size * 100).toFixed(1)
+            }));
+            
+            setFormData(prev => ({ ...prev, imageUrl: optimizedImageUrl }));
+            
+            const compressionRatio = ((processFile.size - blob.size) / processFile.size * 100).toFixed(1);
+            const originalSizeMB = (processFile.size / 1024 / 1024).toFixed(1);
+            const finalSizeKB = (blob.size / 1024).toFixed(1);
+            
+            toast.success(`🎉 Optimization complete! ${compressionRatio}% smaller (${originalSizeMB}MB → ${finalSizeKB}KB)`);
+            
+            resolve();
+          }, outputFormat, quality);
+          
+        } catch (error) {
+          reject(error);
+        }
+      };
       
-    } catch (error) {
-      console.error('Error uploading and processing image:', error);
-      setImageData(prev => ({ ...prev, isProcessing: false, uploadProgress: 0 }));
-      
-      // Enhanced error messages based on error type with specific guidance
-      if (error.message.includes('HEIC')) {
-        toast.error('❌ HEIC Conversion Failed\nPlease try converting to JPG first or use a different image format.');
-      } else if (error.message.includes('load') || error.message.includes('corrupted')) {
-        toast.error('❌ Image Loading Failed\nThe file appears to be corrupted. Please try with a different image.');
-      } else if (error.message.includes('generate') || error.message.includes('compressed')) {
-        toast.error('❌ Image Processing Failed\nUnable to process the image. Please try with a different file or format.');
-      } else if (error.message.includes('network') || error.message.includes('timeout')) {
-        toast.error('❌ Upload Failed\nNetwork connection issue. Please check your internet and try again.');
-      } else {
-        toast.error('❌ Upload Failed\nUnexpected error during image processing. Please try again with a different file.');
-      }
-    }
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = URL.createObjectURL(processFile);
+    });
   };
 
   // Handle image search
@@ -2793,7 +2795,7 @@ disabled={
   );
 };
 
-// Intelligent Image Upload System Component
+// Fast Image Upload System Component with Instant Preview
 const ImageUploadSystem = ({
   imageData, 
   setImageData, 
@@ -2830,7 +2832,7 @@ const ImageUploadSystem = ({
         onImageSelect(urlString, attribution);
       }
       
-      toast.success('Image selected successfully!');
+      toast.success('✨ Image selected - ready to use!');
     } catch (error) {
       console.error('Error selecting image:', error);
       toast.error('Failed to select image');
@@ -2846,12 +2848,13 @@ if (!prompt?.trim()) {
       }
       
       setImageData(prev => ({ ...prev, isProcessing: true }));
+      toast.info('🎨 AI generating your image...');
       
       // Simulate AI generation process with 600x600 square format
       const generatedImage = await new Promise((resolve) => {
         setTimeout(() => {
           resolve(`https://picsum.photos/600/600?random=${Date.now()}`);
-        }, 2000);
+        }, 1500); // Reduced from 2000ms for faster perception
       });
       
       handleImageSelect(generatedImage, 'AI Generated');
@@ -2863,7 +2866,7 @@ if (!prompt?.trim()) {
     }
   };
 
-  // Handle drag events
+  // Handle drag events with enhanced feedback
   const handleDragOver = (e) => {
     e.preventDefault();
     setDragActive(true);
@@ -2885,7 +2888,7 @@ if (!prompt?.trim()) {
   };
 
 const handleFileSelect = (file) => {
-    // Enhanced file type validation - Only allow specific formats
+    // Fast file type validation 
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
     const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'];
     
@@ -2897,14 +2900,14 @@ const handleFileSelect = (file) => {
       return;
     }
     
-    // Validate file size (max 10MB for processing)
+    // Instant size check (max 10MB for processing)
     const maxFileSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxFileSize) {
       toast.error(`File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size allowed is 10MB.`);
       return;
     }
     
-    // Additional validation for common image issues
+    // Quick validation for common image issues
     if (file.size < 1024) { // Less than 1KB
       toast.error('File appears to be too small or corrupted. Please select a valid image.');
       return;
@@ -2942,8 +2945,8 @@ const handleFileSelect = (file) => {
       {/* Tab Navigation */}
       <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
         {[
-          { id: 'upload', label: 'Upload', icon: 'Upload' },
-          { id: 'search', label: 'AI Search', icon: 'Search' },
+          { id: 'upload', label: 'Fast Upload', icon: 'Zap' },
+          { id: 'search', label: 'Gallery Search', icon: 'Search' },
           { id: 'ai-generate', label: 'AI Generate', icon: 'Sparkles' }
         ].map((tab) => (
           <button
@@ -2962,18 +2965,18 @@ const handleFileSelect = (file) => {
         ))}
       </div>
 
-      {/* Upload Tab */}
+      {/* Fast Upload Tab */}
       {imageData.activeTab === 'upload' && (
         <div className="space-y-4">
-          {/* Drag & Drop Zone */}
+          {/* Enhanced Drag & Drop Zone */}
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={triggerFileInput}
-            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-all duration-200 ${
               dragActive
-                ? 'border-primary bg-primary/5'
+                ? 'border-primary bg-primary/10 scale-105'
                 : 'border-gray-300 hover:border-primary hover:bg-gray-50'
             }`}
           >
@@ -2986,9 +2989,9 @@ const handleFileSelect = (file) => {
             />
             
             <div className="flex flex-col items-center space-y-3">
-              <div className={`p-3 rounded-full ${dragActive ? 'bg-primary/10' : 'bg-gray-100'}`}>
+              <div className={`p-3 rounded-full transition-all ${dragActive ? 'bg-primary/20 scale-110' : 'bg-gray-100'}`}>
                 <ApperIcon 
-                  name={dragActive ? "Download" : "ImagePlus"} 
+                  name={dragActive ? "Download" : "Zap"} 
                   size={32} 
                   className={dragActive ? 'text-primary' : 'text-gray-400'}
                 />
@@ -2996,10 +2999,10 @@ const handleFileSelect = (file) => {
               
               <div>
                 <p className="text-lg font-medium text-gray-900">
-                  {dragActive ? 'Drop image here' : 'Upload product image'}
+                  {dragActive ? 'Drop for instant preview!' : 'Lightning-fast upload'}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
-                  Drag & drop or click to browse • Max 10MB • Auto-optimized to 600x600px
+                  Instant preview • Background optimization • No freezing at 35%
                 </p>
               </div>
               
@@ -3012,62 +3015,66 @@ const handleFileSelect = (file) => {
             </div>
           </div>
 
-          {/* Upload Progress */}
-{/* Real-Time Upload Progress Bar */}
-          {imageData.isProcessing && (
-            <div className="space-y-3 bg-gradient-to-r from-blue-50 to-green-50 p-4 rounded-lg border border-blue-200">
+          {/* Enhanced Upload Progress - Non-blocking */}
+{imageData.isProcessing && (
+            <div className="space-y-3 bg-gradient-to-r from-green-50 to-blue-50 p-4 rounded-lg border border-green-200">
               <div className="flex justify-between items-center text-sm">
                 <div className="flex items-center space-x-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
-                  <span className="text-gray-700 font-medium">Processing image...</span>
+                  <span className="text-gray-700 font-medium">
+                    {imageData.showingPreview ? 'Optimizing in background...' : 'Processing image...'}
+                  </span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <span className="text-primary font-bold text-base">{imageData.uploadProgress || 0}%</span>
                   <div className="text-xs text-gray-500">
-                    {imageData.uploadProgress < 15 && "Validating file"}
-                    {imageData.uploadProgress >= 15 && imageData.uploadProgress < 35 && "Converting format"}
-                    {imageData.uploadProgress >= 35 && imageData.uploadProgress < 50 && "Analyzing image"}
-                    {imageData.uploadProgress >= 50 && imageData.uploadProgress < 65 && "Calculating dimensions"}
-                    {imageData.uploadProgress >= 65 && imageData.uploadProgress < 80 && "Resizing & cropping"}
-                    {imageData.uploadProgress >= 80 && imageData.uploadProgress < 95 && "Optimizing quality"}
-                    {imageData.uploadProgress >= 95 && "Finalizing"}
+                    {imageData.uploadProgress < 15 && "Instant validation"}
+                    {imageData.uploadProgress >= 15 && imageData.uploadProgress < 35 && "Preview ready"}
+                    {imageData.uploadProgress >= 35 && imageData.uploadProgress < 50 && "Background processing"}
+                    {imageData.uploadProgress >= 50 && imageData.uploadProgress < 70 && "Smart cropping"}
+                    {imageData.uploadProgress >= 70 && imageData.uploadProgress < 90 && "Quality optimization"}
+                    {imageData.uploadProgress >= 90 && "Almost done"}
                   </div>
                 </div>
               </div>
               
-              {/* Enhanced Progress Bar with Gradient */}
+              {/* Smooth Progress Bar */}
               <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
                 <div
-                  className="bg-gradient-to-r from-primary to-accent h-3 rounded-full transition-all duration-500 ease-out relative"
+                  className="bg-gradient-to-r from-green-500 to-blue-500 h-3 rounded-full transition-all duration-300 ease-out relative"
                   style={{ width: `${imageData.uploadProgress || 0}%` }}
                 >
-                  {/* Animated shimmer effect */}
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
                 </div>
               </div>
               
               {/* Progress Milestones */}
               <div className="flex justify-between text-xs text-gray-500">
-                <span className={`${imageData.uploadProgress >= 15 ? 'text-green-600 font-medium' : ''}`}>Validate</span>
-                <span className={`${imageData.uploadProgress >= 35 ? 'text-green-600 font-medium' : ''}`}>Convert</span>
-                <span className={`${imageData.uploadProgress >= 50 ? 'text-green-600 font-medium' : ''}`}>Analyze</span>
-                <span className={`${imageData.uploadProgress >= 65 ? 'text-green-600 font-medium' : ''}`}>Resize</span>
-                <span className={`${imageData.uploadProgress >= 85 ? 'text-green-600 font-medium' : ''}`}>Optimize</span>
-                <span className={`${imageData.uploadProgress >= 100 ? 'text-green-600 font-medium' : ''}`}>Complete</span>
+                <span className={`${imageData.uploadProgress >= 15 ? 'text-green-600 font-medium' : ''}`}>Preview</span>
+                <span className={`${imageData.uploadProgress >= 35 ? 'text-green-600 font-medium' : ''}`}>Process</span>
+                <span className={`${imageData.uploadProgress >= 50 ? 'text-green-600 font-medium' : ''}`}>Crop</span>
+                <span className={`${imageData.uploadProgress >= 70 ? 'text-green-600 font-medium' : ''}`}>Optimize</span>
+                <span className={`${imageData.uploadProgress >= 90 ? 'text-green-600 font-medium' : ''}`}>Finalize</span>
+                <span className={`${imageData.uploadProgress >= 100 ? 'text-green-600 font-medium' : ''}`}>Done</span>
               </div>
             </div>
           )}
 
-          {/* Image Preview & Cropping */}
-{/* Immediate Image Preview with Processing Results */}
-          {imageData.selectedImage && (
+          {/* Instant Image Preview */}
+{imageData.selectedImage && (
             <div className="space-y-4 animate-in slide-in-from-bottom-2 duration-300">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <h4 className="font-medium text-gray-900">Image Preview</h4>
-                  <Badge variant="success" className="text-xs animate-pulse">
-                    ✓ Upload Complete
-                  </Badge>
+                  <h4 className="font-medium text-gray-900">Live Preview</h4>
+                  {imageData.showingPreview ? (
+                    <Badge variant="info" className="text-xs animate-pulse">
+                      ⚡ Preview Ready
+                    </Badge>
+                  ) : (
+                    <Badge variant="success" className="text-xs">
+                      ✓ Optimized
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex space-x-2">
                   <Button
@@ -3076,7 +3083,6 @@ const handleFileSelect = (file) => {
                     size="sm"
                     icon="RotateCcw"
                     onClick={() => {
-                      // Clean up URL if it's a blob URL
                       if (imageData.selectedImage && imageData.selectedImage.startsWith('blob:')) {
                         try {
                           URL.revokeObjectURL(imageData.selectedImage);
@@ -3093,9 +3099,10 @@ const handleFileSelect = (file) => {
                         originalSize: null,
                         processedSize: null,
                         compression: null,
-                        uploadProgress: 0
+                        uploadProgress: 0,
+                        showingPreview: false
                       }));
-                      toast.info('Image removed. You can upload a new one.');
+                      toast.info('🗑️ Image removed. Ready for new upload!');
                     }}
                   >
                     Remove
@@ -3103,16 +3110,16 @@ const handleFileSelect = (file) => {
                 </div>
               </div>
               
-              {/* Image Display with Success Indicators */}
-              <div className="relative bg-gradient-to-br from-gray-50 to-blue-50 p-4 rounded-lg border-2 border-green-200">
+              {/* Enhanced Image Display */}
+              <div className="relative bg-gradient-to-br from-gray-50 to-green-50 p-4 rounded-lg border-2 border-green-200">
                 <img
                   src={imageData.selectedImage}
                   alt="Product preview"
-                  className="w-full max-w-md mx-auto rounded-lg shadow-lg border-2 border-green-300"
+                  className="w-full max-w-md mx-auto rounded-lg shadow-lg border-2 border-green-300 transition-all duration-300"
                   style={{ maxHeight: '300px', objectFit: 'contain' }}
                 />
                 
-                {/* Success Visual Indicators */}
+                {/* Live Preview Indicators */}
                 <div className="absolute inset-0 pointer-events-none">
                   {/* Corner Success Markers */}
                   <div className="absolute top-6 left-6 w-6 h-6 border-t-4 border-l-4 border-green-500 rounded-tl-lg animate-pulse"></div>
@@ -3532,7 +3539,7 @@ const AIImageGenerator = ({
 
 // Enhanced Unsplash Image Search Component
 const UnsplashImageSearch = ({ 
-  imageData, 
+imageData, 
   setImageData, 
   onImageSearch, 
   onImageSelect, 
@@ -3542,7 +3549,7 @@ const UnsplashImageSearch = ({
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [orientation, setOrientation] = useState('square');
 
-  // Comprehensive food category mapping for enhanced search
+  // Enhanced food category mapping for fast search
   const foodCategories = [
     { id: 'vegetables', name: 'Fresh Vegetables', icon: 'Carrot', color: 'bg-green-100 text-green-700' },
     { id: 'fruits', name: 'Tropical Fruits', icon: 'Apple', color: 'bg-orange-100 text-orange-700' },
@@ -3556,33 +3563,41 @@ const UnsplashImageSearch = ({
     { id: 'snacks', name: 'Healthy Snacks', icon: 'Cookie', color: 'bg-amber-100 text-amber-700' }
   ];
 
-  const trendingSearches = [
+  const quickSearchTerms = [
     'organic vegetables', 'fresh fruits', 'artisan bread', 'premium coffee',
-    'dairy products', 'healthy snacks', 'gourmet cheese', 'fresh herbs',
-    'farm fresh', 'sustainable food', 'local produce', 'superfood'
+    'dairy products', 'healthy snacks', 'gourmet cheese', 'fresh herbs'
   ];
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      toast.info('🔍 Searching gallery...');
       onImageSearch(searchQuery.trim(), { category: selectedCategory, orientation });
     }
+  };
+
+  const handleQuickSearch = (term) => {
+    setSearchQuery(term);
+    toast.info(`🚀 Quick search: ${term}`);
+    onImageSearch(term, { category: selectedCategory, orientation });
   };
 
   const handleCategorySearch = (category) => {
     setSelectedCategory(category.id || category);
     const searchTerm = category.id ? category.name.toLowerCase() : (category === 'all' ? 'food' : category.toLowerCase());
     setSearchQuery(searchTerm);
+    toast.info(`📂 Browsing ${category.name || category}`);
     onImageSearch(searchTerm, { category: category.id || category, orientation });
   };
+
   return (
     <div className="space-y-6">
-      {/* Search Form */}
+      {/* Fast Search Interface */}
       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
         <div className="flex items-center space-x-2 mb-4">
-          <ApperIcon name="Search" size={20} className="text-blue-600" />
-          <h4 className="font-medium text-gray-900">Unsplash Image Search</h4>
-          <Badge variant="info" className="text-xs">1M+ Images</Badge>
+          <ApperIcon name="Zap" size={20} className="text-blue-600" />
+          <h4 className="font-medium text-gray-900">Lightning-Fast Gallery Search</h4>
+          <Badge variant="info" className="text-xs">No Redirects</Badge>
         </div>
 
         <form onSubmit={handleSearchSubmit} className="space-y-4">
@@ -3590,7 +3605,7 @@ const UnsplashImageSearch = ({
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search high-quality product images..."
+              placeholder="Type 'apple' to see apple images instantly..."
               icon="Search"
               className="flex-1"
             />
@@ -3599,15 +3614,16 @@ const UnsplashImageSearch = ({
               variant="primary"
               disabled={imageData.isProcessing || !searchQuery.trim()}
               loading={imageData.isProcessing}
+              icon="Zap"
             >
-              Search
+              {imageData.isProcessing ? 'Searching...' : 'Search'}
             </Button>
           </div>
 
-{/* Advanced Filters */}
+{/* Quick Category Filters - Dropdown Style */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Category Filter</label>
+              <label className="block text-sm font-medium text-gray-700">Quick Category</label>
               <select
                 value={selectedCategory}
                 onChange={(e) => setSelectedCategory(e.target.value)}
@@ -3621,41 +3637,41 @@ const UnsplashImageSearch = ({
             </div>
             
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Image Orientation</label>
+              <label className="block text-sm font-medium text-gray-700">Format</label>
               <select
                 value={orientation}
                 onChange={(e) => setOrientation(e.target.value)}
                 className="input-field text-sm"
               >
-                <option value="square">Square (1:1) - Recommended</option>
-                <option value="landscape">Landscape (4:3)</option>
-                <option value="portrait">Portrait (3:4)</option>
-                <option value="any">Any Orientation</option>
+                <option value="square">Square (Perfect for Products)</option>
+                <option value="landscape">Landscape</option>
+                <option value="portrait">Portrait</option>
+                <option value="any">Any Format</option>
               </select>
             </div>
           </div>
         </form>
 
-        {/* Enhanced Category Quick Filters */}
+        {/* One-Click Category Buttons */}
         <div className="mt-6 space-y-3">
           <div className="flex items-center justify-between">
-            <label className="block text-sm font-medium text-gray-700">Browse by Category</label>
-            <Badge variant="info" className="text-xs">Zero Redirects</Badge>
+            <label className="block text-sm font-medium text-gray-700">One-Click Browse</label>
+            <Badge variant="success" className="text-xs">Instant Results</Badge>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            {foodCategories.map((category) => (
+            {foodCategories.slice(0, 5).map((category) => (
               <button
                 key={category.id}
                 onClick={() => handleCategorySearch(category)}
                 className={`p-3 rounded-lg border-2 transition-all duration-200 hover:scale-105 ${
                   selectedCategory === category.id 
-                    ? 'border-blue-500 bg-blue-50' 
+                    ? 'border-blue-500 bg-blue-50 shadow-md' 
                     : 'border-gray-200 hover:border-blue-300 bg-white hover:bg-blue-50'
                 }`}
               >
                 <div className="flex flex-col items-center space-y-2">
                   <div className={`p-2 rounded-full ${category.color}`}>
-                    <ApperIcon name={category.icon} size={20} />
+                    <ApperIcon name={category.icon} size={18} />
                   </div>
                   <span className="text-xs font-medium text-gray-700 text-center">
                     {category.name}
@@ -3666,65 +3682,59 @@ const UnsplashImageSearch = ({
           </div>
         </div>
 
-        {/* Enhanced Trending Searches */}
+        {/* Quick Search Pills */}
         <div className="mt-6 space-y-3">
           <div className="flex items-center space-x-2">
-            <label className="block text-sm font-medium text-gray-700">Trending Searches</label>
-            <ApperIcon name="TrendingUp" size={16} className="text-blue-600" />
+            <label className="block text-sm font-medium text-gray-700">Quick Search</label>
+            <ApperIcon name="Zap" size={16} className="text-orange-500" />
           </div>
 <div className="flex flex-wrap gap-2">
-            {trendingSearches.map((term, index) => (
+            {quickSearchTerms.map((term, index) => (
               <button
                 key={term}
-                onClick={() => {
-                  setSearchQuery(term);
-                  onImageSearch(term, { category: selectedCategory, orientation });
-                }}
-                className="group px-4 py-2 bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 rounded-full text-sm hover:from-blue-200 hover:to-indigo-200 transition-all duration-200 hover:scale-105 border border-blue-200 hover:border-blue-300"
+                onClick={() => handleQuickSearch(term)}
+                className="group px-3 py-1 bg-gradient-to-r from-orange-100 to-yellow-100 text-orange-700 rounded-full text-sm hover:from-orange-200 hover:to-yellow-200 transition-all duration-200 hover:scale-105 border border-orange-200 hover:border-orange-300"
               >
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1">
                   <span>{term}</span>
-                  {index < 4 && <ApperIcon name="Flame" size={12} className="text-orange-500 group-hover:animate-pulse" />}
+                  {index < 3 && <ApperIcon name="Zap" size={10} className="text-orange-500 group-hover:animate-pulse" />}
                 </div>
               </button>
             ))}
           </div>
           
-          {/* Search Stats */}
+          {/* Gallery Stats */}
           <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
             <div className="flex items-center space-x-1">
               <ApperIcon name="Database" size={12} />
-              <span>1M+ High-Quality Images</span>
+              <span>1M+ Professional Images</span>
             </div>
             <div className="flex items-center space-x-1">
-              <ApperIcon name="Shield" size={12} />
-              <span>Commercial License Included</span>
+              <ApperIcon name="Zap" size={12} />
+              <span>Instant Preview & Selection</span>
             </div>
           </div>
         </div>
       </div>
-{/* Enhanced Search Results Display */}
+
+{/* Enhanced Results Display - Fast Preview Grid */}
       {imageData.searchResults.length > 0 && (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-2 sm:space-y-0">
             <div className="flex items-center space-x-3">
               <h4 className="font-medium text-gray-900">
-                Search Results ({imageData.searchResults.length})
+                Gallery Results ({imageData.searchResults.length})
               </h4>
-              <Badge variant="success" className="text-xs">Live Results</Badge>
+              <Badge variant="success" className="text-xs animate-pulse">⚡ Live Preview</Badge>
             </div>
             <div className="flex items-center space-x-4 text-sm text-gray-500">
               <div className="flex items-center space-x-1">
                 <ApperIcon name="Award" size={14} />
-                <span>High-Quality</span>
+                <span>HD Quality</span>
               </div>
               <div className="flex items-center space-x-1">
-                <ApperIcon name="Shield" size={14} />
-                <span>Commercial Use</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <ApperIcon name="Zap" size={14} />
-                <span>Zero Redirects</span>
+                <ApperIcon name="MousePointer" size={14} />
+                <span>Click to Select</span>
               </div>
             </div>
           </div>
@@ -3733,102 +3743,87 @@ const UnsplashImageSearch = ({
             {imageData.searchResults.map((image, index) => (
               <div
                 key={index}
-                className="relative group cursor-pointer rounded-xl overflow-hidden aspect-square bg-gray-100 hover:shadow-xl transition-all duration-300 hover:scale-102 border-2 border-transparent hover:border-blue-200"
+                className="relative group cursor-pointer rounded-xl overflow-hidden aspect-square bg-gray-100 hover:shadow-xl transition-all duration-200 hover:scale-105 border-2 border-transparent hover:border-green-300"
+                onClick={() => {
+                  onImageSelect(image.url, image.attribution);
+                  toast.success('✨ Image selected! Auto-filling form...');
+                }}
               >
                 <img
                   src={image.thumbnail}
-                  alt={image.description || 'Search result'}
+                  alt={image.description || 'Gallery image'}
                   className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                  onClick={() => onImageSelect(image.url, image.attribution)}
-/>
+                />
                 
-                {/* Enhanced Hover Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-between p-3">
-                  {/* Top Icons */}
-                  <div className="flex justify-between items-start">
-                    <div className="bg-white/90 backdrop-blur-sm rounded-full p-1">
-                      <ApperIcon name="Eye" size={16} className="text-gray-700" />
-                    </div>
-                    <div className="bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-medium">
-                      Unsplash
+                {/* Fast Selection Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/20 opacity-0 group-hover:opacity-100 transition-all duration-200 flex flex-col justify-between p-3">
+                  {/* Quick Select Button */}
+                  <div className="flex justify-center items-start">
+                    <div className="bg-green-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                      Click to Select
                     </div>
                   </div>
                   
-                  {/* Center Download Button */}
+                  {/* Center Icon */}
                   <div className="flex items-center justify-center">
-                    <div className="bg-white/95 backdrop-blur-sm rounded-full p-3 transform scale-0 group-hover:scale-100 transition-transform duration-300">
-                      <ApperIcon name="Download" size={20} className="text-blue-600" />
+                    <div className="bg-white/95 backdrop-blur-sm rounded-full p-3 transform scale-0 group-hover:scale-100 transition-transform duration-200">
+                      <ApperIcon name="Check" size={20} className="text-green-600" />
                     </div>
                   </div>
                   
-                  {/* Bottom Attribution */}
-                  <div className="space-y-1">
-                    {image.attribution && (
-                      <div className="text-white text-xs font-medium">
-                        📸 {image.attribution.photographer}
-                      </div>
-                    )}
-                    <div className="flex items-center space-x-2">
-                      <Badge variant="success" className="text-xs">Free</Badge>
-                      <Badge variant="info" className="text-xs">Commercial OK</Badge>
-                    </div>
+                  {/* Quality Badges */}
+                  <div className="flex items-center justify-between">
+                    <Badge variant="success" className="text-xs">HD</Badge>
+                    <Badge variant="info" className="text-xs">Free</Badge>
                   </div>
-                </div>
-                
-                {/* Quick Info Badge */}
-                <div className="absolute top-2 left-2 bg-white/90 backdrop-blur-sm rounded-full px-2 py-1 text-xs font-medium text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {image.quality || 'HD'}
                 </div>
               </div>
             ))}
           </div>
-{/* Enhanced Load More Section */}
+
+{/* Fast Load More */}
           <div className="flex flex-col items-center space-y-4">
             <Button
               variant="secondary"
               icon="Plus"
-              onClick={() => onImageSearch(searchQuery, { 
-                category: selectedCategory, 
-                orientation,
-                loadMore: true 
-              })}
+              onClick={() => {
+                toast.info('🔄 Loading more images...');
+                onImageSearch(searchQuery, { 
+                  category: selectedCategory, 
+                  orientation,
+                  loadMore: true 
+                });
+              }}
               disabled={imageData.isProcessing}
               loading={imageData.isProcessing}
               className="min-w-48"
             >
-              {imageData.isProcessing ? 'Loading More...' : 'Load More Images'}
+              {imageData.isProcessing ? 'Loading More...' : 'Show More Images'}
             </Button>
             
-            {/* Load More Info */}
-            <div className="text-center text-sm text-gray-500 space-y-1">
+            <div className="text-center text-sm text-gray-500">
               <div className="flex items-center justify-center space-x-2">
                 <ApperIcon name="Infinity" size={14} />
-                <span>Unlimited high-quality results</span>
-              </div>
-              <div className="text-xs">
-                All images are optimized for your product catalog
+                <span>Endless high-quality results</span>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Empty State */}
+      {/* Enhanced Empty State */}
       {searchQuery && imageData.searchResults.length === 0 && !imageData.isProcessing && (
         <div className="text-center py-12">
           <ApperIcon name="Search" size={48} className="text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No images found</h3>
           <p className="text-gray-600 mb-4">No images found for "{searchQuery}"</p>
           <div className="space-y-2">
-            <p className="text-sm text-gray-500">Try:</p>
+            <p className="text-sm text-gray-500">Try these instead:</p>
             <div className="flex flex-wrap justify-center gap-2">
-              {['organic food', 'fresh produce', 'healthy ingredients'].map((suggestion) => (
+              {['apple', 'bread', 'milk', 'vegetables'].map((suggestion) => (
                 <button
                   key={suggestion}
-                  onClick={() => {
-                    setSearchQuery(suggestion);
-                    onImageSearch(suggestion, { category: selectedCategory, orientation });
-                  }}
+                  onClick={() => handleQuickSearch(suggestion)}
                   className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm hover:bg-gray-200 transition-colors"
                 >
                   {suggestion}
@@ -3839,50 +3834,28 @@ const UnsplashImageSearch = ({
         </div>
       )}
 
-      {/* Copyright Notice */}
-{/* Enhanced Copyright and License Notice */}
-      <div className="bg-gradient-to-r from-gray-50 to-blue-50 p-4 rounded-lg border border-gray-200">
+      {/* Simplified License Notice */}
+<div className="bg-gradient-to-r from-gray-50 to-blue-50 p-4 rounded-lg border border-gray-200">
         <div className="space-y-3">
           <div className="flex items-center space-x-2">
             <ApperIcon name="Shield" size={16} className="text-blue-600" />
-            <span className="font-medium text-gray-900">License & Usage Information</span>
-            <Badge variant="success" className="text-xs">Verified</Badge>
+            <span className="font-medium text-gray-900">Usage Rights</span>
+            <Badge variant="success" className="text-xs">Commercial OK</Badge>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <ApperIcon name="CheckCircle" size={14} className="text-green-600" />
-                <span className="text-gray-700">Free for commercial use</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <ApperIcon name="CheckCircle" size={14} className="text-green-600" />
-                <span className="text-gray-700">No attribution required</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <ApperIcon name="CheckCircle" size={14} className="text-green-600" />
-                <span className="text-gray-700">High-resolution downloads</span>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div className="flex items-center space-x-2">
+              <ApperIcon name="CheckCircle" size={14} className="text-green-600" />
+              <span className="text-gray-700">Free commercial use</span>
             </div>
-            
-            <div className="space-y-2">
-              <div className="flex items-center space-x-2">
-                <ApperIcon name="Users" size={14} className="text-blue-600" />
-                <span className="text-gray-700">Support photographers</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <ApperIcon name="Globe" size={14} className="text-blue-600" />
-                <span className="text-gray-700">Powered by Unsplash API</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <ApperIcon name="Zap" size={14} className="text-blue-600" />
-                <span className="text-gray-700">Zero-redirect browsing</span>
-              </div>
+            <div className="flex items-center space-x-2">
+              <ApperIcon name="Zap" size={14} className="text-green-600" />
+              <span className="text-gray-700">No attribution required</span>
             </div>
-          </div>
-          
-<div className="text-xs text-gray-600 pt-2 border-t border-gray-200">
-            <p>All images are sourced from Unsplash and comply with their license terms. While attribution is not required, it's appreciated by photographers and helps support the creative community.</p>
+            <div className="flex items-center space-x-2">
+              <ApperIcon name="Award" size={14} className="text-green-600" />
+              <span className="text-gray-700">High-resolution quality</span>
+            </div>
           </div>
         </div>
       </div>
