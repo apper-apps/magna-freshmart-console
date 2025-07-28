@@ -261,109 +261,103 @@ const tabs = [
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+<div className="min-h-screen bg-gray-50 p-4">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <div className="h-10 w-10 bg-primary rounded-full flex items-center justify-center">
-                <ApperIcon name="Store" size={20} className="text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold text-gray-900">
-                  Vendor Portal
-                </h1>
-                <p className="text-sm text-gray-600">
-                  Welcome, {vendor.name}
-                </p>
-              </div>
-            </div>
-            
-            <Button
-              onClick={onLogout}
-              variant="outline"
-              size="sm"
-            >
-              <ApperIcon name="LogOut" size={16} className="mr-2" />
-              Logout
-            </Button>
-          </div>
+      <div className="flex justify-between items-center mb-5">
+        <div className="text-xl font-bold text-primary">FreshMart</div>
+        <div className="text-right">
+          <div className="font-medium">{vendor.name}</div>
+          <button 
+            onClick={onLogout}
+            className="text-primary bg-none border-none text-sm hover:underline"
+          >
+            Logout
+          </button>
         </div>
       </div>
-
+      
       {/* Stats Cards */}
       {stats && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <ApperIcon name="Package" size={24} className="text-blue-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Products</p>
-                  <p className="text-2xl font-semibold text-gray-900">{stats.totalProducts}</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <ApperIcon name="TrendingUp" size={24} className="text-green-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Avg. Margin</p>
-                  <p className="text-2xl font-semibold text-gray-900">{stats.averageMargin}%</p>
-                </div>
-              </div>
-            </div>
-            
-<div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <ApperIcon name="DollarSign" size={24} className="text-yellow-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Value</p>
-                  <p className="text-2xl font-semibold text-gray-900">{formatCurrency(stats.totalValue)}</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <ApperIcon name="AlertTriangle" size={24} className="text-red-600" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Low Stock</p>
-                  <p className="text-2xl font-semibold text-gray-900">{stats.lowStockCount}</p>
-                </div>
-              </div>
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <div className="text-sm text-gray-600 mb-1">Total Products</div>
+            <div className="text-2xl font-bold">{stats.totalProducts}</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <div className="text-sm text-gray-600 mb-1">Avg. Margin</div>
+            <div className="text-2xl font-bold">{stats.averageMargin}%</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-sm">
+            <div className="text-sm text-gray-600 mb-1">Total Value</div>
+            <div className="text-2xl font-bold">{formatCurrency(stats.totalValue)}</div>
           </div>
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white rounded-lg shadow">
-          <div className="border-b border-gray-200">
-<nav className="flex space-x-8">
+{/* Main Content Sections */}
+      <div className="space-y-4">
+        {/* Products Section */}
+        <div className="bg-white p-4 rounded-lg shadow-sm">
+          <div className="text-lg text-primary mb-4">Products</div>
+          {products && products.length > 0 ? (
+            products.slice(0, 2).map((product) => (
+              <div key={product.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
+                <span className="font-medium">{product.name}</span>
+                <span className={`px-2 py-1 text-xs rounded ${
+                  product.stock > (product.minStock || 10) 
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {product.stock > (product.minStock || 10) ? 'Available' : 'Out of Stock'}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="text-gray-500 text-sm">No products assigned</div>
+          )}
+        </div>
+
+        {/* Orders Section */}
+        <div className="bg-white p-4 rounded-lg shadow-sm">
+          <div className="text-lg text-primary mb-4">Orders</div>
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span>Order #8</span>
+              <span>Hasan Ali</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span>Order #5</span>
+              <span>Usman Malik</span>
+            </div>
+          </div>
+        </div>
+
+        {/* System Status */}
+        <div className="bg-white p-4 rounded-lg shadow-sm">
+          <div className="text-lg text-primary mb-4">System Status</div>
+          <div className="space-y-2 text-sm">
+            <div><strong>Packing Station:</strong> Active</div>
+            <div><strong>Payment Flow:</strong> Operational</div>
+            <div><strong>Order Sync:</strong> Real-time active</div>
+          </div>
+        </div>
+
+        {/* Full Feature Access Tab Navigation */}
+        <div className="bg-white rounded-lg shadow-sm">
+          <div className="border-b border-gray-200 overflow-x-auto">
+            <nav className="flex space-x-4 px-4">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 relative ${
+                  className={`py-3 px-2 border-b-2 font-medium text-sm flex items-center space-x-2 relative whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'border-primary text-primary'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
                   <ApperIcon name={tab.icon} size={16} />
-                  <span>{tab.label}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
                   {tab.priority === 'critical' && (
                     <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
                   )}
@@ -372,13 +366,13 @@ const tabs = [
             </nav>
           </div>
 
-          <div className="p-6">
+          <div className="p-4">
             {loading ? (
               <Loading type="component" />
             ) : error ? (
               <Error message={error} />
             ) : (
-<>
+              <>
                 {activeTab === 'products' && (
                   <VendorProductsTab 
                     products={products}
@@ -391,7 +385,7 @@ const tabs = [
                     vendor={vendor}
                   />
                 )}
-{activeTab === 'packing' && (
+                {activeTab === 'packing' && (
                   <VendorPackingTab 
                     vendor={vendor}
                   />
@@ -448,10 +442,10 @@ const VendorProductsTab = ({ products, vendor, onProductUpdate }) => {
     }
   };
 
-  return (
-    <div className="space-y-6">
+return (
+    <div className="space-y-4">
       {/* Search and Filter */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1">
           <Input
             type="text"
@@ -475,30 +469,78 @@ const VendorProductsTab = ({ products, vendor, onProductUpdate }) => {
         </div>
       </div>
 
-      {/* Products Table */}
-      <div className="overflow-x-auto">
+      {/* Mobile-First Products List */}
+      <div className="space-y-3 md:hidden">
+        {filteredProducts.map((product) => (
+          <div key={product.id} className="bg-white p-4 rounded-lg shadow-sm border">
+            <div className="flex items-start space-x-3">
+              <img
+                className="h-12 w-12 rounded-lg object-cover"
+                src={product.imageUrl}
+                alt={product.name}
+              />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-gray-900 truncate">{product.name}</div>
+                <div className="text-sm text-gray-500">{product.category} • {product.unit}</div>
+                <div className="flex items-center justify-between mt-2">
+                  <div className="text-lg font-semibold text-gray-900">
+                    {formatCurrency(product.price)}
+                  </div>
+                  <span className={`px-2 py-1 text-xs rounded ${
+                    product.stock > (product.minStock || 10) 
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    Stock: {product.stock}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between mt-2">
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                    product.profitMargin >= 20 
+                      ? 'bg-green-100 text-green-800'
+                      : product.profitMargin >= 10
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    Margin: {product.profitMargin?.toFixed(1) || '0'}%
+                  </span>
+                  <Button
+                    onClick={() => handleEditPrice(product)}
+                    variant="outline"
+                    size="sm"
+                    disabled={!product.vendorInfo?.canEditPrice}
+                  >
+                    <ApperIcon name="Edit" size={14} className="mr-1" />
+                    Edit
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop Products Table */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Product
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Category
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Current Price
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Price
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Cost Price
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Margin
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Stock
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
@@ -506,7 +548,7 @@ const VendorProductsTab = ({ products, vendor, onProductUpdate }) => {
           <tbody className="bg-white divide-y divide-gray-200">
             {filteredProducts.map((product) => (
               <tr key={product.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-4 py-4 whitespace-nowrap">
                   <div className="flex items-center">
                     <img
                       className="h-10 w-10 rounded-lg object-cover"
@@ -522,17 +564,14 @@ const VendorProductsTab = ({ products, vendor, onProductUpdate }) => {
                       </div>
                     </div>
                   </div>
-</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                </td>
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                   {product.category}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
                   {formatCurrency(product.price)}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {product.purchasePrice ? formatCurrency(product.purchasePrice) : 'N/A'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-4 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                     product.profitMargin >= 20 
                       ? 'bg-green-100 text-green-800'
@@ -543,7 +582,7 @@ const VendorProductsTab = ({ products, vendor, onProductUpdate }) => {
                     {product.profitMargin?.toFixed(1) || '0'}%
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-4 py-4 whitespace-nowrap">
                   <span className={`text-sm ${
                     product.stock <= (product.minStock || 10)
                       ? 'text-red-600 font-medium'
@@ -552,7 +591,7 @@ const VendorProductsTab = ({ products, vendor, onProductUpdate }) => {
                     {product.stock}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
                   <Button
                     onClick={() => handleEditPrice(product)}
                     variant="outline"
@@ -560,7 +599,7 @@ const VendorProductsTab = ({ products, vendor, onProductUpdate }) => {
                     disabled={!product.vendorInfo?.canEditPrice}
                   >
                     <ApperIcon name="Edit" size={14} className="mr-1" />
-                    Edit Price
+                    Edit
                   </Button>
                 </td>
               </tr>
@@ -2236,10 +2275,9 @@ useEffect(() => {
   }
 
   return (
-    <div className="space-y-6">
-{/* Enhanced Payment Status Helper Functions */}
-      {/* Enhanced Search and Filter with Payment Status Options */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+<div className="space-y-4">
+      {/* Search and Filter */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
         <div className="flex-1">
           <Input
             type="text"
@@ -2264,138 +2302,92 @@ useEffect(() => {
         </div>
       </div>
 
-      {/* Enhanced Orders List with Real-time Updates and Visual Hierarchy */}
-      <div className="space-y-4">
+      {/* Mobile-First Orders List */}
+      <div className="space-y-3">
         {filteredOrders.map((order) => {
           const paymentStatus = order.paymentApprovalStatus || order.adminPaymentApproval || 'pending';
           
-          // Enhanced priority-based card styling with floating action button placement
           const getCardClasses = () => {
-            let baseClasses = "border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 relative";
+            let baseClasses = "bg-white border rounded-lg shadow-sm transition-all duration-300 relative touch-manipulation";
             
             if (paymentStatus === 'approved') {
-              return `${baseClasses} border-l-4 border-l-green-500 bg-gradient-to-r from-green-50 to-white priority-high-card`;
+              return `${baseClasses} border-l-4 border-l-green-500 bg-gradient-to-r from-green-50 to-white`;
             }
             if (paymentStatus === 'requires_verification') {
-              return `${baseClasses} border-l-4 border-l-orange-500 bg-gradient-to-r from-orange-50 to-white priority-medium-card`;
+              return `${baseClasses} border-l-4 border-l-orange-500 bg-gradient-to-r from-orange-50 to-white`;
             }
             if (paymentStatus === 'declined') {
               return `${baseClasses} border-l-4 border-l-red-500 bg-gradient-to-r from-red-50 to-white`;
             }
-            return `${baseClasses} border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50 to-white priority-low-card`;
+            return `${baseClasses} border-l-4 border-l-blue-500 bg-gradient-to-r from-blue-50 to-white`;
           };
 
           return (
-          <div key={order.id} className={getCardClasses()}>
-            {/* Floating Action Button for Priority Orders */}
-            {paymentStatus === 'approved' && (
-              <div className="absolute -top-2 -right-2 z-10">
-                <button className="w-8 h-8 bg-green-500 text-white rounded-full shadow-lg fab-primary flex items-center justify-center text-sm font-bold">
-                  ✅
-                </button>
-              </div>
-            )}
-            
-            <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <h3 className="font-semibold text-gray-900">Order #{order.id}</h3>
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                  {order.deliveryAddress?.name || 'N/A'}
-                </span>
-                {/* Real-time order indicator with enhanced styling */}
-                {order.vendor_visibility === 'immediate' && (
-                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full flex items-center space-x-1 animate-pulse">
-                    <ApperIcon name="Zap" size={10} />
-                    <span>LIVE</span>
+            <div key={order.id} className={getCardClasses()}>
+              {/* Order Header */}
+              <div className="p-4 border-b border-gray-100">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-gray-900">Order #{order.id}</h3>
+                  {order.vendor_visibility === 'immediate' && (
+                    <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full flex items-center space-x-1">
+                      <ApperIcon name="Zap" size={10} />
+                      <span>LIVE</span>
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                    {order.deliveryAddress?.name || 'N/A'}
                   </span>
-                )}
-              </div>
-              <div className="flex items-center space-x-4">
-                {/* Enhanced Payment Status Display with New Four-State System */}
-                {(() => {
-                  const getPaymentStatusDisplay = (status) => {
-                    switch (status) {
-                      case 'approved':
-                        return {
-                          label: 'Approved (Process Payment)',
-                          icon: 'CheckCircle',
-                          color: 'text-green-600',
-                          bgColor: 'bg-green-100',
-                          symbol: '✅',
-                          variant: 'success'
-                        };
-                      case 'declined':
-                        return {
-                          label: 'Declined',
-                          icon: 'XCircle', 
-                          color: 'text-red-600',
-                          bgColor: 'bg-red-100',
-                          symbol: '❌',
-                          variant: 'danger'
-                        };
-                      case 'requires_verification':
-                        return {
-                          label: 'Requires Verification',
-                          icon: 'AlertTriangle',
-                          color: 'text-orange-600',
-                          bgColor: 'bg-orange-100',
-                          symbol: '⚠️',
-variant: 'warning'
-                        };
-                      case 'pending':
-                      default:
-                        return {
-                          label: 'Pending Approval',
-                          icon: 'Clock',
-                          color: 'text-blue-600',
-                          bgColor: 'bg-blue-100',
-                          symbol: '◻️',
-                          variant: 'info'
-                        };
-                    }
-                  };
-                  const statusDisplay = getPaymentStatusDisplay(paymentStatus);
                   
-                  return (
-                    <div>
-                      <span className="text-xs text-gray-500">Payment Status:</span>
-                      <div className={`flex items-center space-x-1 px-3 py-1 rounded-full text-xs font-medium ${statusDisplay.bgColor} ${statusDisplay.color} border priority-badge ${statusDisplay.variant === 'success' ? 'high' : ''}`}>
-                        <span className="text-sm">{statusDisplay.symbol}</span>
-                        <ApperIcon name={statusDisplay.icon} size={12} />
-                        <span>{statusDisplay.label}</span>
+                  {/* Payment Status */}
+                  {(() => {
+                    const getPaymentStatusDisplay = (status) => {
+                      switch (status) {
+                        case 'approved':
+                          return { label: 'Approved', bgColor: 'bg-green-100', color: 'text-green-800', symbol: '✅' };
+                        case 'declined':
+                          return { label: 'Declined', bgColor: 'bg-red-100', color: 'text-red-800', symbol: '❌' };
+                        case 'requires_verification':
+                          return { label: 'Verify', bgColor: 'bg-orange-100', color: 'text-orange-800', symbol: '⚠️' };
+                        default:
+                          return { label: 'Pending', bgColor: 'bg-blue-100', color: 'text-blue-800', symbol: '◻️' };
+                      }
+                    };
+                    const statusDisplay = getPaymentStatusDisplay(paymentStatus);
+                    
+                    return (
+                      <div className={`px-2 py-1 rounded text-xs font-medium ${statusDisplay.bgColor} ${statusDisplay.color}`}>
+                        {statusDisplay.symbol} {statusDisplay.label}
                       </div>
-                    </div>
-                  );
-                })()}
-                <div className="text-sm text-gray-600">
-                  {new Date(order.createdAt).toLocaleDateString()}
+                    );
+                  })()}
                 </div>
               </div>
-            </div>
-            
-            <div className="p-4">
-              <div className="space-y-3">
-                {order.items?.filter(item => 
-                  // Filter items assigned to this vendor (simplified logic)
-                  item.productId % 3 + 1 === vendor.Id
-                ).map((item) => (
-                  <div key={item.productId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">{item.name}</h4>
-                      <p className="text-sm text-gray-600">
-                        Qty: {item.quantity} {item.unit} × {formatCurrency(item.price)}
-                      </p>
-                    </div>
-                    
-                    <div className="flex items-center space-x-3">
-                      <span className="font-medium text-gray-900">
-                        {formatCurrency(item.price * item.quantity)}
-                      </span>
+              
+              {/* Order Items */}
+              <div className="p-4">
+                <div className="space-y-3">
+                  {order.items?.filter(item => 
+                    item.productId % 3 + 1 === vendor.Id
+                  ).map((item) => (
+                    <div key={item.productId} className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900">{item.name}</h4>
+                          <p className="text-sm text-gray-600">
+                            Qty: {item.quantity} {item.unit} × {formatCurrency(item.price)}
+                          </p>
+                        </div>
+                        <span className="font-medium text-gray-900">
+                          {formatCurrency(item.price * item.quantity)}
+                        </span>
+                      </div>
                       
-{/* Availability Status & Actions */}
-                      <div className="flex items-center space-x-2">
+                      {/* Availability Actions */}
+                      <div className="flex items-center justify-between">
                         {(() => {
-                          // Enhanced payment approval check with new four-state system
                           const currentPaymentStatus = order.paymentApprovalStatus || order.adminPaymentApproval || 'pending';
                           const isPaymentApproved = currentPaymentStatus === 'approved' || order.payment_verified;
                           
@@ -2407,10 +2399,9 @@ variant: 'warning'
                                   variant="primary"
                                   disabled={!isPaymentApproved}
                                   onClick={() => handleAvailabilityUpdate(order.id, item.productId, true)}
-                                  className={`${!isPaymentApproved ? 'opacity-50 cursor-not-allowed' : ''} touch-manipulation`}
-                                  title={!isPaymentApproved ? `Payment must be approved first (Current: ${currentPaymentStatus})` : 'Mark as available'}
+                                  className={`${!isPaymentApproved ? 'opacity-50' : ''} text-xs px-3 py-1`}
                                 >
-                                  <ApperIcon name="CheckCircle" size={14} className="mr-1" />
+                                  <ApperIcon name="CheckCircle" size={12} className="mr-1" />
                                   Available
                                 </Button>
                                 <Button
@@ -2418,10 +2409,9 @@ variant: 'warning'
                                   variant="outline"
                                   disabled={!isPaymentApproved}
                                   onClick={() => handleAvailabilityUpdate(order.id, item.productId, false)}
-                                  className={`${!isPaymentApproved ? 'opacity-50 cursor-not-allowed' : ''} touch-manipulation`}
-                                  title={!isPaymentApproved ? `Payment must be approved first (Current: ${currentPaymentStatus})` : 'Mark as unavailable'}
+                                  className={`${!isPaymentApproved ? 'opacity-50' : ''} text-xs px-3 py-1`}
                                 >
-                                  <ApperIcon name="XCircle" size={14} className="mr-1" />
+                                  <ApperIcon name="XCircle" size={12} className="mr-1" />
                                   Unavailable
                                 </Button>
                               </div>
@@ -2429,16 +2419,11 @@ variant: 'warning'
                           } else {
                             return (
                               <div className="flex items-center space-x-2">
-                                <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center ${
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                                   getAvailabilityStatus(order, item.productId) === 'available' 
                                     ? 'bg-green-100 text-green-800' 
                                     : 'bg-red-100 text-red-800'
                                 }`}>
-                                  <ApperIcon 
-                                    name={getAvailabilityStatus(order, item.productId) === 'available' ? 'CheckCircle' : 'XCircle'} 
-                                    size={12} 
-                                    className="mr-1" 
-                                  />
                                   {getAvailabilityStatus(order, item.productId) === 'available' ? 'Available' : 'Unavailable'}
                                 </span>
                                 <Button
@@ -2449,10 +2434,9 @@ variant: 'warning'
                                     const currentStatus = getAvailabilityStatus(order, item.productId);
                                     handleAvailabilityUpdate(order.id, item.productId, currentStatus !== 'available');
                                   }}
-                                  className={`${!isPaymentApproved ? 'opacity-50 cursor-not-allowed' : ''} touch-manipulation fab-secondary`}
-                                  title={!isPaymentApproved ? `Payment must be approved first (Current: ${currentPaymentStatus})` : 'Change availability status'}
+                                  className={`${!isPaymentApproved ? 'opacity-50' : ''} p-1`}
                                 >
-                                  <ApperIcon name="RefreshCw" size={14} />
+                                  <ApperIcon name="RefreshCw" size={12} />
                                 </Button>
                               </div>
                             );
@@ -2460,14 +2444,14 @@ variant: 'warning'
                         })()}
                       </div>
                     </div>
-</div>
-                ))}
-</div>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
       </div>
+      
       {filteredOrders.length === 0 && (
         <div className="text-center py-12">
           <ApperIcon name="ClipboardList" size={48} className="mx-auto text-gray-400 mb-4" />
