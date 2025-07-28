@@ -9,9 +9,9 @@ import Empty from "@/components/ui/Empty";
 import Checkout from "@/components/pages/Checkout";
 import Category from "@/components/pages/Category";
 import Cart from "@/components/pages/Cart";
-import Badge, { Badge } from "@/components/atoms/Badge";
-import Input, { Input } from "@/components/atoms/Input";
-import Button, { Button } from "@/components/atoms/Button";
+import Badge from "@/components/atoms/Badge";
+import Input from "@/components/atoms/Input";
+import Button from "@/components/atoms/Button";
 
 // Material UI Switch Component
 const Switch = ({ checked, onChange, color = "primary", disabled = false, ...props }) => {
