@@ -1264,86 +1264,91 @@ const handleWalletAction = async (action, amount) => {
     );
   }
 
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Management</h1>
-        <p className="text-gray-600">Manage payments, transactions, and refunds</p>
+return (
+    <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-8">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Payment Management</h1>
+        <p className="text-gray-600 text-sm sm:text-base">Manage payments, transactions, and refunds</p>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        <div className="card p-6 bg-gradient-to-r from-green-500 to-emerald-500 text-white">
-<div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-100 text-sm font-medium">Total Revenue</p>
-              <p className="text-3xl font-bold">Rs. {(stats?.totalRevenue ?? 0).toLocaleString()}</p>
-            </div>
-            <div className="bg-white/20 p-3 rounded-lg">
-              <ApperIcon name="DollarSign" size={24} />
-            </div>
-          </div>
-        </div>
-
-        <div className="card p-6 bg-gradient-to-r from-blue-500 to-cyan-500 text-white">
+      {/* Mobile-First Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
+        <div className="card p-4 sm:p-6 bg-gradient-to-r from-green-500 to-emerald-500 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-blue-100 text-sm font-medium">Successful Transactions</p>
-              <p className="text-3xl font-bold">{stats.successfulTransactions}</p>
+              <p className="text-green-100 text-xs sm:text-sm font-medium">Total Revenue</p>
+              <p className="text-xl sm:text-3xl font-bold">Rs. {(stats?.totalRevenue ?? 0).toLocaleString()}</p>
             </div>
-            <div className="bg-white/20 p-3 rounded-lg">
-              <ApperIcon name="CheckCircle" size={24} />
-            </div>
-          </div>
-        </div>
-
-<div className="card p-6 bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-<div className="flex items-center justify-between">
-            <div>
-              <p className="text-purple-100 text-sm font-medium">Wallet Balance</p>
-              <p className="text-3xl font-bold">Rs. {(stats?.walletBalance ?? 0).toLocaleString()}</p>
-            </div>
-            <div className="bg-white/20 p-3 rounded-lg">
-              <ApperIcon name="Wallet" size={24} />
+            <div className="bg-white/20 p-2 sm:p-3 rounded-lg">
+              <ApperIcon name="DollarSign" size={20} className="sm:hidden" />
+              <ApperIcon name="DollarSign" size={24} className="hidden sm:block" />
             </div>
           </div>
         </div>
 
-        <div className="card p-6 bg-gradient-to-r from-orange-500 to-red-500 text-white">
+        <div className="card p-4 sm:p-6 bg-gradient-to-r from-blue-500 to-cyan-500 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-orange-100 text-sm font-medium">Pending Verifications</p>
-              <p className="text-3xl font-bold">{stats.pendingVerifications}</p>
+              <p className="text-blue-100 text-xs sm:text-sm font-medium">Successful Transactions</p>
+              <p className="text-xl sm:text-3xl font-bold">{stats.successfulTransactions}</p>
             </div>
-            <div className="bg-white/20 p-3 rounded-lg">
-              <ApperIcon name="Shield" size={24} />
+            <div className="bg-white/20 p-2 sm:p-3 rounded-lg">
+              <ApperIcon name="CheckCircle" size={20} className="sm:hidden" />
+              <ApperIcon name="CheckCircle" size={24} className="hidden sm:block" />
+            </div>
+          </div>
+        </div>
+
+        <div className="card p-4 sm:p-6 bg-gradient-to-r from-purple-500 to-pink-500 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-purple-100 text-xs sm:text-sm font-medium">Wallet Balance</p>
+              <p className="text-xl sm:text-3xl font-bold">Rs. {(stats?.walletBalance ?? 0).toLocaleString()}</p>
+            </div>
+            <div className="bg-white/20 p-2 sm:p-3 rounded-lg">
+              <ApperIcon name="Wallet" size={20} className="sm:hidden" />
+              <ApperIcon name="Wallet" size={24} className="hidden sm:block" />
+            </div>
+          </div>
+        </div>
+
+        <div className="card p-4 sm:p-6 bg-gradient-to-r from-orange-500 to-red-500 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-orange-100 text-xs sm:text-sm font-medium">Pending Verifications</p>
+              <p className="text-xl sm:text-3xl font-bold">{stats.pendingVerifications}</p>
+            </div>
+            <div className="bg-white/20 p-2 sm:p-3 rounded-lg">
+              <ApperIcon name="Shield" size={20} className="sm:hidden" />
+              <ApperIcon name="Shield" size={24} className="hidden sm:block" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="card mb-8">
+{/* Mobile-First Navigation Tabs */}
+      <div className="card mb-6 sm:mb-8">
         <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6">
+          <nav className="flex overflow-x-auto scrollbar-hide px-2 sm:px-6">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                className={`flex items-center space-x-1 sm:space-x-2 py-3 sm:py-4 px-3 sm:px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap min-w-max ${
                   activeTab === tab.id
                     ? 'border-primary text-primary'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                <ApperIcon name={tab.icon} size={16} />
-                <span>{tab.label}</span>
+                <ApperIcon name={tab.icon} size={14} className="sm:hidden" />
+                <ApperIcon name={tab.icon} size={16} className="hidden sm:block" />
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
               </button>
             ))}
           </nav>
         </div>
       </div>
-
       {/* Tab Content */}
       <div className="space-y-8">
         {activeTab === 'overview' && (
@@ -1642,10 +1647,11 @@ const handleWalletAction = async (action, amount) => {
 </div>
         )}
 
-        {activeTab === 'verification' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900">Payment Verification Queue</h3>
+{activeTab === 'verification' && (
+          <div className="space-y-4 sm:space-y-6">
+            {/* Mobile-First Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0">
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900">Payment Verification Queue</h3>
               <div className="flex items-center space-x-2 text-sm text-gray-600">
                 <ApperIcon name="Clock" size={16} />
                 <span>{stats.pendingVerifications} pending verifications</span>
@@ -1653,167 +1659,177 @@ const handleWalletAction = async (action, amount) => {
             </div>
 
             {pendingVerifications.length === 0 ? (
-<div className="card p-8 text-center">
-                <ApperIcon name="CheckCircle" size={48} className="text-green-400 mx-auto mb-4" />
-                <h4 className="text-lg font-medium text-gray-900 mb-2">All Caught Up!</h4>
-                <p className="text-gray-600">No payment verifications pending at the moment.</p>
-                <p className="text-sm text-gray-500 mt-2">New payment proofs will appear here for admin review.</p>
+              <div className="card p-6 sm:p-8 text-center">
+                <ApperIcon name="CheckCircle" size={40} className="text-green-400 mx-auto mb-4 sm:size-12" />
+                <h4 className="text-base sm:text-lg font-medium text-gray-900 mb-2">All Caught Up!</h4>
+                <p className="text-gray-600 text-sm sm:text-base">No payment verifications pending at the moment.</p>
+                <p className="text-xs sm:text-sm text-gray-500 mt-2">New payment proofs will appear here for admin review.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-{pendingVerifications.map((verification) => (
-                  <div key={verification.Id} className="card p-6 border-l-4 border-yellow-400">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h4 className="font-semibold text-gray-900">Order #{verification.orderId}</h4>
-                        <p className="text-sm text-gray-600">
-                          Submitted {format(new Date(verification.submittedAt), 'MMM dd, yyyy hh:mm a')}
-</p>
-                        {verification.transactionId && (
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs text-gray-500 font-mono">
-                              TXH: {verification.transactionId}
+              <div className="space-y-4 sm:space-y-6">
+                {/* Mobile: Single column, Desktop: Two columns */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                  {pendingVerifications.map((verification) => (
+                    <div key={verification.Id} className="card border-l-4 border-yellow-400 mobile-order-card">
+                      {/* Mobile-optimized card header */}
+                      <div className="p-4 sm:p-6">
+                        <div className="flex items-start justify-between mb-3 sm:mb-4">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-gray-900 text-sm sm:text-base">Order #{verification.orderId}</h4>
+                            <p className="text-xs sm:text-sm text-gray-600 mt-1">
+                              Submitted {format(new Date(verification.submittedAt), 'MMM dd, yyyy hh:mm a')}
                             </p>
-                            <button
-                              onClick={() => copyTxid(`TXH: ${verification.transactionId}`)}
-                              className="ml-2 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors duration-200"
-                              title="Copy Transaction ID"
-                            >
-                              <ApperIcon name="Copy" size={24} />
-                            </button>
+                            {verification.transactionId && (
+                              <div className="flex items-center justify-between mt-2">
+                                <p className="text-xs text-gray-500 font-mono truncate mr-2">
+                                  TXH: {verification.transactionId}
+                                </p>
+                                <button
+                                  onClick={() => copyTxid(`TXH: ${verification.transactionId}`)}
+                                  className="copy-button-mobile flex-shrink-0"
+                                  title="Copy Transaction ID"
+                                >
+                                  <ApperIcon name="Copy" size={16} className="copy-icon" />
+                                </button>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                      <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
-                        Pending
-                      </span>
-                    </div>
+                          <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full flex-shrink-0 ml-2">
+                            Pending
+                          </span>
+                        </div>
 
-                    <div className="space-y-3 mb-4">
-<div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Amount:</span>
-                        <span className="font-medium">Rs. {(verification?.amount ?? 0).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Payment Method:</span>
-                        <span className="font-medium capitalize">{verification.paymentMethod}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Customer:</span>
-                        <span className="font-medium">{verification.customerName}</span>
-</div>
-                    </div>
-
-{verification.paymentProof && (
-                      <div className="mb-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-sm font-medium text-gray-700">Payment Proof:</p>
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              onClick={() => handleImageDownload(verification.paymentProof, `payment_proof_order_${verification.orderId}_${verification.paymentProofFileName || 'image'}`)}
-                              className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors flex items-center space-x-1 text-xs sm:text-sm"
-                              title="Download payment proof"
-                            >
-                              <ApperIcon name="Download" size={14} />
-                              <span className="hidden sm:inline">Download</span>
-                            </button>
-                            <button
-                              onClick={() => handleImageView(verification.paymentProof, `payment_proof_order_${verification.orderId}`)}
-                              className="bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-lg transition-colors flex items-center space-x-1 text-xs sm:text-sm"
-                              title="View full size"
-                            >
-                              <ApperIcon name="Maximize2" size={14} />
-                              <span className="hidden sm:inline">View</span>
-                            </button>
+                        {/* Mobile-optimized details */}
+                        <div className="space-y-2 sm:space-y-3 mb-4">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs sm:text-sm text-gray-600">Amount:</span>
+                            <span className="font-medium text-sm sm:text-base">Rs. {(verification?.amount ?? 0).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs sm:text-sm text-gray-600">Payment Method:</span>
+                            <span className="font-medium capitalize text-sm sm:text-base">{verification.paymentMethod}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs sm:text-sm text-gray-600">Customer:</span>
+                            <span className="font-medium text-sm sm:text-base truncate ml-2">{verification.customerName}</span>
                           </div>
                         </div>
-                        <div className="relative">
-                          <img
-                            src={verification.paymentProof}
-                            alt="Payment proof"
-                            className="w-full h-32 sm:h-48 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
-                            onError={(e) => {
-                              e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDQwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNTAgODBMMjUwIDEyMEwxNTAgODBaIiBzdHJva2U9IiM5Q0EzQUYiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIvPgo8Y2lyY2xlIGN4PSIyMDAiIGN5PSI2MCIgcj0iMTAiIGZpbGw9IiM5Q0EzQUYiLz4KPHR4dCB4PSIyMDAiIHk9IjEwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjNkI3MjgwIj5QYXltZW50IFByb29mIE5vdCBBdmFpbGFibGU8L3R4dD4KPHR4dCB4PSIyMDAiIHk9IjEyMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOUM5M0FGIj5JbWFnZSBjb3VsZCBub3QgYmUgbG9hZGVkPC90eHQ+Cjwvc3ZnPgo=';
-                            }}
-                            onClick={() => handleImageView(verification.paymentProof, `payment_proof_order_${verification.orderId}`)}
-                          />
-                          <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 bg-black bg-opacity-20 rounded-lg transition-opacity cursor-pointer">
-                            <div className="bg-white bg-opacity-90 rounded-full p-2">
-                              <ApperIcon name="Maximize2" size={20} className="text-gray-700" />
+
+                        {/* Mobile-optimized payment proof */}
+                        {verification.paymentProof && (
+                          <div className="mb-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-sm font-medium text-gray-700">Payment Proof:</p>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleImageDownload(verification.paymentProof, `payment_proof_order_${verification.orderId}_${verification.paymentProofFileName || 'image'}`)}
+                                  className="bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition-colors touch-manipulation"
+                                  title="Download payment proof"
+                                >
+                                  <ApperIcon name="Download" size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleImageView(verification.paymentProof, `payment_proof_order_${verification.orderId}`)}
+                                  className="bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-lg transition-colors touch-manipulation"
+                                  title="View full size"
+                                >
+                                  <ApperIcon name="Maximize2" size={14} />
+                                </button>
+                              </div>
+                            </div>
+                            <div className="relative">
+                              <img
+                                src={verification.paymentProof}
+                                alt="Payment proof"
+                                className="w-full h-40 sm:h-48 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity touch-manipulation"
+                                onError={(e) => {
+                                  e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDQwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNTAgODBMMjUwIDEyMEwxNTAgODBaIiBzdHJva2U9IiM5Q0EzQUYiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIvPgo8Y2lyY2xlIGN4PSIyMDAiIGN5PSI2MCIgcj0iMTAiIGZpbGw9IiM5Q0EzQUYiLz4KPHR4dCB4PSIyMDAiIHk9IjEwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjNkI3MjgwIj5QYXltZW50IFByb29mIE5vdCBBdmFpbGFibGU8L3R4dD4KPHR4dCB4PSIyMDAiIHk9IjEyMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOUM5M0FGIj5JbWFnZSBjb3VsZCBub3QgYmUgbG9hZGVkPC90eHQ+Cjwvc3ZnPgo=';
+                                }}
+                                onClick={() => handleImageView(verification.paymentProof, `payment_proof_order_${verification.orderId}`)}
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 bg-black bg-opacity-20 rounded-lg transition-opacity cursor-pointer">
+                                <div className="bg-white bg-opacity-90 rounded-full p-2">
+                                  <ApperIcon name="Maximize2" size={20} className="text-gray-700" />
+                                </div>
+                              </div>
                             </div>
                           </div>
+                        )}
+
+                        {/* Mobile-optimized action buttons */}
+                        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+                          <Button
+                            onClick={() => handleVerificationAction(verification.orderId, 'approve', 'Payment verified by admin')}
+                            disabled={processingVerification}
+                            className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 touch-manipulation min-h-[44px]"
+                          >
+                            {processingVerification ? (
+                              <ApperIcon name="Loader" size={16} className="mr-2 animate-spin" />
+                            ) : (
+                              <ApperIcon name="Check" size={16} className="mr-2" />
+                            )}
+                            <span className="text-sm sm:text-base">Approve Payment</span>
+                          </Button>
+                          <Button
+                            onClick={() => handleVerificationAction(verification.orderId, 'reject')}
+                            disabled={processingVerification}
+                            className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 touch-manipulation min-h-[44px]"
+                          >
+                            <ApperIcon name="X" size={16} className="mr-2" />
+                            <span className="text-sm sm:text-base">Reject Payment</span>
+                          </Button>
                         </div>
                       </div>
-                    )}
-
-<div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
-                      <Button
-                        onClick={() => handleVerificationAction(verification.orderId, 'approve', 'Payment verified by admin')}
-disabled={processingVerification}
-                        className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
-                      >
-                        {processingVerification ? (
-                          <ApperIcon name="Loader" size={16} className="mr-2 animate-spin" />
-                        ) : (
-                          <ApperIcon name="Check" size={16} className="mr-2" />
-                        )}
-                        Approve Payment
-                      </Button>
-                      <Button
-                        onClick={() => handleVerificationAction(verification.orderId, 'reject')}
-                        disabled={processingVerification}
-                        className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600"
-                      >
-                        <ApperIcon name="X" size={16} className="mr-2" />
-                        Reject Payment
-                      </Button>
-</div>
-                  </div>
-                ))}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
         )}
       </div>
 
-      {/* Responsive Image Modal */}
+{/* Enhanced Mobile-First Image Modal */}
       {showImageModal && selectedImage && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-50 p-2 sm:p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-95 flex items-center justify-center z-50 p-2 sm:p-4 touch-manipulation">
           <div className="relative w-full h-full max-w-7xl max-h-full flex flex-col">
-            {/* Modal Header */}
+            {/* Mobile-optimized Header */}
             <div className="flex items-center justify-between p-3 sm:p-4 bg-white bg-opacity-10 backdrop-blur rounded-t-lg">
-              <h3 className="text-white font-medium text-sm sm:text-base truncate">
+              <h3 className="text-white font-medium text-sm sm:text-base truncate flex-1 mr-4">
                 {selectedImage.fileName}
               </h3>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 flex-shrink-0">
                 <button
                   onClick={() => handleImageDownload(selectedImage.url, selectedImage.fileName)}
-                  className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded-lg transition-colors"
+                  className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 sm:p-3 rounded-lg transition-colors touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center"
                   title="Download image"
                 >
-                  <ApperIcon name="Download" size={18} />
+                  <ApperIcon name="Download" size={16} className="sm:hidden" />
+                  <ApperIcon name="Download" size={18} className="hidden sm:block" />
                 </button>
                 <button
                   onClick={() => setShowImageModal(false)}
-                  className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 rounded-lg transition-colors"
+                  className="bg-white bg-opacity-20 hover:bg-opacity-30 text-white p-2 sm:p-3 rounded-lg transition-colors touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center"
                   title="Close"
                 >
-                  <ApperIcon name="X" size={18} />
+                  <ApperIcon name="X" size={16} className="sm:hidden" />
+                  <ApperIcon name="X" size={18} className="hidden sm:block" />
                 </button>
               </div>
             </div>
             
-            {/* Modal Content */}
+            {/* Mobile-optimized Image Container */}
             <div className="flex-1 flex items-center justify-center p-2 sm:p-4 overflow-hidden">
               <img
                 src={selectedImage.url}
                 alt="Payment proof"
-                className="max-w-full max-h-full object-contain rounded-lg"
+                className="max-w-full max-h-full object-contain rounded-lg touch-manipulation"
                 style={{ 
                   maxWidth: '100%', 
                   maxHeight: '100%', 
                   width: 'auto', 
-                  height: 'auto' 
+                  height: 'auto',
+                  touchAction: 'pinch-zoom'
                 }}
                 onError={(e) => {
                   e.target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDQwMCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNTAgODBMMjUwIDEyMEwxNTAgODBaIiBzdHJva2U9IiM5Q0EzQUYiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIvPgo8Y2lyY2xlIGN4PSIyMDAiIGN5PSI2MCIgcj0iMTAiIGZpbGw9IiM5Q0EzQUYiLz4KPHR4dCB4PSIyMDAiIHk9IjEwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE0IiBmaWxsPSIjNkI3MjgwIj5QYXltZW50IFByb29mIE5vdCBBdmFpbGFibGU8L3R4dD4KPHR4dCB4PSIyMDAiIHk9IjEyMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOUM5M0FGIj5JbWFnZSBjb3VsZCBub3QgYmUgbG9hZGVkPC90eHQ+Cjwvc3ZnPgo=';
@@ -1821,67 +1837,80 @@ disabled={processingVerification}
               />
             </div>
             
-            {/* Instructions for mobile */}
+            {/* Mobile-friendly Instructions */}
             <div className="p-2 sm:p-4 bg-white bg-opacity-10 backdrop-blur rounded-b-lg">
               <p className="text-white text-xs sm:text-sm text-center opacity-75">
-                Tap outside the image or use the close button to exit • Pinch to zoom on mobile
+                <span className="sm:hidden">Tap outside to close • Pinch to zoom</span>
+                <span className="hidden sm:inline">Tap outside the image or use the close button to exit • Pinch to zoom on mobile</span>
               </p>
             </div>
           </div>
           
-          {/* Background overlay click to close */}
+          {/* Enhanced Background overlay for mobile */}
           <div 
-            className="absolute inset-0 -z-10" 
+            className="absolute inset-0 -z-10 touch-manipulation" 
             onClick={() => setShowImageModal(false)}
+            onTouchStart={(e) => {
+              // Prevent accidental closes on image interaction
+              if (e.target.tagName === 'IMG') {
+                e.stopPropagation();
+              }
+            }}
           />
         </div>
       )}
 
-      {/* Rejection Reason Modal */}
+{/* Mobile-Optimized Rejection Modal */}
       {showRejectionModal && selectedVerification && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Reject Payment</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-white rounded-lg w-full max-w-md mx-2 sm:mx-4 max-h-[90vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Reject Payment</h3>
               <button
                 onClick={() => {
                   setShowRejectionModal(false);
                   setSelectedVerification(null);
                   setRejectionReason('');
                 }}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center"
               >
-                <ApperIcon name="X" size={20} />
+                <ApperIcon name="X" size={18} />
               </button>
             </div>
             
-            <div className="mb-4">
-              <p className="text-sm text-gray-600 mb-2">
-                Order #{selectedVerification.orderId} - {selectedVerification.customerName}
-              </p>
-              <p className="text-sm text-gray-500">
-                Please provide a reason for rejecting this payment. This will be sent to the customer.
-              </p>
+            {/* Modal Content - Scrollable */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-2">
+                  Order #{selectedVerification.orderId} - {selectedVerification.customerName}
+                </p>
+                <p className="text-xs sm:text-sm text-gray-500">
+                  Please provide a reason for rejecting this payment. This will be sent to the customer.
+                </p>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Rejection Reason *
+                </label>
+                <textarea
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  placeholder="Please specify why this payment is being rejected (e.g., unclear image, wrong amount, invalid receipt, etc.)"
+                  rows="4"
+                  className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none text-sm sm:text-base touch-manipulation"
+                  style={{ minHeight: '100px' }}
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  This message will be sent to the customer to help them understand the rejection.
+                </p>
+              </div>
             </div>
 
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Rejection Reason *
-              </label>
-              <textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Please specify why this payment is being rejected (e.g., unclear image, wrong amount, invalid receipt, etc.)"
-                rows="4"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
-                required
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                This message will be sent to the customer to help them understand the rejection.
-              </p>
-            </div>
-
-            <div className="flex space-x-3">
+            {/* Modal Footer - Fixed */}
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 p-4 sm:p-6 border-t border-gray-200 flex-shrink-0">
               <Button
                 onClick={() => {
                   setShowRejectionModal(false);
@@ -1889,31 +1918,31 @@ disabled={processingVerification}
                   setRejectionReason('');
                 }}
                 variant="secondary"
-                className="flex-1"
+                className="flex-1 touch-manipulation min-h-[44px]"
                 disabled={processingVerification}
               >
-                Cancel
+                <span className="text-sm sm:text-base">Cancel</span>
               </Button>
               <Button
                 onClick={handleRejectWithReason}
-                className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600"
+                className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 touch-manipulation min-h-[44px]"
                 disabled={processingVerification || !rejectionReason.trim()}
               >
                 {processingVerification ? (
                   <>
                     <ApperIcon name="Loader" size={16} className="mr-2 animate-spin" />
-                    Rejecting...
+                    <span className="text-sm sm:text-base">Rejecting...</span>
                   </>
                 ) : (
                   <>
                     <ApperIcon name="X" size={16} className="mr-2" />
-                    Reject & Notify
+                    <span className="text-sm sm:text-base">Reject & Notify</span>
                   </>
                 )}
               </Button>
             </div>
           </div>
-</div>
+        </div>
       )}
     </div>
   );
