@@ -171,37 +171,35 @@ const priceChange = getPriceChange();
   const activeDeal = getActiveDeal();
 
   // Calculate responsive image dimensions with natural aspect ratio
-  const calculateImageDimensions = () => {
+const calculateImageDimensions = () => {
     // Get viewport width for responsive sizing
     const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1200;
     
-    // Base width calculation with responsive scaling
-    let baseWidth = 600;
+    // Calculate base dimension for 1:1 aspect ratio (square)
+    let baseDimension = 600; // Target 600x600px
     
-    // Responsive adjustments for mobile-first design
+    // Responsive adjustments maintaining 1:1 ratio
     if (viewportWidth < 640) {
-      // Mobile: 350-450px with padding consideration
-      baseWidth = Math.max(350, Math.min(viewportWidth - 32, 450)); 
+      // Mobile: 350-450px square
+      baseDimension = Math.max(350, Math.min(viewportWidth - 32, 450)); 
     } else if (viewportWidth < 1024) {
-      // Tablet: 450-600px for comfortable viewing
-      baseWidth = Math.max(450, Math.min(viewportWidth * 0.4, 600)); 
+      // Tablet: 450-600px square
+      baseDimension = Math.max(450, Math.min(viewportWidth * 0.4, 600)); 
     } else {
-      // Desktop: 500-800px for detailed product viewing
-      baseWidth = Math.max(500, Math.min(viewportWidth * 0.3, 800)); 
+      // Desktop: 500-600px square for optimal product viewing
+      baseDimension = Math.max(500, Math.min(viewportWidth * 0.3, 600)); 
     }
     
-    // Use natural aspect ratio with maximum constraints
-    const constrainedWidth = Math.max(350, Math.min(baseWidth, 800));
-    const maxHeight = constrainedWidth * 1.2; // Allow up to 1.2:1 ratio
+    // Enforce 1:1 aspect ratio with size constraints (350x350 to 600x600)
+    const constrainedDimension = Math.max(350, Math.min(baseDimension, 600));
     
-    // Return responsive dimensions with natural ratios
+    // Return square dimensions with 1:1 aspect ratio
     return {
-      width: constrainedWidth,
-      maxHeight: maxHeight,
-      aspectRatio: 'auto'
+      width: constrainedDimension,
+      height: constrainedDimension,
+      aspectRatio: '1:1'
     };
   };
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Breadcrumb */}
@@ -218,31 +216,32 @@ const priceChange = getPriceChange();
 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
         {/* Product Image with Natural Aspect Ratio */}
         <div className="space-y-4">
-          <div className="relative">
+<div className="relative">
             <div
               className="mx-auto rounded-2xl overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 relative shadow-lg"
               style={{
                 width: `${calculateImageDimensions().width}px`,
-                maxHeight: `${calculateImageDimensions().maxHeight}px`,
-                aspectRatio: calculateImageDimensions().aspectRatio
+                height: `${calculateImageDimensions().height}px`,
+                aspectRatio: '1:1'
               }}
             >
 {/* Enhanced Progressive Image Loading with Comprehensive Error Handling */}
 <EnhancedImageLoader 
                 product={product}
                 dimensions={calculateImageDimensions()}
-                className="w-full h-auto object-contain transition-all duration-500 hover:scale-105 image-loaded"
+                className="w-full h-full object-cover transition-all duration-500 hover:scale-105 image-loaded"
                 style={{ 
                   backgroundColor: '#f3f4f6',
-                  aspectRatio: 'auto',
-                  maxHeight: `${calculateImageDimensions().maxHeight}px`
+                  aspectRatio: '1:1',
+                  width: `${calculateImageDimensions().width}px`,
+                  height: `${calculateImageDimensions().height}px`
                 }}
               />
               {/* Natural Ratio Indicator */}
               <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-md">
                 <div className="flex items-center space-x-1">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  <span className="text-xs font-medium text-gray-700">Natural Ratio</span>
+<div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <span className="text-xs font-medium text-gray-700">Square Format</span>
                 </div>
               </div>
             </div>
@@ -1234,18 +1233,25 @@ const EnhancedImageLoader = ({ product, dimensions, className, style }) => {
     }
   };
 
-  const constructImageUrl = (baseUrl, width, height, quality = 80) => {
+const constructImageUrl = (baseUrl, width, height, quality = 80) => {
     try {
       if (!baseUrl || !validateImageUrl(baseUrl)) {
         throw new Error('Invalid base URL');
       }
 
-      // Clean and validate URL construction
+      // Clean and validate URL construction for 1:1 aspect ratio
       const url = new URL(baseUrl);
-      url.searchParams.set('w', width.toString());
-      url.searchParams.set('h', height.toString());
+      
+      // Force square dimensions (600x600px for complete frame coverage)
+      const squareDimension = Math.min(width, height, 600);
+      url.searchParams.set('w', squareDimension.toString());
+      url.searchParams.set('h', squareDimension.toString());
+      
+      // Use crop=fill for complete frame coverage from all angles
       url.searchParams.set('fit', 'crop');
-      url.searchParams.set('auto', 'format');
+      url.searchParams.set('crop', 'fill');
+      url.searchParams.set('gravity', 'center');
+      url.searchParams.set('auto', 'format,compress');
       url.searchParams.set('q', quality.toString());
       url.searchParams.set('fm', 'webp');
       
