@@ -914,3 +914,279 @@
     @apply min-h-[44px] min-w-[44px] flex items-center justify-center;
   }
 }
+
+/* Virtualized List Styles */
+.virtualized-container {
+  position: relative;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.virtualized-content {
+  position: relative;
+}
+
+.virtualized-item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  transition: transform 0.2s ease;
+}
+
+.virtualized-item.entering {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.virtualized-item.entered {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Lazy Loading Image Styles */
+.lazy-image {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.lazy-image.loaded {
+  background: transparent;
+  animation: none;
+}
+
+.lazy-image img {
+  transition: opacity 0.3s ease;
+  opacity: 0;
+}
+
+.lazy-image.loaded img {
+  opacity: 1;
+}
+
+/* Cross-Platform Interaction Styles */
+.swipe-confirmation {
+  position: relative;
+  overflow: hidden;
+}
+
+.swipe-confirmation::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.2), transparent);
+  transition: left 0.3s ease;
+}
+
+.swipe-confirmation.active::before {
+  left: 100%;
+}
+
+/* Mobile Swipe Confirmation */
+@media (max-width: 768px) {
+  .swipe-confirm-mobile {
+    touch-action: pan-x;
+    position: relative;
+  }
+  
+  .swipe-confirm-mobile.swiping {
+    transform: translateX(var(--swipe-distance, 0px));
+    transition: transform 0.1s ease-out;
+  }
+  
+  .swipe-confirm-mobile.confirmed {
+    background: linear-gradient(90deg, #22c55e, #16a34a);
+    color: white;
+    animation: swipe-success 0.5s ease;
+  }
+}
+
+@keyframes swipe-success {
+  0% { transform: translateX(0); opacity: 1; }
+  50% { transform: translateX(10px); opacity: 0.8; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+/* Payment Proof View Behaviors */
+.payment-proof-mobile {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.payment-proof-mobile:active {
+  transform: scale(0.98);
+}
+
+/* Tablet hover behavior */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .payment-proof-tablet {
+    position: relative;
+  }
+  
+  .payment-proof-tablet .proof-preview {
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.3s ease;
+    pointer-events: none;
+  }
+  
+  .payment-proof-tablet:hover .proof-preview {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+  }
+}
+
+/* Desktop always visible */
+@media (min-width: 1024px) {
+  .payment-proof-desktop .proof-preview {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+  }
+}
+
+/* Multi-select Styles */
+.multi-select-container {
+  position: relative;
+}
+
+.multi-select-checkbox {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: all 0.2s ease;
+  pointer-events: none;
+}
+
+.multi-select-container.selecting .multi-select-checkbox {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+/* Mobile long press */
+@media (max-width: 768px) {
+  .multi-select-mobile {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  .multi-select-mobile.long-pressing {
+    animation: long-press-feedback 0.6s ease;
+  }
+}
+
+@keyframes long-press-feedback {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); }
+  100% { transform: scale(1); }
+}
+
+/* Tablet Shift+Click behavior */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .multi-select-tablet .selection-hint {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  
+  .multi-select-tablet:hover .selection-hint {
+    opacity: 1;
+  }
+}
+
+/* Desktop checkbox behavior */
+@media (min-width: 1024px) {
+  .multi-select-desktop .multi-select-checkbox {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+    position: relative;
+    top: auto;
+    left: auto;
+  }
+}
+
+/* Bulk Action Bar */
+.bulk-action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+}
+
+.bulk-action-bar.visible {
+  transform: translateY(0);
+}
+
+/* Performance Indicators */
+.performance-indicator {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.performance-indicator.visible {
+  opacity: 1;
+}
+
+.performance-good {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: white;
+}
+
+.performance-warning {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: white;
+}
+
+.performance-poor {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+}
+
+/* Virtualized Scroll Indicators */
+.scroll-indicator {
+  position: absolute;
+  right: 4px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.virtualized-container:hover .scroll-indicator {
+  opacity: 1;
+}
+
+.scroll-thumb {
+  position: absolute;
+  right: 0;
+  width: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 2px;
+  transition: background 0.2s ease;
+}
+
+.scroll-thumb:hover {
+  background: rgba(0, 0, 0, 0.5);
+}

@@ -1,19 +1,20 @@
-import React, { useCallback, memo, useMemo } from "react";
+import React, { memo, useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { Heart, ShoppingCart, Star } from "lucide-react";
 import { toast } from "react-toastify";
-import formatCurrency from "@/utils/currency";
-import { addToCart, selectCartLoading, setLoading } from "@/store/cartSlice";
 import ApperIcon from "@/components/ApperIcon";
+import LazyImage from "@/components/atoms/LazyImage";
 import Badge from "@/components/atoms/Badge";
 import Button from "@/components/atoms/Button";
-
-const ProductCard = memo(({ product }) => {
+import { addToCart, selectCartLoading, setLoading } from "@/store/cartSlice";
+import { formatCurrency } from "@/utils/currency";
+const ProductCard = memo(({ product, loading = false, virtualIndex = 0 }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const isLoading = useSelector(selectCartLoading);
-const handleAddToCart = useCallback((e) => {
+
+  const handleAddToCart = useCallback((e) => {
     e.stopPropagation();
     dispatch(setLoading(true));
     setTimeout(() => {
@@ -34,9 +35,9 @@ const handleAddToCart = useCallback((e) => {
     }
     return null;
   }, [product.price, product.previousPrice]);
+}, [product.price, product.previousPrice]);
 
-return (
-    <div 
+  return (
       className="card p-4 cursor-pointer hover:shadow-premium transform hover:scale-102 transition-all duration-300"
       onClick={handleCardClick}
     >
@@ -45,13 +46,15 @@ return (
           <source
             srcSet={`${product.imageUrl}&fm=webp 1x, ${product.imageUrl}&fm=webp&dpr=2 2x`}
             type="image/webp"
-          />
-          <img
+/>
+          <LazyImage
             src={product.imageUrl}
             alt={product.name}
-            loading="lazy"
+            loading={loading}
+            virtualIndex={virtualIndex}
             className="w-full h-48 object-cover transition-opacity duration-300 hover:opacity-95"
             style={{ backgroundColor: '#f3f4f6' }}
+            fallbackSrc="/api/placeholder/300/300"
           />
         </picture>
         {product.stock <= 10 && product.stock > 0 && (
@@ -84,9 +87,9 @@ return (
           </Badge>
         )}
       </div>
+</div>
 
-<div className="space-y-3">
-        <h3 className="font-semibold text-lg text-gray-900 line-clamp-2 min-h-[3.5rem] flex items-start">
+      <div className="space-y-3">
           {product.name}
         </h3>
         
@@ -126,8 +129,8 @@ return (
           </Button>
         </div>
       </div>
-    </div>
-);
+</div>
+  );
 });
 
 ProductCard.displayName = 'ProductCard';

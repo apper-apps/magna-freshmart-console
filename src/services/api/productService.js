@@ -822,20 +822,27 @@ async validateImage(file) {
     }
   }
 
-  // Process and optimize image
-async processImage(file, options = {}) {
+// Process and optimize image with lazy loading support
+  async processImage(file, options = {}) {
     let inputObjectUrl = null;
     try {
       const {
         targetSize = { width: 600, height: 600 },
         maxFileSize = 100 * 1024, // 100KB
-        quality = 0.9
+        quality = 0.9,
+        lazy = false,
+        priority = 'normal'
       } = options;
       
       return new Promise((resolve, reject) => {
         const img = new Image();
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
+        
+        // Add loading attribute for lazy images
+        if (lazy) {
+          img.loading = 'lazy';
+        }
         
         const cleanup = () => {
           if (inputObjectUrl) {
@@ -846,60 +853,84 @@ async processImage(file, options = {}) {
         
         img.onload = () => {
           try {
-            // Calculate dimensions maintaining aspect ratio
-            let { width, height } = this.calculateOptimalDimensions(
-              img.width, 
-              img.height, 
-              targetSize.width, 
-              targetSize.height
-            );
-            
-            canvas.width = width;
-            canvas.height = height;
-            
-            // Draw and compress image
-            ctx.fillStyle = '#FFFFFF';
-            ctx.fillRect(0, 0, width, height);
-            ctx.drawImage(img, 0, 0, width, height);
-            
-            // Convert to blob with compression
-            canvas.toBlob((blob) => {
-              if (!blob) {
-                cleanup();
-                reject(new Error('Failed to create blob from canvas'));
-                return;
-              }
-
-              if (blob.size <= maxFileSize) {
-                try {
-                  const outputUrl = URL.createObjectURL(blob);
+            // Use requestIdleCallback for non-critical processing
+            const processImage = () => {
+              // Calculate dimensions maintaining aspect ratio
+              let { width, height } = this.calculateOptimalDimensions(
+                img.width, 
+                img.height, 
+                targetSize.width, 
+                targetSize.height
+              );
+              
+              canvas.width = width;
+              canvas.height = height;
+              
+              // Draw and compress image
+              ctx.fillStyle = '#FFFFFF';
+              ctx.fillRect(0, 0, width, height);
+              ctx.drawImage(img, 0, 0, width, height);
+              
+              // Convert to blob with compression
+              canvas.toBlob((blob) => {
+                if (!blob) {
                   cleanup();
-                  resolve({ url: outputUrl, blob, size: blob.size });
-                } catch (error) {
-                  cleanup();
-                  reject(new Error('Failed to create output URL'));
+                  reject(new Error('Failed to create blob from canvas'));
+                  return;
                 }
-              } else {
-                // Reduce quality if file is too large
-                const reducedQuality = Math.max(0.1, quality - 0.2);
-                canvas.toBlob((reducedBlob) => {
-                  if (!reducedBlob) {
-                    cleanup();
-                    reject(new Error('Failed to create reduced quality blob'));
-                    return;
-                  }
 
+                if (blob.size <= maxFileSize) {
                   try {
-                    const outputUrl = URL.createObjectURL(reducedBlob);
+                    const outputUrl = URL.createObjectURL(blob);
                     cleanup();
-                    resolve({ url: outputUrl, blob: reducedBlob, size: reducedBlob.size });
+                    resolve({ 
+                      url: outputUrl, 
+                      blob, 
+                      size: blob.size,
+                      lazy,
+                      priority 
+                    });
                   } catch (error) {
                     cleanup();
-                    reject(new Error('Failed to create reduced quality URL'));
+                    reject(new Error('Failed to create output URL'));
                   }
-                }, 'image/webp', reducedQuality);
-              }
-            }, 'image/webp', quality);
+                } else {
+                  // Reduce quality if file is too large
+                  const reducedQuality = Math.max(0.1, quality - 0.2);
+                  canvas.toBlob((reducedBlob) => {
+                    if (!reducedBlob) {
+                      cleanup();
+                      reject(new Error('Failed to create reduced quality blob'));
+                      return;
+                    }
+
+                    try {
+                      const outputUrl = URL.createObjectURL(reducedBlob);
+                      cleanup();
+                      resolve({ 
+                        url: outputUrl, 
+                        blob: reducedBlob, 
+                        size: reducedBlob.size,
+                        lazy,
+                        priority
+                      });
+                    } catch (error) {
+                      cleanup();
+                      reject(new Error('Failed to create reduced quality URL'));
+                    }
+                  }, 'image/webp', reducedQuality);
+                }
+              }, 'image/webp', quality);
+            };
+
+            // Schedule processing based on priority
+            if (priority === 'high' || !lazy) {
+              processImage();
+            } else if (window.requestIdleCallback) {
+              window.requestIdleCallback(processImage, { timeout: 2000 });
+            } else {
+              setTimeout(processImage, 0);
+            }
           } catch (error) {
             cleanup();
             reject(new Error(`Failed to process image: ${error.message}`));
@@ -927,6 +958,44 @@ async processImage(file, options = {}) {
       console.error('Error processing image:', error);
       throw new Error('Failed to process image');
     }
+  }
+
+  // Enhanced lazy loading image component
+  createLazyImage(src, options = {}) {
+    const {
+      alt = '',
+      className = '',
+      virtualIndex = 0,
+      fallbackSrc = '/api/placeholder/300/300',
+      onLoad = () => {},
+      onError = () => {}
+    } = options;
+
+    return new Promise((resolve) => {
+      const img = new Image();
+      
+      // Set loading strategy based on virtual index
+      if (virtualIndex > 12) {
+        img.loading = 'lazy';
+      } else {
+        img.loading = 'eager';
+      }
+      
+      img.onload = () => {
+        onLoad();
+        resolve(img);
+      };
+      
+      img.onerror = () => {
+        img.src = fallbackSrc;
+        onError();
+        resolve(img);
+      };
+      
+      img.src = src;
+      img.alt = alt;
+      img.className = className;
+    });
   }
 
 // Calculate optimal dimensions for image resizing with aspect ratio enforcement
@@ -970,11 +1039,17 @@ calculateOptimalDimensions(originalWidth, originalHeight, targetWidth, targetHei
       aspectRatio: 'auto'
     };
   }
-  // Get dynamic image dimensions for frame compatibility
-getDynamicImageDimensions(viewportWidth = 1200, enforceSquare = false) {
+
+  // Get dynamic image dimensions for frame compatibility with virtualization support
+  getDynamicImageDimensions(viewportWidth = 1200, enforceSquare = false, isVirtualized = false) {
     try {
       // Base width calculation with responsive scaling
       let baseWidth = 600;
+      
+      // Adjust for virtualized rendering
+      if (isVirtualized) {
+        baseWidth *= 0.8; // Smaller images for better performance
+      }
       
       // Responsive adjustments for different screen sizes
       if (viewportWidth < 640) {
@@ -993,7 +1068,8 @@ getDynamicImageDimensions(viewportWidth = 1200, enforceSquare = false) {
         return {
           width: constrainedWidth,
           height: constrainedWidth,
-          aspectRatio: '1:1'
+          aspectRatio: '1:1',
+          isVirtualized
         };
       }
       
@@ -1002,16 +1078,77 @@ getDynamicImageDimensions(viewportWidth = 1200, enforceSquare = false) {
       return {
         width: constrainedWidth,
         maxHeight: maxHeight,
-        aspectRatio: 'auto'
+        aspectRatio: 'auto',
+        isVirtualized
       };
     } catch (error) {
       console.error('Error calculating dynamic image dimensions:', error);
       return {
         width: 500,
         maxHeight: 600,
-        aspectRatio: 'auto'
+        aspectRatio: 'auto',
+        isVirtualized: false
       };
-}
+    }
+  }
+
+  // Virtualized list support for large datasets
+  createVirtualizedImageLoader(items, options = {}) {
+    const {
+      containerHeight = 400,
+      itemHeight = 200,
+      overscan = 3,
+      onImageLoad = () => {},
+      onImageError = () => {}
+    } = options;
+
+    const visibleItems = Math.ceil(containerHeight / itemHeight);
+    const totalItems = items.length;
+
+    return {
+      getVisibleRange: (scrollTop) => {
+        const startIndex = Math.floor(scrollTop / itemHeight);
+        const endIndex = Math.min(
+          startIndex + visibleItems + overscan,
+          totalItems - 1
+        );
+        
+        return {
+          startIndex: Math.max(0, startIndex - overscan),
+          endIndex,
+          visibleItems: items.slice(
+            Math.max(0, startIndex - overscan),
+            endIndex + 1
+          )
+        };
+      },
+      
+      loadImages: async (visibleItems, startIndex) => {
+        const loadPromises = visibleItems.map(async (item, index) => {
+          const actualIndex = startIndex + index;
+          
+          if (item.imageUrl) {
+            try {
+              const lazyImage = await this.createLazyImage(item.imageUrl, {
+                alt: item.name || `Item ${actualIndex + 1}`,
+                virtualIndex: actualIndex,
+                onLoad: () => onImageLoad(item, actualIndex),
+                onError: () => onImageError(item, actualIndex)
+              });
+              
+              return { ...item, lazyImage, loaded: true };
+            } catch (error) {
+              console.error(`Failed to load image for item ${actualIndex}:`, error);
+              return { ...item, loaded: false, error };
+            }
+          }
+          
+          return { ...item, loaded: true };
+        });
+
+        return Promise.all(loadPromises);
+      }
+    };
   }
 
   // Enhanced image search from multiple sources with category filtering and attribution
