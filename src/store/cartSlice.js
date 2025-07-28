@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { productService } from '@/services/api/productService';
 import { toast } from 'react-toastify';
+import { NetworkMonitor } from '@/utils/errorHandling';
 
 const initialState = {
   items: [],
@@ -13,7 +14,14 @@ const initialState = {
   dealsSummary: {
     totalSavings: 0,
     appliedDeals: []
-  }
+  },
+  // Offline support fields
+  isOffline: !navigator.onLine,
+  syncQueue: [],
+  lastSyncAttempt: null,
+  pendingSyncCount: 0,
+  syncInProgress: false,
+  offlineChanges: false
 };
 
 // Deal types enum
@@ -121,7 +129,6 @@ const cartSlice = createSlice({
     setLoading: (state, action) => {
       state.isLoading = action.payload;
     },
-    
 addToCart: (state, action) => {
       const product = action.payload;
       const existingItem = state.items.find(item => item.id === product.id);
@@ -161,16 +168,45 @@ addToCart: (state, action) => {
         state.items.push(cartItem);
       }
       
+      // Handle offline mode
+      if (state.isOffline) {
+        state.syncQueue.push({
+          id: Date.now(),
+          type: 'ADD_TO_CART',
+          payload: product,
+          timestamp: Date.now(),
+          retryCount: 0
+        });
+        state.pendingSyncCount = state.syncQueue.length;
+        state.offlineChanges = true;
+        cartSlice.caseReducers.saveToLocalStorage(state);
+      }
+      
       cartSlice.caseReducers.calculateTotals(state);
     },
     
-    removeFromCart: (state, action) => {
+removeFromCart: (state, action) => {
       const productId = action.payload;
       state.items = state.items.filter(item => item.id !== productId);
+      
+      // Handle offline mode
+      if (state.isOffline) {
+        state.syncQueue.push({
+          id: Date.now(),
+          type: 'REMOVE_FROM_CART',
+          payload: productId,
+          timestamp: Date.now(),
+          retryCount: 0
+        });
+        state.pendingSyncCount = state.syncQueue.length;
+        state.offlineChanges = true;
+        cartSlice.caseReducers.saveToLocalStorage(state);
+      }
+      
       cartSlice.caseReducers.calculateTotals(state);
     },
     
-    updateQuantity: (state, action) => {
+updateQuantity: (state, action) => {
 const { productId, quantity } = action.payload;
       
       if (quantity <= 0) {
@@ -187,12 +223,139 @@ const { productId, quantity } = action.payload;
         }
       }
       
+      // Handle offline mode
+      if (state.isOffline) {
+        state.syncQueue.push({
+          id: Date.now(),
+          type: 'UPDATE_QUANTITY',
+          payload: { productId, quantity },
+          timestamp: Date.now(),
+          retryCount: 0
+        });
+        state.pendingSyncCount = state.syncQueue.length;
+        state.offlineChanges = true;
+        cartSlice.caseReducers.saveToLocalStorage(state);
+      }
+      
       cartSlice.caseReducers.calculateTotals(state);
     },
-    clearCart: (state) => {
+clearCart: (state) => {
       state.items = [];
       state.total = 0;
       state.itemCount = 0;
+      
+      // Handle offline mode
+      if (state.isOffline) {
+        state.syncQueue.push({
+          id: Date.now(),
+          type: 'CLEAR_CART',
+          payload: null,
+          timestamp: Date.now(),
+          retryCount: 0
+        });
+        state.pendingSyncCount = state.syncQueue.length;
+        state.offlineChanges = true;
+        cartSlice.caseReducers.saveToLocalStorage(state);
+      }
+    },
+    
+    // Offline support reducers
+    setOfflineStatus: (state, action) => {
+      const wasOffline = state.isOffline;
+      state.isOffline = action.payload;
+      
+      if (wasOffline && !action.payload && state.syncQueue.length > 0) {
+        // Coming back online with pending changes
+        state.syncInProgress = true;
+      }
+    },
+    
+    addToSyncQueue: (state, action) => {
+      state.syncQueue.push({
+        ...action.payload,
+        id: Date.now(),
+        timestamp: Date.now(),
+        retryCount: 0
+      });
+      state.pendingSyncCount = state.syncQueue.length;
+      state.offlineChanges = true;
+      cartSlice.caseReducers.saveToLocalStorage(state);
+    },
+    
+    removeSyncQueueItem: (state, action) => {
+      const itemId = action.payload;
+      state.syncQueue = state.syncQueue.filter(item => item.id !== itemId);
+      state.pendingSyncCount = state.syncQueue.length;
+      if (state.syncQueue.length === 0) {
+        state.offlineChanges = false;
+        state.syncInProgress = false;
+      }
+      cartSlice.caseReducers.saveToLocalStorage(state);
+    },
+    
+    setSyncInProgress: (state, action) => {
+      state.syncInProgress = action.payload;
+      if (action.payload) {
+        state.lastSyncAttempt = Date.now();
+      }
+    },
+    
+    incrementSyncRetry: (state, action) => {
+      const itemId = action.payload;
+      const item = state.syncQueue.find(item => item.id === itemId);
+      if (item) {
+        item.retryCount++;
+      }
+    },
+    
+    saveToLocalStorage: (state) => {
+      try {
+        const cartData = {
+          items: state.items,
+          total: state.total,
+          itemCount: state.itemCount,
+          syncQueue: state.syncQueue,
+          offlineChanges: state.offlineChanges,
+          lastSyncAttempt: state.lastSyncAttempt,
+          pendingSyncCount: state.pendingSyncCount
+        };
+        localStorage.setItem('freshmart_cart', JSON.stringify(cartData));
+        localStorage.setItem('freshmart_cart_timestamp', Date.now().toString());
+      } catch (error) {
+        console.error('Failed to save cart to localStorage:', error);
+      }
+    },
+    
+    loadFromLocalStorage: (state) => {
+      try {
+        const savedCart = localStorage.getItem('freshmart_cart');
+        const timestamp = localStorage.getItem('freshmart_cart_timestamp');
+        
+        if (savedCart && timestamp) {
+          const cartData = JSON.parse(savedCart);
+          const saveTime = parseInt(timestamp);
+          const now = Date.now();
+          const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
+          
+          if (now - saveTime < maxAge) {
+            state.items = cartData.items || [];
+            state.total = cartData.total || 0;
+            state.itemCount = cartData.itemCount || 0;
+            state.syncQueue = cartData.syncQueue || [];
+            state.offlineChanges = cartData.offlineChanges || false;
+            state.lastSyncAttempt = cartData.lastSyncAttempt;
+            state.pendingSyncCount = cartData.pendingSyncCount || 0;
+          } else {
+            // Clear expired cart
+            localStorage.removeItem('freshmart_cart');
+            localStorage.removeItem('freshmart_cart_timestamp');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load cart from localStorage:', error);
+        localStorage.removeItem('freshmart_cart');
+        localStorage.removeItem('freshmart_cart_timestamp');
+      }
     },
     
 calculateTotals: (state) => {
@@ -288,7 +451,7 @@ calculateTotals: (state) => {
       cartSlice.caseReducers.calculateTotals(state);
     },
     
-    updatePricesFromValidation: (state, action) => {
+updatePricesFromValidation: (state, action) => {
       const validationResults = action.payload;
       let hasChanges = false;
       
@@ -336,20 +499,26 @@ calculateTotals: (state) => {
     clearError: (state) => {
       state.error = null;
     }
-  },
+},
   extraReducers: (builder) => {
     builder
       .addCase(validateCartPrices.pending, (state) => {
-        state.isLoading = true;
+        if (!state.isOffline) {
+          state.isLoading = true;
+        }
       })
       .addCase(validateCartPrices.fulfilled, (state, action) => {
         state.isLoading = false;
-        cartSlice.caseReducers.updatePricesFromValidation(state, action);
+        if (!state.isOffline) {
+          cartSlice.caseReducers.updatePricesFromValidation(state, action);
+        }
       })
       .addCase(validateCartPrices.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload;
-        toast.error('Failed to validate cart prices');
+        if (!state.isOffline) {
+          state.error = action.payload;
+          toast.error('Failed to validate cart prices');
+        }
       })
 .addCase(addToCartWithValidation.fulfilled, (state, action) => {
         const product = action.payload;
@@ -384,10 +553,14 @@ calculateTotals: (state) => {
         }
         
         cartSlice.caseReducers.calculateTotals(state);
-        toast.success(`${product.name} added to cart`);
+        if (!state.isOffline) {
+          toast.success(`${product.name} added to cart`);
+        }
       })
       .addCase(addToCartWithValidation.rejected, (state, action) => {
-        toast.error(action.payload);
+        if (!state.isOffline) {
+          toast.error(action.payload);
+        }
       })
 .addCase(updateQuantityWithValidation.fulfilled, (state, action) => {
         const { productId, quantity, currentProduct } = action.payload;
@@ -413,10 +586,87 @@ calculateTotals: (state) => {
         cartSlice.caseReducers.calculateTotals(state);
       })
       .addCase(updateQuantityWithValidation.rejected, (state, action) => {
-        toast.error(action.payload);
+        if (!state.isOffline) {
+          toast.error(action.payload);
+        }
+      })
+      .addCase(syncCartChanges.pending, (state) => {
+        state.syncInProgress = true;
+      })
+      .addCase(syncCartChanges.fulfilled, (state, action) => {
+        state.syncInProgress = false;
+        const { syncedItems } = action.payload;
+        
+        // Remove synced items from queue
+        syncedItems.forEach(itemId => {
+          state.syncQueue = state.syncQueue.filter(item => item.id !== itemId);
+        });
+        
+        state.pendingSyncCount = state.syncQueue.length;
+        if (state.syncQueue.length === 0) {
+          state.offlineChanges = false;
+        }
+        
+        cartSlice.caseReducers.saveToLocalStorage(state);
+        toast.success(`Synced ${syncedItems.length} cart changes`);
+      })
+      .addCase(syncCartChanges.rejected, (state, action) => {
+        state.syncInProgress = false;
+        state.error = action.payload;
+        toast.error('Failed to sync cart changes');
       });
   }
 });
+
+// Async thunks for offline support
+export const syncCartChanges = createAsyncThunk(
+  'cart/syncChanges',
+  async (_, { getState, dispatch, rejectWithValue }) => {
+    const state = getState().cart;
+    
+    if (!NetworkMonitor.isOnline() || state.syncQueue.length === 0) {
+      return { syncedItems: [] };
+    }
+    
+    const syncedItems = [];
+    const failedItems = [];
+    
+    for (const queueItem of state.syncQueue) {
+      try {
+        switch (queueItem.type) {
+          case 'ADD_TO_CART':
+            await productService.getById(queueItem.payload.id);
+            syncedItems.push(queueItem.id);
+            break;
+          case 'UPDATE_QUANTITY':
+            await productService.getById(queueItem.payload.productId);
+            syncedItems.push(queueItem.id);
+            break;
+          case 'REMOVE_FROM_CART':
+            syncedItems.push(queueItem.id);
+            break;
+          case 'CLEAR_CART':
+            syncedItems.push(queueItem.id);
+            break;
+          default:
+            failedItems.push(queueItem.id);
+        }
+      } catch (error) {
+        if (queueItem.retryCount < 3) {
+          dispatch(incrementSyncRetry(queueItem.id));
+        } else {
+          failedItems.push(queueItem.id);
+        }
+      }
+    }
+    
+    if (failedItems.length > 0) {
+      console.warn(`Failed to sync ${failedItems.length} cart items`);
+    }
+    
+    return { syncedItems };
+  }
+);
 
 export const {
   setLoading,
@@ -427,10 +677,18 @@ export const {
   calculateTotals,
   setError,
   clearError,
-  updatePricesFromValidation
+  updatePricesFromValidation,
+  setOfflineStatus,
+  addToSyncQueue,
+  removeSyncQueueItem,
+  setSyncInProgress,
+  incrementSyncRetry,
+  saveToLocalStorage,
+  loadFromLocalStorage
 } = cartSlice.actions;
 
 // Export async thunks
+// Selectors
 // Selectors
 export const selectCartItems = (state) => state.cart.items;
 export const selectCartTotal = (state) => state.cart.total;
@@ -445,5 +703,15 @@ export const selectProductQuantityInCart = (productId) => (state) => {
   const item = state.cart.items.find(item => item.id === productId);
   return item ? item.quantity : 0;
 };
+
+// Offline selectors
+export const selectIsOffline = (state) => state.cart.isOffline;
+export const selectSyncQueue = (state) => state.cart.syncQueue;
+export const selectPendingSyncCount = (state) => state.cart.pendingSyncCount;
+export const selectSyncInProgress = (state) => state.cart.syncInProgress;
+export const selectOfflineChanges = (state) => state.cart.offlineChanges;
+export const selectLastSyncAttempt = (state) => state.cart.lastSyncAttempt;
+
+export default cartSlice.reducer;
 
 export default cartSlice.reducer;

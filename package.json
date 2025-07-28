@@ -18,6 +18,7 @@
     "framer-motion": "^10.16.4",
     "heic2any": "^0.0.4",
     "jsqr": "^1.4.0",
+    "localforage": "^1.10.0",
     "lucide-react": "^0.299.0",
     "openai": "^4.38.0",
     "react": "^18.2.0",
@@ -28,7 +29,10 @@
 "react-router-dom": "^6.15.0",
     "react-hot-toast": "^2.4.1",
     "react-toastify": "^11.0.5",
-    "redux-persist": "^6.0.0"
+    "redux-persist": "^6.0.0",
+    "workbox-precaching": "^7.2.0",
+    "workbox-routing": "^7.2.0",
+    "workbox-strategies": "^7.2.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.15",

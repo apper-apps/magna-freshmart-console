@@ -456,15 +456,21 @@ static trackErrorPattern(error, context = '', metadata = {}) {
   }
 }
 
-// Network status monitoring
+// Enhanced Network status monitoring with offline support
 export class NetworkMonitor {
   static isOnline() {
     return navigator.onLine;
   }
 
   static addNetworkListener(callback) {
-    const handleOnline = () => callback(true);
-    const handleOffline = () => callback(false);
+    const handleOnline = () => {
+      console.log('Network connection restored');
+      callback(true);
+    };
+    const handleOffline = () => {
+      console.log('Network connection lost');
+      callback(false);
+    };
     
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -474,19 +480,140 @@ export class NetworkMonitor {
       window.removeEventListener('offline', handleOffline);
     };
   }
+
+  static async checkConnectivity() {
+    if (!navigator.onLine) {
+      return false;
+    }
+
+    try {
+      // Try to fetch a small resource to verify actual connectivity
+      const response = await fetch('/favicon.ico', {
+        method: 'HEAD',
+        cache: 'no-cache',
+        timeout: 5000
+      });
+      return response.ok;
+    } catch (error) {
+      console.warn('Connectivity check failed:', error);
+      return false;
+    }
+  }
+
+  static getConnectionType() {
+    if (navigator.connection) {
+      return {
+        effectiveType: navigator.connection.effectiveType,
+        downlink: navigator.connection.downlink,
+        rtt: navigator.connection.rtt,
+        saveData: navigator.connection.saveData
+      };
+    }
+    return null;
+  }
 }
 
-// Enhanced service layer error wrapper with payment processor support
+// Offline storage utility
+export class OfflineStorage {
+  static setItem(key, value, maxAge = 7 * 24 * 60 * 60 * 1000) {
+    try {
+      const item = {
+        value,
+        timestamp: Date.now(),
+        maxAge
+      };
+      localStorage.setItem(key, JSON.stringify(item));
+      return true;
+    } catch (error) {
+      console.error('Failed to save to offline storage:', error);
+      return false;
+    }
+  }
+
+  static getItem(key) {
+    try {
+      const stored = localStorage.getItem(key);
+      if (!stored) return null;
+
+      const item = JSON.parse(stored);
+      const now = Date.now();
+
+      if (now - item.timestamp > item.maxAge) {
+        localStorage.removeItem(key);
+        return null;
+      }
+
+      return item.value;
+    } catch (error) {
+      console.error('Failed to read from offline storage:', error);
+      localStorage.removeItem(key);
+      return null;
+    }
+  }
+
+  static removeItem(key) {
+    try {
+      localStorage.removeItem(key);
+      return true;
+    } catch (error) {
+      console.error('Failed to remove from offline storage:', error);
+      return false;
+    }
+  }
+
+  static clear() {
+    try {
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.startsWith('freshmart_')) {
+          localStorage.removeItem(key);
+        }
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to clear offline storage:', error);
+      return false;
+    }
+  }
+
+  static getStorageInfo() {
+    if (!navigator.storage || !navigator.storage.estimate) {
+      return null;
+    }
+
+    return navigator.storage.estimate().then(estimate => ({
+      quota: estimate.quota,
+      usage: estimate.usage,
+      available: estimate.quota - estimate.usage,
+      usageBreakdown: estimate.usageDetails
+    }));
+  }
+}
+
+// Enhanced service layer error wrapper with offline support
 export const withErrorHandling = (serviceMethod, context) => {
   return async (...args) => {
     let attemptCount = 0;
     const maxAttempts = context.includes('payment') ? 5 : 3; // More retries for payment operations
     const startTime = Date.now();
     
+    // Check if offline before attempting operation
+    const isOnline = await NetworkMonitor.checkConnectivity();
+    
     // Payment processor error detection
     const isPaymentOperation = context.includes('payment') || context.includes('processor') || 
                               context.includes('gateway') || context.includes('wallet') ||
                               context.includes('refund') || context.includes('verification');
+    
+    // Handle offline operations
+    if (!isOnline) {
+      const offlineResult = handleOfflineOperation(context, args);
+      if (offlineResult) {
+        return offlineResult;
+      }
+      
+      throw new Error(`${context} unavailable offline. Changes will be synced when connection is restored.`);
+    }
     
     while (attemptCount < maxAttempts) {
       try {
@@ -518,6 +645,7 @@ export const withErrorHandling = (serviceMethod, context) => {
           responseTime,
           operation: context,
           isPaymentOperation,
+          isOffline: !isOnline,
           // Payment-specific metadata
           ...(isPaymentOperation && {
             processorType: args[0]?.processorType || 'unknown',
@@ -526,6 +654,17 @@ export const withErrorHandling = (serviceMethod, context) => {
             paymentMethod: args[0]?.paymentMethod
           })
         });
+        
+        // Check if we've gone offline during the request
+        const currentlyOnline = await NetworkMonitor.checkConnectivity();
+        if (!currentlyOnline) {
+          const offlineResult = handleOfflineOperation(context, args);
+          if (offlineResult) {
+            return offlineResult;
+          }
+          
+          throw new Error(`Connection lost during ${context}. Changes will be synced when connection is restored.`);
+        }
         
         // Payment processor specific retry logic
         if (isPaymentOperation) {
@@ -581,7 +720,39 @@ export const withErrorHandling = (serviceMethod, context) => {
   };
 };
 
-// Payment processor health monitoring utility
+// Handle operations that can work offline
+function handleOfflineOperation(context, args) {
+  const allowedOfflineOperations = [
+    'cart_add_item',
+    'cart_remove_item', 
+    'cart_update_quantity',
+    'cart_clear',
+    'product_view',
+    'category_browse'
+  ];
+  
+  if (allowedOfflineOperations.some(op => context.includes(op))) {
+    // Store operation for later sync
+    const offlineOperation = {
+      context,
+      args,
+      timestamp: Date.now(),
+      id: Date.now().toString()
+    };
+    
+    OfflineStorage.setItem(`offline_operation_${offlineOperation.id}`, offlineOperation);
+    
+    return {
+      success: true,
+      offline: true,
+      message: 'Operation saved for sync when online'
+    };
+  }
+  
+  return null;
+}
+
+// Payment processor health monitoring utility with offline support
 export const PaymentProcessorMonitor = {
   getHealth: () => {
     return window.paymentProcessorHealth || {
@@ -590,18 +761,31 @@ export const PaymentProcessorMonitor = {
       failureRates: new Map(),
       lastHealthCheck: Date.now(),
       criticalErrors: [],
-      recoveryActions: []
+      recoveryActions: [],
+      offlineMode: !NetworkMonitor.isOnline()
     };
   },
   
   isProcessorHealthy: (processorId = 'default') => {
     const health = PaymentProcessorMonitor.getHealth();
+    
+    // In offline mode, processors are considered unhealthy
+    if (health.offlineMode) {
+      return false;
+    }
+    
     const processorHealth = health.errorsByProcessor.get(processorId);
     return !processorHealth || processorHealth.status === 'healthy';
   },
   
   shouldFallbackToManual: () => {
     const health = PaymentProcessorMonitor.getHealth();
+    
+    // Always fallback to manual when offline
+    if (health.offlineMode) {
+      return true;
+    }
+    
     return health.globalStatus === 'critical' || 
            health.criticalErrors.length > 5 ||
            Array.from(health.errorsByProcessor.values())
@@ -617,7 +801,111 @@ export const PaymentProcessorMonitor = {
       processor,
       action,
       reason,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      offline: !NetworkMonitor.isOnline()
     });
+    
+    // Store recovery actions offline for later analysis
+    OfflineStorage.setItem(
+      `recovery_action_${Date.now()}`,
+      {
+        processor,
+        action, 
+        reason,
+        timestamp: Date.now(),
+        offline: !NetworkMonitor.isOnline()
+      }
+    );
+  },
+  
+  updateOfflineStatus: (isOffline) => {
+    if (!window.paymentProcessorHealth) {
+      window.paymentProcessorHealth = PaymentProcessorMonitor.getHealth();
+    }
+    
+    window.paymentProcessorHealth.offlineMode = isOffline;
+    window.paymentProcessorHealth.lastHealthCheck = Date.now();
+    
+    if (!isOffline) {
+      // Coming back online, reset some error states
+      window.paymentProcessorHealth.globalStatus = 'unknown';
+    }
+  }
+};
+
+// Offline sync utility
+export const OfflineSyncManager = {
+  queueOperation: (operation) => {
+    try {
+      const syncQueue = OfflineStorage.getItem('sync_queue') || [];
+      syncQueue.push({
+        ...operation,
+        id: Date.now().toString(),
+        timestamp: Date.now(),
+        retryCount: 0
+      });
+      
+      OfflineStorage.setItem('sync_queue', syncQueue);
+      return true;
+    } catch (error) {
+      console.error('Failed to queue offline operation:', error);
+      return false;
+    }
+  },
+  
+  getSyncQueue: () => {
+    return OfflineStorage.getItem('sync_queue') || [];
+  },
+  
+  clearSyncQueue: () => {
+    return OfflineStorage.removeItem('sync_queue');
+  },
+  
+  removeFromQueue: (operationId) => {
+    try {
+      const syncQueue = OfflineStorage.getItem('sync_queue') || [];
+      const filteredQueue = syncQueue.filter(op => op.id !== operationId);
+      OfflineStorage.setItem('sync_queue', filteredQueue);
+      return true;
+    } catch (error) {
+      console.error('Failed to remove from sync queue:', error);
+      return false;
+    }
+  },
+  
+  processQueue: async () => {
+    const syncQueue = OfflineSyncManager.getSyncQueue();
+    const processed = [];
+    const failed = [];
+    
+    for (const operation of syncQueue) {
+      try {
+        // Attempt to process the operation
+        // This would call the appropriate service method
+        console.log('Processing queued operation:', operation);
+        processed.push(operation.id);
+      } catch (error) {
+        console.error('Failed to process queued operation:', operation, error);
+        
+        if (operation.retryCount < 3) {
+          operation.retryCount++;
+          operation.lastRetry = Date.now();
+        } else {
+          failed.push(operation.id);
+        }
+      }
+    }
+    
+    // Remove processed operations
+    processed.forEach(id => OfflineSyncManager.removeFromQueue(id));
+    
+    // Remove permanently failed operations
+    failed.forEach(id => OfflineSyncManager.removeFromQueue(id));
+    
+    return {
+      processed: processed.length,
+      failed: failed.length,
+      remaining: syncQueue.length - processed.length - failed.length
+    };
   }
 };
