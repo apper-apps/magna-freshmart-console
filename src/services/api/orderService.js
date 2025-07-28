@@ -2,6 +2,8 @@ import ordersData from "@/services/mockData/orders.json";
 import { webSocketService } from "@/services/api/websocketService";
 import { paymentService } from "@/services/api/paymentService";
 import { productService } from "@/services/api/productService";
+import OrderProcessor from '@freshmart/order-service';
+
 class OrderService {
   constructor() {
     this.orders = [...ordersData];
@@ -357,9 +359,16 @@ if (orderData.paymentMethod === 'wallet') {
       }
       
       this.orders.push(newOrder);
+// Initialize OrderProcessor for place order functionality
+      try {
+        const processor = new OrderProcessor(newOrder);
+        await processor.validate();
+      } catch (processorError) {
+        console.warn('OrderProcessor validation warning:', processorError);
+      }
       
       // Real-time order sync - broadcast to vendors immediately
-if (typeof window !== 'undefined' && window.webSocketService) {
+      if (typeof window !== 'undefined' && window.webSocketService) {
         try {
           window.webSocketService.send({
             type: 'order_created_immediate',

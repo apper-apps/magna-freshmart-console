@@ -321,6 +321,18 @@
     justify-content: center;
   }
 }
+}
+
+/* Product Grid Responsive Layout */
+.product-grid {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .product-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
 
 /* Mobile Responsive Enhancements */
 @media (max-width: 640px) {
@@ -357,7 +369,6 @@
     display: none;
   }
 }
-
 /* Horizontal Timeline Styles */
 .horizontal-timeline-container {
   -webkit-overflow-scrolling: touch;
